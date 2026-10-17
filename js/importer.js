@@ -6,8 +6,10 @@
 // separate hours / minutes / seconds columns, or start and end times. Rolls can be a count column,
 // a list inside each session (JSON), or a separate table or file of rolls matched by date.
 
-import { isoDate } from './util.js'
+import { isoDate, slug } from './util.js'
 import { allTechs } from './model.js'
+import { LIBRARY_GROUPS, TECH_TYPES } from './vocab.js'
+import { isZip, readZip } from './zip.js'
 
 const FIELDS = {
   date: ['date', 'day', 'session date', 'training date', 'class date', 'start date', 'date time', 'datetime', 'start', 'start time', 'started at', 'created', 'created at', 'timestamp', 'when'],
@@ -206,12 +208,89 @@ function sessionScore(table) {
     - (ROLL_WORDS.test(norm(table.name)) ? 6 : 0) + Math.min(table.rows.length, 500) / 1000
 }
 
+// ---------- Times, links and media ----------
+
+// The time of day a class started, as "HH:MM", when the export includes one.
+export function parseTime(raw) {
+  const s = String(raw ?? '').trim()
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}.*(Z|[+-]\d{2}:?\d{2})$/.test(s)) {
+    const d = new Date(s)
+    if (!isNaN(d)) return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0')
+  }
+  const m = s.match(/(?:^|[T\s])(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)?/i)
+  if (!m) return ''
+  let h = +m[1]
+  if (m[3]) h = (h % 12) + (/pm/i.test(m[3]) ? 12 : 0)
+  return h < 24 ? String(h).padStart(2, '0') + ':' + m[2] : ''
+}
+
+const IMAGE = /\.(jpe?g|png|heic|heif|webp|gif)$/i
+const DATA = /\.(json|csv|tsv|txt)$/i
+const MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', heif: 'image/heif', webp: 'image/webp', gif: 'image/gif' }
+const baseName = name => name.replace(/^.*\//, '').replace(/\.[^.]+$/, '')
+
+// Values in a row that could name a photo, or an id the media files are named after.
+function keysOf(row) {
+  const keys = new Set()
+  Object.values(row).forEach(v => String(v ?? '').split(/[\s,;|"']+/).forEach(token => {
+    const t = token.replace(/^.*\//, '')
+    if (IMAGE.test(t)) keys.add(baseName(t).toLowerCase())
+    else if (/^[A-Za-z0-9_-]{8,}$/.test(t) && /\d/.test(t) && !/^\d{4}-\d{2}-\d{2}/.test(t)) keys.add(t.toLowerCase())
+  }))
+  return [...keys].slice(0, 30)
+}
+
+// Which part of the export a media file belongs to, from its folder names.
+function mediaKind(folders, name) {
+  const path = [...folders, name].join('/').toLowerCase()
+  if (/(^|\/)profile/.test(path)) return 'profile'
+  if (/(^|\/)techniques?/.test(path)) return 'technique'
+  return 'journal'
+}
+
+async function expand(files) {
+  const dataFiles = [], media = [], skipped = []
+  for (const file of files) {
+    if (isZip(file)) {
+      for (const e of await readZip(file)) {
+        const type = MIME[e.name.split('.').pop().toLowerCase()]
+        if (IMAGE.test(e.name)) media.push({ name: e.name, kind: mediaKind(e.folders, e.name), modified: e.modified, blob: async () => new Blob([await e.blob()], { type }) })
+        else if (DATA.test(e.name)) dataFiles.push({ name: e.path, text: async () => (await e.blob()).text() })
+        else skipped.push(e.name)
+      }
+    } else if (IMAGE.test(file.name) || file.type.startsWith('image/')) {
+      media.push({ name: file.name, kind: mediaKind([file.webkitRelativePath || ''], file.name), modified: new Date(file.lastModified), blob: async () => file })
+    } else dataFiles.push(file)
+  }
+  return { dataFiles, media, skipped }
+}
+
+// ---------- Techniques ----------
+
+function readTechniques(tables) {
+  const known = Object.fromEntries(allTechs().map(t => [t.name.toLowerCase(), t]))
+  return tables.filter(t => /techni|move/i.test(t.name)).flatMap(t => t.rows.map(row => {
+    const headers = Object.keys(row), find = re => headers.find(h => re.test(norm(h)))
+    const name = String(row[find(/\b(name|title|technique)\b/)] ?? '').trim()
+    if (!name) return null
+    const position = LIBRARY_GROUPS.find(g => norm(row[find(/\bposition\b/)] ?? '').includes(norm(g))) || ''
+    const type = TECH_TYPES.find(x => norm(row[find(/\b(type|category)\b/)] ?? '').includes(norm(x))) || ''
+    const link = Object.values(row).find(v => /^https?:\/\//.test(String(v).trim())) || ''
+    const notes = String(row[find(/\b(notes?|description|details|steps)\b/)] ?? '').trim()
+    return { name, position, type, link, notes, match: known[name.toLowerCase()] || null, keys: keysOf(row) }
+  })).filter(Boolean)
+}
+
 // ---------- Public ----------
 
 export async function readOtherApp(files) {
-  const tables = (await Promise.all([...files].map(readTables))).flat().filter(t => t.rows.length)
-  if (!tables.length) return { sessions: [], skipped: [], columns: {}, headers: [], rollsMatched: 0 }
-  const main = [...tables].sort((a, b) => sessionScore(b) - sessionScore(a))[0]
+  const { dataFiles, media, skipped: otherFiles } = await expand([...files])
+  const tables = (await Promise.all(dataFiles.map(readTables))).flat().filter(t => t.rows.length)
+  const techniques = readTechniques(tables)
+  const sessionTables = tables.filter(t => !/techni|move/i.test(t.name))
+  const empty = { sessions: [], skipped: [], columns: {}, headers: [], techniques, media, otherFiles }
+  if (!sessionTables.length) return empty
+  const main = [...sessionTables].sort((a, b) => sessionScore(b) - sessionScore(a))[0]
   const rows = main.rows
   const headers = [...new Set(rows.flatMap(r => Object.keys(r)))]
   const columns = pickColumns(headers)
@@ -228,17 +307,15 @@ export async function readOtherApp(files) {
   const rollList = headers.find(h => ROLL_WORDS.test(norm(h)) && headers.includes(h + ' details'))
 
   const sessions = [], skipped = []
-  let rollsMatched = 0
   rows.forEach(row => {
     const date = parseDate(row[columns.date])
     if (!date) { skipped.push(row); return }
     const moves = String(row[columns.techniques] ?? '').split(/[,;|\n]/).map(s => s.trim()).filter(Boolean)
     const known = moves.filter(m => techsByName[m.toLowerCase()]), unknown = moves.filter(m => !techsByName[m.toLowerCase()])
-    const extras = headers.filter(h => !used.has(h) && String(row[h] ?? '').trim()).map(h => `${h}: ${row[h]}`)
+    // Internal ids mean nothing to you, so they stay out of the notes (they're kept for matching photos).
+    const extras = headers.filter(h => !used.has(h) && !/(^| )(id|uuid|guid)$/.test(norm(h)) && String(row[h] ?? '').trim()).map(h => `${h}: ${row[h]}`)
     const outside = rollsByDate[date] || []
-    const listed = parseInt(row[columns.rounds] ?? row[rollList], 10) || 0
-    const rounds = listed || outside.length
-    if (rounds) rollsMatched++
+    const rounds = (parseInt(row[columns.rounds] ?? row[rollList], 10) || 0) || outside.length
     const typeText = row[columns.type] || ''
     const notes = [
       row[columns.title],
@@ -250,9 +327,48 @@ export async function readOtherApp(files) {
     ].filter(Boolean).join('\n')
     sessions.push({
       id: 'session_imp_' + hash(JSON.stringify(row)), kind: 'session', imported: [...files].map(f => f.name).join(', '),
-      date, type: parseType(typeText), minutes: matTime(row, columns), rounds,
+      date, time: parseTime(row[columns.start] || row[columns.date]), type: parseType(typeText),
+      minutes: matTime(row, columns), rounds, importKeys: keysOf(row),
       focus: [], drilled: known.map(m => techsByName[m.toLowerCase()]), reps: [], photos: [], notes,
     })
   })
-  return { sessions, skipped, columns, headers, rollsMatched }
+  return { ...empty, sessions, skipped, columns, headers }
+}
+
+// Decides where each photo goes: a session (by file name, then by date), a move, or your profile.
+// `sessions` and `techs` are everything in the journal once this import is applied.
+export function matchMedia(media, sessions, techs) {
+  const byKey = {}, byDate = {}
+  sessions.forEach(s => { (s.importKeys || []).forEach(k => byKey[k] ||= s); (byDate[s.date] ||= []).push(s) })
+  const techByKey = {}
+  techs.forEach(t => { techByKey[slug(t.name)] = t; (t.importKeys || []).forEach(k => techByKey[k] ||= t) })
+  const nearDate = date => {
+    for (const shift of [0, -1, 1]) {
+      const d = new Date(date); d.setDate(d.getDate() + shift)
+      const hit = byDate[isoDate(d)]
+      if (hit) return hit[0]
+    }
+    return null
+  }
+  const add = (map, id, m) => { if (!map.has(id)) map.set(id, []); map.get(id).push(m) }
+  const plan = { sessions: new Map(), techs: new Map(), profile: null, unmatched: [] }
+  media.forEach(m => {
+    const base = baseName(m.name).toLowerCase()
+    const tokens = base.split(/[^a-z0-9-]+/).filter(t => t.length >= 6)
+    if (m.kind === 'profile') { plan.profile ||= m; return }
+    if (m.kind === 'technique') {
+      const tech = techByKey[base] || techByKey[slug(base)] || tokens.map(t => techByKey[t]).find(Boolean)
+        || techs.find(t => t.name.length > 4 && slug(base).includes(slug(t.name)))
+      if (tech) add(plan.techs, tech.id, m)
+      else plan.unmatched.push(m)
+      return
+    }
+    const dated = base.match(/(20\d{2})[-_]?(\d{2})[-_]?(\d{2})/)
+    const session = byKey[base] || tokens.map(t => byKey[t]).find(Boolean)
+      || (dated && nearDate(new Date(+dated[1], dated[2] - 1, +dated[3])))
+      || nearDate(m.modified)
+    if (session) add(plan.sessions, session.id, m)
+    else plan.unmatched.push(m)
+  })
+  return plan
 }

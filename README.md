@@ -40,7 +40,13 @@ Send them the same address and these install steps. Everyone's journal is separa
 
 **Stats → Import from another app** reads CSV or JSON exports. It finds the date, mat time, rolls, class type, notes and technique columns on its own and shows a preview first. Mat time can come from one duration column, separate hours/minutes columns, or start and end times. Rolls can be a count, a list inside each session, or a separate rolls file: choose both files together. Any other columns are kept in each session’s notes.
 
+**Photos (myBJJ’s Media folder):** in the Files app, press and hold the **Media** folder and choose **Compress**. Then choose the resulting `.zip` together with the data export. Photos from **Journal** are matched to sessions by file name or date, **Techniques** photos to moves, and the **Profile** photo becomes your profile picture. The preview lists any photo it couldn’t place. Videos are skipped.
+
 Importing the same file again fills in mat time and rolls that an earlier import missed, without duplicating sessions or overwriting your edits. If an app only exports a spreadsheet (.xlsx), save it as CSV first.
+
+## Other training
+
+**Journal → Log other activity** records running, strength training, yoga, mobility, recovery and other sports, with time, duration, distance and intensity. They appear on the calendar as hollow dots and in Stats, and count toward Cross-training achievements, but never toward mat hours.
 
 ## Quiz
 
@@ -88,6 +94,7 @@ js/catalog.js         the built-in library of about 350 moves
 js/maps.js            ready-made game maps (decision trees) shown in Resources
 js/resources.js       curated learning links shown in Resources
 js/importer.js        reads CSV/JSON exports from other training apps
+js/zip.js             reads .zip files, for importing whole folders of photos
 js/views/*.js         one file per tab; each exports view(), an optional mount(), and its actions
 ```
 

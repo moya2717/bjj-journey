@@ -146,6 +146,70 @@ const MAPS = [
       ['them', 'Stacks the legs over', '', [['me', 'Shoulder walk away', 'Shoulder walk', []]]],
     ]]],
   },
+  {
+    id: 'closed-guard-top', name: 'Closed guard top: open and pass', position: 'Closed guard', role: 'Top',
+    summary: 'Posture first, break the guard open, then pass before they build a new one.',
+    tree: [['me', 'Posture with hands on the hips', 'Posture in closed guard', [
+      ['them', 'Breaks your posture down', '', [['me', 'Recover posture and reset grips', 'Posture in closed guard', []]]],
+      ['them', 'Keeps the guard locked tight', '', [['me', 'Stand and break the guard', 'Standing guard break', [
+        ['them', 'Grabs the ankles to sweep', '', [['me', 'Step back and kneel into the pass', 'Kneeling guard break', []]]],
+        ['them', 'Opens the legs', '', [['me', 'Torreando to the side', 'Torreando pass', []]]],
+      ]]]],
+      ['them', 'Attacks an arm', '', [['me', 'Stack and pull the elbow out', 'Armbar defense (stack)', []], ['me', 'Posture out of the triangle', 'Triangle defense', []]]],
+      ['them', 'Guard opens on its own', '', [['me', 'Knee in the middle, then pass', 'Knee in the middle break', [['me', 'Knee cut', 'Knee cut pass', []]]]]],
+    ]]],
+  },
+  {
+    id: 'butterfly-game', name: 'Butterfly guard game', position: 'Butterfly guard', role: 'Bottom',
+    summary: 'Sit up, get an underhook or arm drag, and use the hooks to elevate.',
+    tree: [['me', 'Sit up with hooks in', 'Butterfly guard retention', [
+      ['them', 'Leans into you with weight forward', '', [['me', 'Elevate with the hook', 'Butterfly sweep', []]]],
+      ['them', 'Pulls back and sits heavy', '', [['me', 'Arm drag to the back', 'Butterfly back take', []]]],
+      ['them', 'Overhooks your arm', '', [['me', 'Overhook sweep', 'Overhook butterfly sweep', []]]],
+      ['them', 'Head stays low', '', [['me', 'Guillotine', 'Guillotine from butterfly', []]]],
+      ['them', 'Stands up', '', [['me', 'Elevate into single-leg X', 'Butterfly to single-leg X', [['me', 'Ankle lock', 'Straight ankle lock', []]]]]],
+    ]]],
+  },
+  {
+    id: 'dlr-game', name: 'De La Riva game', position: 'De La Riva', role: 'Bottom',
+    summary: 'Hook, sleeve and ankle grips. Off-balance them, then sweep or roll under to the back.',
+    tree: [['me', 'De La Riva hook with sleeve and ankle', 'De La Riva hook', [
+      ['them', 'Leans back to stay balanced', '', [['me', 'Tripod sweep', 'Tripod sweep', []]]],
+      ['them', 'Steps forward to pressure', '', [['me', 'Sickle sweep', 'Sickle sweep', []], ['me', 'De La Riva sweep', 'De La Riva sweep', []]]],
+      ['them', 'Turns to knee slice out', '', [['me', 'Roll under with the berimbolo', 'Berimbolo', [['me', 'Take the back', 'Back take from De La Riva', []]]]]],
+      ['them', 'Squares up and stands tall', '', [['me', 'Switch to single-leg X', 'De La Riva to single-leg X', []]]],
+    ]]],
+  },
+  {
+    id: 'knee-on-belly', name: 'Knee on belly attacks', position: 'Knee on belly', role: 'Top',
+    summary: 'Heavy knee, far-side grips. Their escape attempts open the arm or the mount.',
+    tree: [['me', 'Heavy knee on belly', 'Knee on belly control', [
+      ['them', 'Pushes your knee with both arms', '', [['me', 'Far-side armbar', 'Far-side armbar from knee on belly', []]]],
+      ['them', 'Turns in toward you', '', [['me', 'Spin into the armbar', 'Spinning armbar', []]]],
+      ['them', 'Turns away to escape', '', [['me', 'Slide to mount', 'Knee on belly to mount', []]]],
+      ['them', 'Gives a deep collar', '', [['me', 'Baseball bat choke', 'Baseball bat choke', []]]],
+    ]]],
+  },
+  {
+    id: 'front-headlock-attacks', name: 'Front headlock attacks', position: 'Front headlock', role: 'Top',
+    summary: 'Control the head and an arm. Where they push decides the choke or the go-behind.',
+    tree: [['me', 'Chin strap and arm control', 'Chin strap control', [
+      ['them', 'Drives forward into you', '', [['me', 'High elbow guillotine', 'High elbow guillotine', []]]],
+      ['them', 'Turns the head to the side', '', [['me', 'Spin behind', 'Front headlock spin behind', []], ['me', 'D’arce choke', 'D’arce choke', []]]],
+      ['them', 'Sits back on the heels', '', [['me', 'Snap them down to turtle', 'Go-behind from front headlock', []]]],
+      ['them', 'Locks an arm around your waist', '', [['me', 'Anaconda roll', 'Anaconda choke', []]]],
+    ]]],
+  },
+  {
+    id: 'takedown-defense', name: 'Takedown defense', position: 'Standing', role: 'Neutral',
+    summary: 'Hips back and hands first. Every defense should end with you on top or in front of their head.',
+    tree: [['me', 'Stance with hands in front', 'Collar and sleeve grips', [
+      ['them', 'Shoots a double leg', '', [['me', 'Sprawl and crossface', 'Crossface sprawl', [['me', 'Go behind to the back', 'Go-behind from front headlock', []]]]]],
+      ['them', 'Captures a single leg', '', [['me', 'Limp leg and whizzer', 'Single leg defense (limp leg)', []]]],
+      ['them', 'Pummels for a body lock', '', [['me', 'Frame, hips back, re-pummel', 'Underhook pummeling', []]]],
+      ['them', 'Ducks under your arm', '', [['me', 'Turn in and downblock', 'Downblock', []]]],
+    ]]],
+  },
 ]
 
 const techIdFor = name => {

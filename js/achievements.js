@@ -105,7 +105,18 @@ export function computeAchievements() {
   out.push(...family('Journal habits', 'photos', count(sessions.filter(s => (s.photos || []).length)), [1, 10, 50],
     n => n === 1 ? 'First photo' : `${n} days in photos`, n => `Add photos to ${plural(n, 'session')}`))
 
+  // Cross-training
+  out.push(...family('Cross-training', 'activity-hours', S.activity.map(a => ({ date: a.date, amount: (+a.minutes || 0) / 60 })), [5, 25, 50, 100, 250],
+    n => `${big(n)} hours of cross-training`, n => `Spend ${big(n)} hours training outside BJJ`))
+  out.push(...family('Cross-training', 'recovery', count(S.activity.filter(a => ['Recovery', 'Yoga', 'Mobility / stretching'].includes(a.type))), [5, 25, 50, 100],
+    n => `${n} recovery sessions`, n => `Log ${n} recovery, yoga or mobility sessions`))
+  const miles = S.activity.filter(a => a.distance).map(a => ({ date: a.date, amount: a.unit === 'km' ? a.distance * 0.621371 : +a.distance }))
+  out.push(...family('Cross-training', 'distance', miles, [10, 50, 100, 250, 500],
+    n => `${big(n)} miles covered`, n => `Run, ride or swim ${big(n)} miles (${big(Math.round(n * 1.609))} km)`))
+
   // Study
+  out.push(...family('Study', 'learned', count(S.tech.filter(t => t.learned), createdDate), [5, 15, 30, 60],
+    n => `${n} moves learned`, n => `Mark ${n} moves as learned in the belt checklists`))
   const quizzes = S.settings.quizLog || []
   out.push(...family('Study', 'quizzes', count(quizzes), [1, 10, 25, 50, 100],
     n => n === 1 ? 'First quiz' : `${n} quizzes`, n => `Finish ${plural(n, 'quiz', 'quizzes')}`))

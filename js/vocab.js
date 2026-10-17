@@ -1,7 +1,7 @@
 // The words of the sport. Everything the forms offer as a choice lives here.
 
 export const POSITIONS = ['Standing', 'Front headlock', 'Closed guard', 'Half guard', 'Butterfly guard', 'De La Riva', 'Reverse De La Riva', 'X-guard', 'Spider / lasso', 'Lapel guards', 'Open guard', 'Leg entanglement', 'Side control', 'Mount', 'Back', 'Knee on belly', 'North-south', 'Turtle']
-export const LIBRARY_GROUPS = [...POSITIONS, 'Solo drills']
+export const LIBRARY_GROUPS = [...POSITIONS, 'Solo drills', 'Other']
 export const ROLES = ['Top', 'Bottom', 'Neutral']
 export const SESSION_TYPES = ['Gi', 'No-gi', 'Open mat', 'Private', 'Competition', 'Drilling only']
 export const TECH_TYPES = ['Pass', 'Sweep', 'Submission', 'Escape', 'Retention', 'Takedown', 'Transition', 'Control', 'Movement']
@@ -15,6 +15,8 @@ export const RESULTS = {
   partial: { label: 'Partly worked', score: 0.5 },
   broke: { label: 'Broke down', score: 0 },
 }
+export const ACTIVITY_TYPES = ['Running', 'Strength training', 'Yoga', 'Mobility / stretching', 'Recovery', 'Conditioning', 'Cycling', 'Swimming', 'Other sport']
+export const INTENSITIES = ['Easy', 'Moderate', 'Hard']
 export const PLACES = ['Gold', 'Silver', 'Bronze', 'No medal']
 export const FEELS = ['Drained', 'Flat', 'Okay', 'Good', 'Sharp']
 export const PLAN_HIT = ['Stuck to it', 'Partly', 'Went another way']

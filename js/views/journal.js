@@ -1,7 +1,7 @@
-import { S, saveMany, remove } from '../store.js'
+import { S, save, saveMany, remove } from '../store.js'
 import { UI } from '../ui.js'
-import { BELTS, FEELS, PLAN_HIT, POSITIONS, PROMPTS, REASONS, RESULTS, ROLES, SESSION_TYPES, SIZES, promptFor } from '../vocab.js'
-import { $, $$, byDateDesc, esc, fmtDateLong, hrs, isoDate, monthLabel, newId, parseD, plural, posRole, shiftMonth, sum, toast, today, weekStart, ym } from '../util.js'
+import { ACTIVITY_TYPES, BELTS, FEELS, INTENSITIES, PLAN_HIT, POSITIONS, PROMPTS, REASONS, RESULTS, ROLES, SESSION_TYPES, SIZES, promptFor } from '../vocab.js'
+import { $, $$, byDateDesc, esc, fmtDateLong, fmtTime, hrs, isoDate, monthLabel, newId, parseD, plural, posRole, shiftMonth, sum, toast, today, weekStart, ym } from '../util.js'
 import { field, selectEl, chipsEl, radioChips, techPicker, techSelect, openSheet } from '../sheet.js'
 import { partnerProfile, seqById, techById } from '../model.js'
 import { heatLevel } from '../charts.js'
@@ -12,7 +12,7 @@ import { partnerDatalist, stepOptions } from './rolls.js'
 
 export function view() {
   return `<div class="page-head"><div><h1>Journal</h1><p class="lede">Every training day on the calendar. Tap a day to see or add what happened.</p></div>
-    <div class="head-actions"><button class="btn" data-act="new-session" data-date="${UI.calDay}">Log training</button></div></div>
+    <div class="head-actions"><button class="btn" data-act="new-session" data-date="${UI.calDay}">Log BJJ</button><button class="btn ghost" data-act="new-activity" data-date="${UI.calDay}">Log other activity</button></div></div>
     <div class="filters"><label class="field search"><span class="field-label">Search your notes</span><input type="search" id="journal-search" value="${esc(UI.journalQ)}" placeholder="Try “underhook” or “mount”"></label></div>
     <div id="journal-body">${UI.journalQ.trim() ? searchResults() : calendar() + dayPanel()}</div>`
 }
@@ -31,6 +31,7 @@ function calendar() {
   const first = new Date(y, m - 1, 1), start = weekStart(first)
   const monthSessions = S.session.filter(s => s.date.startsWith(UI.calMonth))
   const photoCount = sum(monthSessions, s => (s.photos || []).length)
+  const otherMinutes = sum(S.activity.filter(a => a.date.startsWith(UI.calMonth)), 'minutes')
   const cells = []
   for (let i = 0; i < 42; i++) {
     const d = new Date(start); d.setDate(d.getDate() + i)
@@ -40,7 +41,7 @@ function calendar() {
   return `<section class="panel">
     <div class="cal-head">
       <div class="month-nav"><button class="icon-btn" data-act="cal-month" data-d="-1" aria-label="Previous month">‹</button><h2>${monthLabel(UI.calMonth)}</h2><button class="icon-btn" data-act="cal-month" data-d="1" aria-label="Next month">›</button></div>
-      <p class="cal-summary">${plural(monthSessions.length, 'session')} · ${hrs(sum(monthSessions, 'minutes'))} hrs${photoCount ? ` · ${plural(photoCount, 'photo')}` : ''}${UI.calMonth !== ym(new Date()) ? ` · <button class="link" data-act="cal-today">Today</button>` : ''}</p>
+      <p class="cal-summary">${plural(monthSessions.length, 'session')} · ${hrs(sum(monthSessions, 'minutes'))} mat hrs${otherMinutes ? ` · ${hrs(otherMinutes)} hrs other` : ''}${photoCount ? ` · ${plural(photoCount, 'photo')}` : ''}${UI.calMonth !== ym(new Date()) ? ` · <button class="link" data-act="cal-today">Today</button>` : ''}</p>
     </div>
     <div class="cal" role="grid" aria-label="${monthLabel(UI.calMonth)}">
       ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `<div class="cal-dow" aria-hidden="true">${d}</div>`).join('')}
@@ -52,22 +53,27 @@ function dayCell(d, inMonth) {
   if (!inMonth) return '<div class="cal-day out" aria-hidden="true"></div>'
   const key = isoDate(d)
   const sessions = S.session.filter(s => s.date === key), rolls = S.roll.filter(r => r.date === key)
+  const activities = S.activity.filter(a => a.date === key)
   const photo = sessions.flatMap(s => s.photos || [])[0]
   const minutes = sum(sessions, 'minutes')
-  const label = `${fmtDateLong(key)}: ${sessions.length ? plural(sessions.length, 'session') + `, ${minutes} min` : 'no training logged'}`
+  const label = `${fmtDateLong(key)}: ${[sessions.length && plural(sessions.length, 'session') + `, ${minutes} min`, activities.length && plural(activities.length, 'other activity', 'other activities')].filter(Boolean).join(', ') || 'nothing logged'}`
   return `<button class="cal-day l${photo ? 0 : heatLevel(minutes)} ${key === today() ? 'today' : ''}" data-act="cal-day" data-date="${key}" aria-pressed="${key === UI.calDay}" aria-label="${esc(label)}">
     ${photo ? `<img data-photo="${photo}" alt="">` : ''}
     <span class="cal-n">${d.getDate()}</span>
-    <span class="cal-dots">${sessions.map(() => '<i></i>').join('')}${rolls.filter(r => r.result === 'broke').slice(0, 3).map(() => '<i class="broke"></i>').join('')}</span>
+    <span class="cal-dots">${sessions.map(() => '<i></i>').join('')}${activities.map(() => '<i class="act"></i>').join('')}${rolls.filter(r => r.result === 'broke').slice(0, 3).map(() => '<i class="broke"></i>').join('')}</span>
   </button>`
 }
 
 function dayPanel() {
-  const sessions = S.session.filter(s => s.date === UI.calDay).sort(byDateDesc)
+  const byTime = (a, b) => (a.time || '99').localeCompare(b.time || '99')
+  const sessions = S.session.filter(s => s.date === UI.calDay).sort(byTime)
+  const activities = S.activity.filter(a => a.date === UI.calDay).sort(byTime)
   const looseRolls = S.roll.filter(r => r.date === UI.calDay && !sessions.some(s => s.id === r.sessionId))
   return `<div class="day-panel">
-    <div class="day-head"><h2>${fmtDateLong(UI.calDay)}</h2><button class="btn sm" data-act="new-session" data-date="${UI.calDay}">Log training on this day</button></div>
-    ${sessions.length ? sessions.map(entryCard).join('') : `<p class="muted">Nothing logged on this day.</p>`}
+    <div class="day-head"><h2>${fmtDateLong(UI.calDay)}</h2><div class="head-actions"><button class="btn sm" data-act="new-session" data-date="${UI.calDay}">Log BJJ</button><button class="btn sm ghost" data-act="new-activity" data-date="${UI.calDay}">Log other activity</button></div></div>
+    ${sessions.length || activities.length
+      ? [...sessions.map(s => [s.time, entryCard(s)]), ...activities.map(a => [a.time, activityCard(a)])].sort((a, b) => (a[0] || '99').localeCompare(b[0] || '99')).map(x => x[1]).join('')
+      : `<p class="muted">Nothing logged on this day.</p>`}
     ${looseRolls.length ? `<section class="panel"><h3>Roll notes</h3>${looseRolls.map(rollMini).join('')}</section>` : ''}
   </div>`
 }
@@ -89,7 +95,7 @@ function entryCard(s) {
   return `<article class="entry">
     <div class="date-block"><span class="d">${d.getDate()}</span><span class="m">${d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' })}</span></div>
     <div style="min-width:0">
-      <div class="entry-top"><h3>${esc(s.type)}</h3><span class="entry-meta">${s.minutes ? esc(s.minutes) + ' min' : ''}${s.rounds ? `, ${plural(+s.rounds, 'round')}` : ''}</span></div>
+      <div class="entry-top"><h3>${esc(s.type)}${s.time ? ` <span class="entry-time">${fmtTime(s.time)}</span>` : ''}</h3><span class="entry-meta">${s.minutes ? esc(s.minutes) + ' min' : ''}${s.rounds ? `, ${plural(+s.rounds, 'round')}` : ''}</span></div>
       ${(s.focus || []).length || drilled.length ? `<div class="tags">${(s.focus || []).map(p => `<span class="tag pos">${esc(p)}</span>`).join('')}${drilled.map(t => `<span class="tag">${esc(t.name)}</span>`).join('')}</div>` : ''}
       ${reps.length ? `<p class="small" style="margin-top:8px">Reps: ${reps.map(r => `${r.count} × ${esc(techById(r.techId).name.toLowerCase())}`).join(', ')}</p>` : ''}
       ${notes.length ? `<dl class="refl">${notes.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
@@ -153,7 +159,7 @@ function rollRow(i, preset) {
 
 function sessionForm(id, date) {
   const last = [...S.session].sort(byDateDesc)[0] || { type: 'Gi', minutes: 90, rounds: 5 }
-  const s = id ? S.session.find(x => x.id === id) : { date: date || today(), type: last.type, minutes: last.minutes, rounds: last.rounds, focus: [], drilled: [], reps: [], photos: [] }
+  const s = id ? S.session.find(x => x.id === id) : { date: date || today(), time: last.time || '', type: last.type, minutes: last.minutes, rounds: last.rounds, focus: [], drilled: [], reps: [], photos: [] }
   if (!s) return
   const lastRoll = [...S.roll].sort(byDateDesc)[0] || { position: 'Half guard', role: 'Top', seqId: '' }
   const rollPreset = { position: lastRoll.position, role: lastRoll.role, seqId: seqById(lastRoll.seqId) ? lastRoll.seqId : '' }
@@ -162,7 +168,8 @@ function sessionForm(id, date) {
   let rows = 0
 
   openSheet(id ? 'Edit training' : 'Log training', `
-    <div class="grid2">${field('Date', `<input type="date" name="date" id="s-date" value="${esc(s.date)}" required>`)}${field('Class type', selectEl('type', SESSION_TYPES, s.type, 'id="s-type"'))}</div>
+    ${id ? '' : `<p class="hint">Running, lifting, yoga or recovery? <button type="button" class="link" data-act="new-activity" data-date="${esc(s.date)}">Log other activity</button></p>`}
+    <div class="grid3">${field('Date', `<input type="date" name="date" id="s-date" value="${esc(s.date)}" required>`)}${field('Class time', `<input type="time" name="time" id="s-time" value="${esc(s.time || '')}">`)}${field('Class type', selectEl('type', SESSION_TYPES, s.type, 'id="s-type"'))}</div>
     <div class="grid2">
       ${field('Minutes on the mat', `<input type="number" name="minutes" id="s-min" min="0" max="600" step="5" inputmode="numeric" value="${esc(s.minutes)}">`)}
       ${field('Rounds rolled', `<input type="number" name="rounds" id="s-rounds" min="0" max="40" inputmode="numeric" value="${esc(s.rounds)}">`)}
@@ -253,7 +260,7 @@ function sessionForm(id, date) {
       const sessionId = id || newId('session')
       const session = {
         ...(id ? s : {}), id: sessionId, kind: 'session', date, type: fd.get('type'),
-        minutes: +fd.get('minutes') || 0, rounds: +fd.get('rounds') || 0,
+        time: fd.get('time') || '', minutes: +fd.get('minutes') || 0, rounds: +fd.get('rounds') || 0,
         focus: fd.getAll('focus'), drilled: fd.getAll('drilled'),
         reps: $$('[data-rep]', form).map(r => ({ techId: fd.get(`rep${r.dataset.rep}_tech`), count: +fd.get(`rep${r.dataset.rep}_count`) || 0 })).filter(r => r.techId && r.count),
         photos: [...keptPhotos, ...added],
@@ -281,7 +288,65 @@ function sessionForm(id, date) {
   })
 }
 
+// ---------- Other activities: running, lifting, yoga, recovery ----------
+
+function activityCard(a) {
+  const d = parseD(a.date)
+  return `<article class="entry activity">
+    <div class="date-block"><span class="d">${d.getDate()}</span><span class="m">${d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' })}</span></div>
+    <div style="min-width:0">
+      <div class="entry-top"><h3>${esc(a.type)}${a.time ? ` <span class="entry-time">${fmtTime(a.time)}</span>` : ''}</h3>
+        <span class="entry-meta">${[a.minutes && a.minutes + ' min', a.distance && `${a.distance} ${a.unit || 'mi'}`, a.intensity].filter(Boolean).map(esc).join(', ')}</span></div>
+      ${a.notes ? `<p class="small" style="margin-top:6px;max-width:70ch">${esc(a.notes)}</p>` : ''}
+      <div class="row-actions"><button class="btn sm ghost" data-act="edit-activity" data-id="${a.id}">Edit</button></div>
+    </div></article>`
+}
+
+const DISTANCE_TYPES = ['Running', 'Cycling', 'Swimming']
+
+function activityForm(id, date) {
+  const last = [...S.activity].sort(byDateDesc)[0]
+  const a = id ? S.activity.find(x => x.id === id) : { date: date || today(), time: '', type: last?.type || 'Running', minutes: 30, distance: '', unit: last?.unit || 'mi', intensity: 'Moderate', notes: '' }
+  if (!a) return
+  openSheet(id ? 'Edit activity' : 'Log other activity', `
+    <p class="hint">Training outside BJJ. It shows on your calendar and in Stats, but doesn’t count toward mat hours.</p>
+    <fieldset><legend>Activity</legend>${radioChips('type', ACTIVITY_TYPES, a.type)}</fieldset>
+    <div class="grid3">
+      ${field('Date', `<input type="date" name="date" id="a-date" value="${esc(a.date)}" required>`)}
+      ${field('Time', `<input type="time" name="time" id="a-time" value="${esc(a.time)}">`)}
+      ${field('Minutes', `<input type="number" name="minutes" id="a-min" min="0" max="1440" step="5" inputmode="numeric" value="${esc(a.minutes)}">`)}
+    </div>
+    <div class="grid2" data-distance ${DISTANCE_TYPES.includes(a.type) ? '' : 'hidden'}>
+      ${field('Distance', `<input type="number" name="distance" id="a-dist" min="0" step="0.1" inputmode="decimal" value="${esc(a.distance)}">`)}
+      ${field('Unit', selectEl('unit', ['mi', 'km'], a.unit, 'id="a-unit"'))}
+    </div>
+    <fieldset><legend>Intensity</legend>${radioChips('intensity', INTENSITIES, a.intensity)}</fieldset>
+    ${field('Notes', `<textarea name="notes" id="a-notes" rows="3" placeholder="What you did, how you felt, how it carried over to the mat">${esc(a.notes)}</textarea>`)}
+    <p class="form-error" id="form-error"></p>`, {
+    submitLabel: id ? 'Save changes' : 'Save activity',
+    onDelete: id ? () => remove(a) : null,
+    onMount: form => form.addEventListener('change', e => {
+      if (e.target.name === 'type') $('[data-distance]', form).hidden = !DISTANCE_TYPES.includes(e.target.value)
+    }),
+    onSubmit: fd => {
+      const date = fd.get('date')
+      if (!date) { $('#form-error').textContent = 'Add the date.'; return false }
+      const type = fd.get('type') || 'Other sport'
+      UI.calDay = date
+      UI.calMonth = date.slice(0, 7)
+      save({
+        ...(id ? a : {}), id: id || newId('activity'), kind: 'activity', date, time: fd.get('time') || '', type,
+        minutes: +fd.get('minutes') || 0, distance: DISTANCE_TYPES.includes(type) ? +fd.get('distance') || '' : '', unit: fd.get('unit'),
+        intensity: fd.get('intensity') || '', notes: fd.get('notes').trim(),
+      })
+      toast(id ? 'Activity saved' : `${type} logged`)
+    },
+  })
+}
+
 export const actions = {
+  'new-activity': el => activityForm(null, el.dataset.date),
+  'edit-activity': el => activityForm(el.dataset.id),
   'new-session': el => sessionForm(null, el.dataset.date),
   'edit-session': el => sessionForm(el.dataset.id),
   'cal-month': el => { UI.calMonth = shiftMonth(UI.calMonth, +el.dataset.d) },

@@ -32,6 +32,9 @@ export function shiftMonth(m, n) { const [y, mm] = m.split('-').map(Number); ret
 export const fmtDate = s => parseD(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 export const fmtDateLong = s => parseD(s).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
 export const fmtMonthY = s => s ? parseD(s).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : ''
+// Class times are stored as "HH:MM" and shown in the phone's own format ("6:30 PM").
+export const fmtTime = t => t ? new Date(2000, 0, 1, ...t.split(':').map(Number)).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : ''
+export const dayPart = t => !t ? '' : t < '12:00' ? 'Morning' : t < '17:00' ? 'Afternoon' : 'Evening'
 export function monthLabel(m) { const [y, mm] = m.split('-').map(Number); return new Date(y, mm - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) }
 
 export function span(from, to = today()) {

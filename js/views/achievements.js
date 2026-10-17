@@ -4,7 +4,7 @@ import { $, esc, fmtDate, newId, today } from '../util.js'
 import { field, selectEl, techSelect, openSheet } from '../sheet.js'
 import { computeAchievements, goalDesc, goalStatus, goalWindow, METRICS, progressOf, visibleAchievements } from '../achievements.js'
 
-const SECTIONS = ['Mat time', 'Drills and reps', 'Rolling', 'Techniques', 'Study', 'Competition and rank', 'Journal habits']
+const SECTIONS = ['Mat time', 'Drills and reps', 'Rolling', 'Techniques', 'Study', 'Cross-training', 'Competition and rank', 'Journal habits']
 
 // The badge face shows the number you're chasing, styled like a belt with its bar.
 const markText = a => typeof a.target === 'number' ? (a.target >= 1000 ? a.target / 1000 + 'k' : a.target) : a.target.slice(0, 2)

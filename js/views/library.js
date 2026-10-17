@@ -5,6 +5,7 @@ import { $, esc, newId, pct, toast, trunc } from '../util.js'
 import { field, selectEl, openSheet } from '../sheet.js'
 import { allTechs, isCustom, myTechs, techById } from '../model.js'
 import { videoSearch } from '../catalog.js'
+import { hydratePhotos } from '../photos.js'
 import { techStats } from '../analysis.js'
 
 export function view() {
@@ -25,11 +26,13 @@ export function view() {
     <div id="lib-list">${list(scope)}</div>`
 }
 
-export function mount() {
+export function mount(root) {
   $('#lib-search')?.addEventListener('input', e => {
     UI.libQ = e.target.value
     $('#lib-list').innerHTML = list(UI.libScope === 'mine' && !myTechs().length ? 'all' : UI.libScope)
+    hydratePhotos(root)
   })
+  hydratePhotos(root)
 }
 
 function list(scope) {
@@ -49,7 +52,8 @@ function card(t) {
   const st = techStats(t.id), used = st.n || st.drilled || st.reps
   return `<article class="tech ${t.starred ? 'mine' : ''}">
     <div class="tech-top"><h3>${esc(t.name)}</h3><button class="star" data-act="star" data-id="${esc(t.id)}" aria-pressed="${!!t.starred}" aria-label="${t.starred ? 'Unstar' : 'Star'} ${esc(t.name)}">★</button></div>
-    <span class="tech-type">${esc(t.type)}${isCustom(t) ? ' · added by you' : ''}</span>
+    <span class="tech-type">${esc(t.type)}${isCustom(t) ? ' · added by you' : ''}${t.learned ? ' · <span class="learned">✓ learned</span>' : ''}</span>
+    ${(t.photos || []).length ? `<div class="photos">${t.photos.slice(0, 4).map(id => `<button data-act="view-photo" data-id="${id}" aria-label="Open photo"><img data-photo="${id}" alt="${esc(t.name)}"></button>`).join('')}</div>` : ''}
     ${used ? `<div class="tech-stats"><span>Drilled <b>${st.drilled}</b></span><span>Rolls <b>${st.n}</b></span><span>Success <b>${pct(st.rate)}</b></span>${st.reps ? `<span>Reps <b>${st.reps.toLocaleString()}</b></span>` : ''}</div>` : ''}
     ${st.n ? `<div class="meter good"><span style="width:${Math.max(4, (st.rate || 0) * 100)}%"></span></div>` : ''}
     ${t.notes ? `<p class="small">${esc(trunc(t.notes, 160))}</p>` : ''}

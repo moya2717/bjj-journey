@@ -1,13 +1,14 @@
 import { S, allRecords, eraseEverything, removeMany, save, saveMany } from '../store.js'
-import { BELT_LOOK, PLACES, POSITIONS, RANKS } from '../vocab.js'
-import { $, byDateAsc, daysAgo, esc, fmtDate, fmtMonthY, hrs, monthLabel, newId, pct, plural, rate, span, sum, toast, today, trunc, ym } from '../util.js'
+import { ACTIVITY_TYPES, BELT_LOOK, FEELS, PLACES, POSITIONS, RANKS } from '../vocab.js'
+import { $, byDateAsc, dayPart, daysAgo, esc, fmtDate, fmtMonthY, hrs, monthLabel, newId, pct, plural, rate, span, sum, toast, today, trunc, ym } from '../util.js'
 import { field, selectEl, armDelete, openSheet } from '../sheet.js'
 import { currentRank, rankName } from '../model.js'
 import { monthlySeries, problemTrends, weeklyStreak } from '../analysis.js'
 import { beltArt, heatmap, lineChart, spark } from '../charts.js'
 import { exportBackup, importBackup } from '../backup.js'
 import { exampleRecords } from '../examples.js'
-import { readOtherApp } from '../importer.js'
+import { previewImport } from './importing.js'
+import { hydratePhotos } from '../photos.js'
 
 export function view() {
   const month = ym(new Date()), thisMonth = S.session.filter(s => s.date.startsWith(month))
@@ -36,6 +37,8 @@ export function view() {
       ${positions.length ? `<div class="bars">${positions.slice(0, 8).map(x => `<div class="bar-row"><span>${esc(x.p)}</span><div class="meter mat"><span style="width:${(x.f + x.r) / maxAttention * 100}%"></span></div><span class="n">${x.f + x.r}</span></div>`).join('')}</div>
         <p class="small muted" style="margin-top:10px">Counts session focus plus roll notes from each position.</p>` : '<p class="muted">Nothing logged in the last 90 days.</p>'}
     </section>
+    ${timeOfDayPanel()}
+    ${otherTrainingPanel()}
     ${trendsPanel()}
     <section class="panel wide"><h2>Month by month</h2><div class="table-scroll"><table>
       <thead><tr><th scope="col">Month</th><th scope="col">Sessions</th><th scope="col">Mat hours</th><th scope="col">Rolls logged</th><th scope="col">Broke down</th><th scope="col">Success</th></tr></thead>
@@ -45,7 +48,8 @@ export function view() {
   </div>`
 }
 
-export function mount() {
+export function mount(root) {
+  hydratePhotos(root)
   $('#weekly-target')?.addEventListener('change', e => save({ ...S.settings, weeklyTarget: Math.max(1, Math.min(14, parseInt(e.target.value, 10) || 3)) }))
   $('#import-file')?.addEventListener('change', async e => {
     const file = e.target.files[0]
@@ -63,63 +67,6 @@ export function mount() {
   })
 }
 
-// ---------- Importing from other apps ----------
-
-const FIELD_LABELS = { date: 'Date', hours: 'Hours', minutes: 'Minutes', seconds: 'Seconds', duration: 'Mat time', start: 'Start time', end: 'End time', type: 'Class type', rounds: 'Rolls', notes: 'Notes', techniques: 'Techniques', title: 'Title' }
-
-// Re-importing fills in what an earlier import missed (mat time, rolls) without duplicating
-// sessions or overwriting anything you've changed since.
-function planImport(sessions) {
-  const claimed = new Set(), fresh = [], updates = []
-  sessions.forEach(s => {
-    const match = S.session.find(x => x.id === s.id && !claimed.has(x.id))
-      || S.session.find(x => x.imported && x.date === s.date && !claimed.has(x.id))
-    if (!match) { fresh.push(s); return }
-    claimed.add(match.id)
-    const fill = {}
-    if (!match.minutes && s.minutes) fill.minutes = s.minutes
-    if (!match.rounds && s.rounds) fill.rounds = s.rounds
-    if (s.notes.includes('Rolls:\n') && !(match.notes || '').includes('Rolls:\n')) fill.notes = [match.notes, s.notes.slice(s.notes.indexOf('Rolls:\n'))].filter(Boolean).join('\n')
-    if (Object.keys(fill).length) updates.push({ ...match, ...fill })
-  })
-  return { fresh, updates, unchanged: sessions.length - fresh.length - updates.length }
-}
-
-async function previewImport(files) {
-  let result
-  try { result = await readOtherApp(files) } catch { toast('Couldn’t read that file. Export it as CSV or JSON and try again.'); return }
-  const { sessions, skipped, columns, headers } = result
-  const names = files.map(f => f.name).join(', ')
-  if (!sessions.length) {
-    openSheet('Nothing to import yet', `
-      <p>I couldn’t find training dates in <strong>${esc(names)}</strong>.</p>
-      ${headers.length ? `<p class="hint">Columns found: ${esc(headers.join(', '))}</p>` : '<p class="hint">The file looks empty, or it isn’t CSV or JSON.</p>'}
-      <p class="hint">If the app exports a spreadsheet (.xlsx) or PDF, save it as CSV instead.</p>`)
-    return
-  }
-  const { fresh, updates, unchanged } = planImport(sessions)
-  const dates = sessions.map(s => s.date).sort()
-  const minutes = sum(sessions, 'minutes'), rounds = sum(sessions, 'rounds')
-  const total = fresh.length + updates.length
-  openSheet('Import training history', `
-    <p>Found <strong>${plural(sessions.length, 'session')}</strong> in ${esc(names)}, from ${fmtDate(dates[0])} ${dates[0].slice(0, 4)} to ${fmtDate(dates.at(-1))} ${dates.at(-1).slice(0, 4)}:
-      <strong>${hrs(minutes)} mat hours</strong> and <strong>${plural(rounds, 'roll')}</strong>.</p>
-    <p>${[fresh.length && `${plural(fresh.length, 'new session')} to add`, updates.length && `${plural(updates.length, 'earlier import')} to fill in with mat time or rolls`, unchanged && `${unchanged} already complete`].filter(Boolean).join(', ')}.
-      ${skipped.length ? `${plural(skipped.length, 'row')} had no date and will be left out.` : ''}</p>
-    ${!minutes ? '<p class="form-error">No mat time found in this file. Check the column list below.</p>' : ''}
-    ${!rounds ? '<p class="hint">No rolls found. If your app exports rolls as a separate file, choose both files together.</p>' : ''}
-    <dl class="refl">${Object.entries(columns).map(([k, h]) => `<dt>${FIELD_LABELS[k] || k}</dt><dd>from “${esc(h)}”</dd>`).join('')}</dl>
-    <details class="more"><summary>All columns in the file</summary><div><p class="hint">${esc(headers.join(', '))}</p></div></details>
-    <div class="stack">${sessions.slice(0, 3).map(s => `<div class="roll-mini"><span><strong>${fmtDate(s.date)}</strong> · ${esc(s.type)}${s.minutes ? ` · ${s.minutes} min` : ''}${s.rounds ? ` · ${plural(s.rounds, 'roll')}` : ''}</span></div>`).join('')}</div>`, {
-    submitLabel: total ? (fresh.length ? `Import ${plural(total, 'session')}` : `Update ${plural(total, 'session')}`) : 'Nothing new to import',
-    onSubmit: async () => {
-      if (!total) return
-      await saveMany([...fresh, ...updates])
-      toast([fresh.length && `Imported ${plural(fresh.length, 'session')}`, updates.length && `updated ${updates.length}`].filter(Boolean).join(', '))
-    },
-  })
-}
-
 // ---------- Fighter profile ----------
 
 function profilePanel() {
@@ -134,7 +81,7 @@ function profilePanel() {
     <div class="profile" style="margin-top:12px">
       <div class="who-card">
         ${beltArt(rank)}
-        <div><p class="fighter-name">${esc(P.name || 'Your name')}</p><p class="muted">${esc(rankName(rank))}${P.gym ? ` · ${esc(P.gym)}` : ''}</p></div>
+        <div class="fighter-id">${P.photo ? `<button class="avatar" data-act="view-photo" data-id="${P.photo}" aria-label="Open profile photo"><img data-photo="${P.photo}" alt=""></button>` : ''}<div><p class="fighter-name">${esc(P.name || 'Your name')}</p><p class="muted">${esc(rankName(rank))}${P.gym ? ` · ${esc(P.gym)}` : ''}</p></div></div>
         <div class="time-line">
           ${P.startDate ? `<span>Training for <strong>${span(P.startDate)}</strong>, since ${fmtMonthY(P.startDate)}</span>` : ''}
           ${rank.since ? `<span>At this rank for <strong>${span(rank.since)}</strong></span>` : ''}
@@ -220,6 +167,38 @@ function tournamentForm(id) {
       toast(id ? 'Tournament saved' : 'Tournament added')
     },
   })
+}
+
+// ---------- Time of day and other training ----------
+
+function timeOfDayPanel() {
+  const timed = S.session.filter(s => s.time)
+  if (!timed.length) return `<section class="panel"><h2>Morning or evening?</h2><p class="muted">Add the class time when you log. This panel then compares how your morning, afternoon and evening sessions go.</p></section>`
+  const rows = ['Morning', 'Afternoon', 'Evening'].map(part => {
+    const sessions = timed.filter(s => dayPart(s.time) === part)
+    const ids = new Set(sessions.map(s => s.id)), rolls = S.roll.filter(r => ids.has(r.sessionId))
+    const feels = sessions.filter(s => s.feel).map(s => FEELS.indexOf(s.feel) + 1)
+    return { part, n: sessions.length, minutes: sum(sessions, 'minutes'), rate: rate(rolls), rolls: rolls.length, feel: feels.length ? sum(feels, x => x) / feels.length : null }
+  }).filter(r => r.n)
+  return `<section class="panel"><h2>Morning or evening?</h2><div class="table-scroll"><table>
+    <thead><tr><th scope="col">Class time</th><th scope="col">Sessions</th><th scope="col">Mat hours</th><th scope="col">Roll success</th><th scope="col">Felt</th></tr></thead>
+    <tbody>${rows.map(r => `<tr><td>${r.part}</td><td>${r.n}</td><td>${hrs(r.minutes)}</td><td>${r.rolls ? pct(r.rate) : '—'}</td><td>${r.feel ? FEELS[Math.round(r.feel) - 1] : '—'}</td></tr>`).join('')}</tbody></table></div>
+    <p class="small muted" style="margin-top:10px">Morning is before noon, evening from 5 PM. ${plural(S.session.length - timed.length, 'session')} without a time aren’t counted.</p></section>`
+}
+
+function otherTrainingPanel() {
+  const recent = S.activity.filter(a => a.date >= daysAgo(29))
+  if (!S.activity.length) return `<section class="panel"><h2>Other training</h2><p class="muted">Log runs, lifting, yoga and recovery from the Journal with “Log other activity”. Totals show up here.</p></section>`
+  const byType = ACTIVITY_TYPES.map(type => ({ type, minutes: sum(recent.filter(a => a.type === type), 'minutes'), n: recent.filter(a => a.type === type).length })).filter(x => x.n)
+  const max = Math.max(1, ...byType.map(x => x.minutes))
+  const mat = sum(S.session.filter(s => s.date >= daysAgo(29)), 'minutes'), other = sum(recent, 'minutes')
+  return `<section class="panel"><h2>Other training, last 30 days</h2>
+    <div class="figures">
+      <div class="figure"><div class="big">${hrs(other)}</div><div class="lbl">hours outside BJJ</div></div>
+      <div class="figure"><div class="big">${hrs(mat)}</div><div class="lbl">mat hours</div></div>
+    </div>
+    ${byType.length ? `<div class="bars" style="margin-top:12px">${byType.map(x => `<div class="bar-row"><span>${esc(x.type)}</span><div class="meter mat"><span style="width:${x.minutes / max * 100}%"></span></div><span class="n">${hrs(x.minutes)}h</span></div>`).join('')}</div>` : '<p class="muted">Nothing logged in the last 30 days.</p>'}
+  </section>`
 }
 
 // ---------- Problem trends ----------
