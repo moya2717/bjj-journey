@@ -12,7 +12,9 @@ import * as rolls from './views/rolls.js'
 import * as matchups from './views/matchups.js'
 import * as sequences from './views/sequences.js'
 import * as library from './views/library.js'
+import * as study from './views/study.js'
 import * as resources from './views/resources.js'
+import * as compete from './views/compete.js'
 import * as achievements from './views/achievements.js'
 import * as stats from './views/stats.js'
 
@@ -23,7 +25,9 @@ const VIEWS = {
   matchups: ['Matchups', matchups],
   sequences: ['Sequences', sequences],
   library: ['Library', library],
+  study: ['Study', study],
   resources: ['Resources', resources],
+  compete: ['Compete', compete],
   achievements: ['Achievements', achievements],
   stats: ['Stats', stats],
 }
@@ -39,7 +43,8 @@ function render() {
   const app = $('#app')
   app.innerHTML = view.view()
   view.mount?.(app)
-  $('.fab').hidden = UI.view === 'sequences' && !!UI.quiz
+  // The log button would cover the answer buttons while you're quizzing or reviewing.
+  $('.fab').hidden = (UI.view === 'sequences' && !!UI.quiz) || (UI.view === 'study' && !!UI.review)
 }
 
 // The header is your belt: its color follows your rank, and the tape on the bar

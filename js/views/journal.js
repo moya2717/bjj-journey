@@ -68,11 +68,12 @@ function dayPanel() {
   const byTime = (a, b) => (a.time || '99').localeCompare(b.time || '99')
   const sessions = S.session.filter(s => s.date === UI.calDay).sort(byTime)
   const activities = S.activity.filter(a => a.date === UI.calDay).sort(byTime)
+  const studies = S.study.filter(v => v.date === UI.calDay)
   const looseRolls = S.roll.filter(r => r.date === UI.calDay && !sessions.some(s => s.id === r.sessionId))
   return `<div class="day-panel">
     <div class="day-head"><h2>${fmtDateLong(UI.calDay)}</h2><div class="head-actions"><button class="btn sm" data-act="new-session" data-date="${UI.calDay}">Log BJJ</button><button class="btn sm ghost" data-act="new-activity" data-date="${UI.calDay}">Log other activity</button></div></div>
-    ${sessions.length || activities.length
-      ? [...sessions.map(s => [s.time, entryCard(s)]), ...activities.map(a => [a.time, activityCard(a)])].sort((a, b) => (a[0] || '99').localeCompare(b[0] || '99')).map(x => x[1]).join('')
+    ${sessions.length || activities.length || studies.length
+      ? [...sessions.map(s => [s.time, entryCard(s)]), ...activities.map(a => [a.time, activityCard(a)]), ...studies.map(v => ['99', studyMini(v)])].sort((a, b) => (a[0] || '99').localeCompare(b[0] || '99')).map(x => x[1]).join('')
       : `<p class="muted">Nothing logged on this day.</p>`}
     ${looseRolls.length ? `<section class="panel"><h3>Roll notes</h3>${looseRolls.map(rollMini).join('')}</section>` : ''}
   </div>`
@@ -301,6 +302,12 @@ function activityCard(a) {
       <div class="row-actions"><button class="btn sm ghost" data-act="edit-activity" data-id="${a.id}">Edit</button></div>
     </div></article>`
 }
+
+const studyMini = v => `<article class="entry activity">
+  <div class="date-block"><span class="d">${parseD(v.date).getDate()}</span><span class="m">study</span></div>
+  <div style="min-width:0"><div class="entry-top"><h3>${esc(v.title)}</h3><span class="entry-meta">${v.minutes ? v.minutes + ' min of video study' : 'Video study'}</span></div>
+    ${(v.notes || []).length ? `<p class="small muted" style="margin-top:4px">${plural(v.notes.length, 'note')}</p>` : ''}
+    <div class="row-actions"><button class="btn sm ghost" data-act="edit-study" data-id="${v.id}">Open</button></div></div></article>`
 
 const DISTANCE_TYPES = ['Running', 'Cycling', 'Swimming']
 

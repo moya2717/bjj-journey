@@ -3,7 +3,7 @@ import { UI } from '../ui.js'
 import { LIBRARY_GROUPS, TECH_TYPES } from '../vocab.js'
 import { $, esc, newId, pct, toast, trunc } from '../util.js'
 import { field, selectEl, openSheet } from '../sheet.js'
-import { allTechs, isCustom, myTechs, techById } from '../model.js'
+import { MASTERY, allTechs, isCustom, masteryOf, masteryPips, myTechs, techById } from '../model.js'
 import { videoSearch } from '../catalog.js'
 import { hydratePhotos } from '../photos.js'
 import { techStats } from '../analysis.js'
@@ -52,7 +52,8 @@ function card(t) {
   const st = techStats(t.id), used = st.n || st.drilled || st.reps
   return `<article class="tech ${t.starred ? 'mine' : ''}">
     <div class="tech-top"><h3>${esc(t.name)}</h3><button class="star" data-act="star" data-id="${esc(t.id)}" aria-pressed="${!!t.starred}" aria-label="${t.starred ? 'Unstar' : 'Star'} ${esc(t.name)}">★</button></div>
-    <span class="tech-type">${esc(t.type)}${isCustom(t) ? ' · added by you' : ''}${t.learned ? ' · <span class="learned">✓ learned</span>' : ''}</span>
+    <span class="tech-type">${esc(t.type)}${isCustom(t) ? ' · added by you' : ''}</span>
+    ${masteryButton(t)}
     ${(t.photos || []).length ? `<div class="photos">${t.photos.slice(0, 4).map(id => `<button data-act="view-photo" data-id="${id}" aria-label="Open photo"><img data-photo="${id}" alt="${esc(t.name)}"></button>`).join('')}</div>` : ''}
     ${used ? `<div class="tech-stats"><span>Drilled <b>${st.drilled}</b></span><span>Rolls <b>${st.n}</b></span><span>Success <b>${pct(st.rate)}</b></span>${st.reps ? `<span>Reps <b>${st.reps.toLocaleString()}</b></span>` : ''}</div>` : ''}
     ${st.n ? `<div class="meter good"><span style="width:${Math.max(4, (st.rate || 0) * 100)}%"></span></div>` : ''}
@@ -66,6 +67,12 @@ function card(t) {
   </article>`
 }
 
+// Tapping steps your own rating up a level. Levels your logs already prove can't be undone by hand.
+export function masteryButton(t) {
+  const { level } = masteryOf(t)
+  return `<button class="mastery" data-act="mastery" data-id="${esc(t.id)}" aria-label="Mastery: ${MASTERY[level]}. Tap to raise">${masteryPips(level)}<span>${MASTERY[level]}</span></button>`
+}
+
 function techForm(id) {
   const t = id ? techById(id) : { name: '', position: UI.libGroup || 'Half guard', type: 'Pass', notes: '', link: '', starred: true }
   if (!t) return
@@ -75,7 +82,8 @@ function techForm(id) {
     ${custom ? `<div class="grid2">${field('Position', selectEl('position', LIBRARY_GROUPS, t.position))}${field('Type', selectEl('type', TECH_TYPES, t.type))}</div>` : `<p class="hint">${esc(t.position)} · ${esc(t.type)}</p>`}
     ${field('Key details', `<textarea name="notes" id="t-notes" rows="4" placeholder="The two or three details that make it work for you">${esc(t.notes)}</textarea>`)}
     ${field('Video or reference link', `<input type="url" name="link" id="t-link" value="${esc(t.link)}" placeholder="https://youtube.com/…" inputmode="url">`)}
-    <label class="chip"><input type="checkbox" name="starred" ${t.starred ? 'checked' : ''}><span>★ In my moves</span></label>
+    <div class="chips"><label class="chip"><input type="checkbox" name="starred" ${t.starred ? 'checked' : ''}><span>★ In my moves</span></label>
+      <label class="chip"><input type="checkbox" name="deck" ${t.type !== 'Movement' && (t.deck ?? masteryOf(t).level >= 1) ? 'checked' : ''}><span>In my review deck</span></label></div>
     <p class="form-error" id="form-error"></p>`, {
     submitLabel: id ? 'Save' : 'Add move',
     deleteLabel: custom ? 'Delete move' : 'Clear my notes',
@@ -85,7 +93,7 @@ function techForm(id) {
       if (!name) { $('#form-error').textContent = 'Give the move a name.'; return false }
       const link = fd.get('link').trim()
       if (link && !/^https?:\/\//i.test(link)) { $('#form-error').textContent = 'Links start with https://'; return false }
-      const rec = { ...(own || {}), id: id || newId('tech'), kind: 'tech', notes: fd.get('notes').trim(), link, starred: fd.has('starred') }
+      const rec = { ...(own || {}), id: id || newId('tech'), kind: 'tech', notes: fd.get('notes').trim(), link, starred: fd.has('starred'), deck: fd.has('deck') }
       if (custom) Object.assign(rec, { name, position: fd.get('position'), type: fd.get('type') })
       save(rec)
       toast(id ? 'Move saved' : 'Move added to your library')
@@ -99,6 +107,13 @@ export const actions = {
   'star': el => {
     const t = techById(el.dataset.id), own = S.tech.find(x => x.id === t.id)
     save({ ...(own || { id: t.id, kind: 'tech' }), starred: !t.starred })
+  },
+  'mastery': el => {
+    const t = techById(el.dataset.id), own = S.tech.find(x => x.id === t.id) || { id: t.id, kind: 'tech' }
+    const next = masteryOf(t).level >= 4 ? 0 : masteryOf(t).level + 1
+    const rec = { ...own, mastery: next, starred: own.starred ?? true }
+    delete rec.learned
+    save(rec)
   },
   'lib-scope': el => { UI.libScope = el.dataset.scope },
   'lib-group': el => { UI.libGroup = el.dataset.group },

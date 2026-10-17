@@ -2,13 +2,13 @@
 // The whole journal is loaded into memory at launch; every change writes through.
 
 const DB_NAME = 'bjj-journey'
-const KINDS = ['session', 'roll', 'tech', 'seq', 'goal', 'link', 'activity']
+const KINDS = ['session', 'roll', 'tech', 'seq', 'goal', 'link', 'activity', 'study']
 
 export const S = emptyState()
 
 export function emptyState() {
   return {
-    session: [], roll: [], tech: [], seq: [], goal: [], link: [], activity: [],
+    session: [], roll: [], tech: [], seq: [], goal: [], link: [], activity: [], study: [],
     settings: { id: 'settings_main', kind: 'settings', weeklyTarget: 3 },
     profile: emptyProfile(),
   }
@@ -20,7 +20,16 @@ export function emptyProfile() {
 
 const listeners = []
 export const onChange = fn => listeners.push(fn)
-const changed = () => listeners.forEach(fn => fn())
+const changed = () => { version++; listeners.forEach(fn => fn()) }
+
+// Derived data (move lookups, usage counts, achievements) is computed once per change to the
+// journal and reused until the next save. One rule, no invalidation to think about.
+let version = 0, cacheVersion = -1, cache = new Map()
+export function cached(key, compute) {
+  if (cacheVersion !== version) { cache = new Map(); cacheVersion = version }
+  if (!cache.has(key)) cache.set(key, compute())
+  return cache.get(key)
+}
 
 let db
 const request = r => new Promise((resolve, reject) => { r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error) })
@@ -58,6 +67,7 @@ function unapply(rec) {
 }
 
 function replaceAll(records) {
+  version++
   Object.assign(S, emptyState())
   records.forEach(apply)
 }

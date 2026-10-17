@@ -1,40 +1,76 @@
-import { S } from './store.js'
+import { S, cached } from './store.js'
 import { CATALOG, CATALOG_BY_ID } from './catalog.js'
+import { BELTS } from './vocab.js'
 import { byDateAsc, byDateDesc, plural } from './util.js'
 
 // Techniques: the built-in catalog, with your own notes layered on top, plus moves you added.
 // A record you save with a catalog id ("c:...") overrides that move's notes, link and star.
-export function techById(id) {
-  if (!id) return null
-  const own = S.tech.find(t => t.id === id)
-  return own ? { ...CATALOG_BY_ID[id], ...own } : CATALOG_BY_ID[id] || null
-}
-
-export function allTechs() {
+// These lists are cached until the next save, so lookups are a single table read.
+// Treat what they return as read-only.
+export const allTechs = () => cached('allTechs', () => {
   const overrides = Object.fromEntries(S.tech.map(t => [t.id, t]))
   const builtIn = CATALOG.map(t => overrides[t.id] ? { ...t, ...overrides[t.id] } : t)
-  const added = S.tech.filter(t => !CATALOG_BY_ID[t.id])
-  return [...builtIn, ...added]
-}
+  return [...builtIn, ...S.tech.filter(t => !CATALOG_BY_ID[t.id])]
+})
+
+const techIndex = () => cached('techIndex', () => Object.fromEntries(allTechs().map(t => [t.id, t])))
+export const techById = id => id ? techIndex()[id] || null : null
 
 export const isCustom = t => !CATALOG_BY_ID[t.id]
 
-export function techUsage() {
+export const techUsage = () => cached('techUsage', () => {
   const uses = {}
   const bump = (id, n = 1) => { if (id) uses[id] = (uses[id] || 0) + n }
   S.session.forEach(s => { (s.drilled || []).forEach(id => bump(id)); (s.reps || []).forEach(r => bump(r.techId)) })
   S.roll.forEach(r => bump(rollTechId(r)))
   S.seq.forEach(s => s.nodes.forEach(n => bump(n.techId)))
+  S.study.forEach(v => (v.notes || []).forEach(n => bump(n.techId)))
   return uses
-}
+})
 
 // "My moves": starred, added by you, or used anywhere in your journal. Most used first.
-export function myTechs() {
+export const myTechs = () => cached('myTechs', () => {
   const uses = techUsage()
   return allTechs()
     .filter(t => t.starred || isCustom(t) || uses[t.id])
     .sort((a, b) => (uses[b.id] || 0) - (uses[a.id] || 0) || a.name.localeCompare(b.name))
+})
+
+// ---------- Mastery: seen it → drilled it → hit it in sparring → hit it on a higher belt ----------
+
+export const MASTERY = ['Not started', 'Seen it', 'Drilled it', 'Hit it in sparring', 'Hit it on a higher belt']
+
+// What your logs prove for each move. You can always set a move higher by hand, never lower.
+const masteryEvidence = () => cached('masteryEvidence', () => {
+  const level = {}
+  const raise = (id, n) => { if (id && (level[id] || 0) < n) level[id] = n }
+  S.seq.forEach(s => s.nodes.forEach(n => raise(n.techId, 1)))
+  S.study.forEach(v => (v.notes || []).forEach(n => raise(n.techId, 1)))
+  S.session.forEach(s => { (s.drilled || []).forEach(id => raise(id, 2)); (s.reps || []).forEach(r => raise(r.techId, 2)) })
+  const myRank = BELTS.indexOf(currentRank().belt)
+  const since = {}
+  S.roll.filter(r => r.result === 'worked').sort(byDateAsc).forEach(r => {
+    const id = rollTechId(r), higher = BELTS.indexOf(r.level) > myRank && r.level !== 'Unknown'
+    raise(id, higher ? 4 : 3)
+    if (id) since[id] ||= r.date
+  })
+  S.profile.tournaments.forEach(t => (t.matches || []).filter(m => m.result === 'Win' && m.method === 'Submission').forEach(m => {
+    raise(m.techId, 3)
+    if (m.techId && (!since[m.techId] || t.date < since[m.techId])) since[m.techId] = t.date
+  }))
+  return { level, since }
+})
+
+// The first day a live roll proved a move worked, if one has.
+export const firstLiveSuccess = id => masteryEvidence().since[id] || ''
+
+export function masteryOf(t) {
+  const auto = Math.max(masteryEvidence().level[t.id] || 0, t.starred ? 1 : 0)
+  const manual = t.mastery ?? (t.learned ? 3 : 0)
+  return { level: Math.max(auto, manual), auto, manual }
 }
+
+export const masteryPips = level => `<span class="pips" aria-hidden="true">${[1, 2, 3, 4].map(i => `<i class="${i <= level ? 'on' : ''}"></i>`).join('')}</span>`
 
 // Sequences
 export const seqById = id => S.seq.find(s => s.id === id)

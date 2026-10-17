@@ -2,7 +2,8 @@ import { S, save, remove } from '../store.js'
 import { UI } from '../ui.js'
 import { $, $$, esc, newId, slug, toast } from '../util.js'
 import { field, openSheet } from '../sheet.js'
-import { techById } from '../model.js'
+import { masteryOf, techById } from '../model.js'
+import { masteryButton } from './library.js'
 import { GAME_MAPS } from '../maps.js'
 import { CHECKLISTS, GLOSSARY, POINTS, RESOURCE_GROUPS } from '../resources.js'
 import { videoSearch } from '../catalog.js'
@@ -51,7 +52,7 @@ export function view() {
       <div class="stack">${GAME_MAPS.map(mapCard).join('')}</div>
     </section>
     <section class="ach-section"><h2>Belt checklists</h2>
-      <p class="small muted" style="margin-bottom:10px;max-width:70ch">The moves most coaches expect you to know before the next belt. Tick a move once you can hit it in live rolling. It’s marked as learned in your library too.</p>
+      <p class="small muted" style="margin-bottom:10px;max-width:70ch">The moves most coaches expect you to know before the next belt. Each climbs four levels: seen it, drilled it, hit it in sparring, hit it on a higher belt. Your logs fill these in; tap a level to raise it yourself.</p>
       <div class="stack">${CHECKLISTS.map(checklist).join('')}</div>
     </section>
     <section class="ach-section"><h2>Know the language</h2><div class="stack">
@@ -71,14 +72,14 @@ export function view() {
 
 function checklist(list) {
   const moves = list.moves.map(name => techById('c:' + slug(name))).filter(Boolean)
-  const learned = moves.filter(t => t.learned).length
+  const learned = moves.filter(t => masteryOf(t).level >= 3).length
   return `<details class="map-card" ${fold('list:' + list.id)}>
-    <summary><span class="map-title">${esc(list.title)}</span><span class="small muted">${learned} of ${moves.length} learned</span></summary>
+    <summary><span class="map-title">${esc(list.title)}</span><span class="small muted">${learned} of ${moves.length} hit in sparring</span></summary>
     <div class="meter good" style="margin:10px 0"><span style="width:${Math.max(2, learned / moves.length * 100)}%"></span></div>
     <p class="small" style="margin-bottom:8px">${esc(list.note)}</p>
     <ul class="checklist">${moves.map(t => `<li>
-      <button class="check ${t.learned ? 'on' : ''}" data-act="learn" data-id="${esc(t.id)}" aria-pressed="${!!t.learned}" aria-label="${t.learned ? 'Unmark' : 'Mark'} ${esc(t.name)} as learned">${t.learned ? '✓' : ''}</button>
       <span class="check-name">${esc(t.name)} <span class="small muted">${esc(t.position)}</span></span>
+      ${masteryButton(t)}
       <a class="mini" href="${esc(t.link || videoSearch(t.name))}" target="_blank" rel="noopener noreferrer">Video</a>
     </li>`).join('')}</ul>
   </details>`
@@ -110,10 +111,6 @@ function linkForm(id) {
 }
 
 export const actions = {
-  'learn': el => {
-    const t = techById(el.dataset.id), own = S.tech.find(x => x.id === t.id)
-    save({ ...(own || { id: t.id, kind: 'tech' }), learned: !t.learned, starred: own?.starred ?? true })
-  },
   'new-link': () => linkForm(),
   'edit-link': el => linkForm(el.dataset.id),
   'add-map': el => {

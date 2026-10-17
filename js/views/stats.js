@@ -143,32 +143,6 @@ function promotionForm(id) {
   })
 }
 
-function tournamentForm(id) {
-  const t = id ? S.profile.tournaments.find(x => x.id === id) : { date: today(), name: '', division: '', place: 'No medal', wins: 0, losses: 0, subs: 0, notes: '' }
-  if (!t) return
-  openSheet(id ? 'Edit tournament' : 'Add a tournament', `
-    <div class="grid2">${field('Date', `<input type="date" name="date" id="tc-date" value="${esc(t.date)}" required>`)}${field('Event', `<input type="text" name="name" id="tc-name" value="${esc(t.name)}" placeholder="Fall Open" required>`)}</div>
-    ${field('Division', `<input type="text" name="division" id="tc-div" value="${esc(t.division)}" placeholder="Adult ${esc(currentRank().belt)} Gi, middleweight">`)}
-    <fieldset><legend>Result</legend><div class="chips">${PLACES.map(k => `<label class="chip"><input type="radio" name="place" value="${k}" ${t.place === k ? 'checked' : ''}><span>${k}</span></label>`).join('')}</div></fieldset>
-    <div class="grid3">
-      ${field('Matches won', `<input type="number" name="wins" id="tc-w" min="0" max="20" inputmode="numeric" value="${esc(t.wins)}">`)}
-      ${field('Matches lost', `<input type="number" name="losses" id="tc-l" min="0" max="20" inputmode="numeric" value="${esc(t.losses)}">`)}
-      ${field('Wins by submission', `<input type="number" name="subs" id="tc-s" min="0" max="20" inputmode="numeric" value="${esc(t.subs)}">`)}
-    </div>
-    ${field('What you learned', `<textarea name="notes" id="tc-notes" rows="3" placeholder="How each match was won or lost, nerves, what to drill before the next one">${esc(t.notes)}</textarea>`)}
-    <p class="form-error" id="form-error"></p>`, {
-    submitLabel: id ? 'Save changes' : 'Add tournament',
-    onDelete: id ? () => saveProfile({ tournaments: S.profile.tournaments.filter(x => x.id !== id) }) : null,
-    onSubmit: fd => {
-      const name = fd.get('name').trim()
-      if (!name || !fd.get('date')) { $('#form-error').textContent = 'Add the event name and date.'; return false }
-      const rec = { ...t, id: id || newId('comp'), date: fd.get('date'), name, division: fd.get('division').trim(), place: fd.get('place') || 'No medal', wins: +fd.get('wins') || 0, losses: +fd.get('losses') || 0, subs: +fd.get('subs') || 0, notes: fd.get('notes').trim() }
-      saveProfile({ tournaments: id ? S.profile.tournaments.map(x => x.id === id ? rec : x) : [...S.profile.tournaments, rec] })
-      toast(id ? 'Tournament saved' : 'Tournament added')
-    },
-  })
-}
-
 // ---------- Time of day and other training ----------
 
 function timeOfDayPanel() {
@@ -230,7 +204,7 @@ function dataPanel() {
     <p class="small muted" style="margin-top:10px;max-width:70ch">Your journal lives only on this device and works without internet. Nobody else can see it. Back it up now and then: on iPhone, choose “Save to Files” so it lands in iCloud Drive. ${last ? `Last backup: ${fmtDate(last)}.` : '<strong>No backup yet.</strong>'}</p>
     <div class="data-actions">
       <button class="btn sm" data-act="export">Back up now</button>
-      <label class="btn ghost sm file-btn">Restore from a backup<input type="file" id="import-file" accept="application/json,.json"></label>
+      <label class="btn ghost sm file-btn">Restore from a backup<input type="file" id="import-file" accept="application/json,.json,.zip,application/zip"></label>
       <label class="btn ghost sm file-btn">Import from another app<input type="file" id="other-app-file" multiple accept=".csv,.tsv,.txt,.json,text/csv,application/json"></label>
       ${hasExamples ? '<button class="btn ghost sm" data-act="remove-examples">Remove example entries</button>' : '<button class="btn ghost sm" data-act="load-examples">Load example entries</button>'}
       <button class="btn danger sm" data-act="clear-all">Delete everything</button>
@@ -242,8 +216,6 @@ export const actions = {
   'edit-profile': () => profileForm(),
   'new-promo': () => promotionForm(),
   'edit-promo': el => promotionForm(el.dataset.id),
-  'new-comp': () => tournamentForm(),
-  'edit-comp': el => tournamentForm(el.dataset.id),
   'export': async () => { try { if (await exportBackup()) toast('Backup ready') } catch { toast('Couldn’t make the backup. Try again.') } },
   'load-examples': async () => { await saveMany(exampleRecords()); toast('Example entries added. Remove them here when you’re ready.') },
   // Returning false keeps the button on screen so the second tap can confirm.

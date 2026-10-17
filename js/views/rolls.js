@@ -39,7 +39,7 @@ export function rollCard(r) {
     <div class="entry-top"><h3>${posRole(r.position, r.role)}</h3><span class="result ${esc(r.result)}">${esc(RESULTS[r.result]?.label || '')}</span></div>
     <p class="entry-meta">${[fmtDateLong(r.date), ...partnerBits].join(', ')}</p>
     ${seq ? `<p class="path">${esc(seq.name)}: ${nodePath(seq, r.nodeId).map(esc).join(' › ')}</p>` : tech ? `<p class="path">${esc(tech.name)}</p>` : ''}
-    ${(r.reasons || []).length ? `<div class="tags">${r.reasons.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>` : ''}
+    ${(r.reasons || []).length ? `<div class="tags">${r.reasons.map(x => `<button class="tag fix-tag" data-act="fix" data-reason="${esc(x)}" aria-label="How to fix: ${esc(x)}">${esc(x)} <span aria-hidden="true">›</span></button>`).join('')}</div>` : ''}
     ${r.what ? `<p style="margin-top:8px">${esc(r.what)}</p>` : ''}
     ${r.tryNext ? `<div class="trynext"><strong>Try next:</strong> ${esc(r.tryNext)} <span class="status ${status}">${statusLabel}</span>
       <div class="row-actions">

@@ -1,8 +1,8 @@
-import { S } from './store.js'
+import { S, cached } from './store.js'
 import { SOLO_DRILLS } from './catalog.js'
 import { RANKS } from './vocab.js'
 import { byDateAsc, isoDate, monthRange, parseD, plural, sum, today, weekStart } from './util.js'
-import { allTechs, rollTechId, techById } from './model.js'
+import { allTechs, firstLiveSuccess, masteryOf, rollTechId, techById } from './model.js'
 
 // An achievement family is a list of dated events and a ladder of targets.
 // Each rung unlocks on the day the running total first reaches it.
@@ -41,7 +41,10 @@ function streakFamily() {
   }))
 }
 
-export function computeAchievements() {
+// Cached until the next save: the Achievements tab, Overview and unlock toasts all share one pass.
+export const computeAchievements = () => cached('achievements', buildAchievements)
+
+function buildAchievements() {
   const out = []
   const sessions = S.session, rolls = S.roll, P = S.profile
 
@@ -89,7 +92,7 @@ export function computeAchievements() {
     n => n === 1 ? 'First medal' : `${n} medals`, n => `Reach the podium ${n === 1 ? 'once' : n + ' times'}`))
   out.push(...family('Competition and rank', 'golds', count(P.tournaments.filter(t => t.place === 'Gold')), [1, 3, 10],
     n => n === 1 ? 'Gold medal' : `${n} golds`, n => `Win your division ${n === 1 ? 'once' : n + ' times'}`))
-  out.push(...family('Competition and rank', 'wins', P.tournaments.map(t => ({ date: t.date, amount: +t.wins || 0 })), [1, 10, 25, 50],
+  out.push(...family('Competition and rank', 'wins', P.tournaments.map(t => ({ date: t.date, amount: (t.matches || []).length ? t.matches.filter(m => m.result === 'Win').length : +t.wins || 0 })), [1, 10, 25, 50],
     n => n === 1 ? 'First match win' : `${n} match wins`, n => `Win ${plural(n, 'competition match', 'competition matches')}`))
   RANKS.slice(1).forEach(belt => {
     const first = [...P.promotions].sort(byDateAsc).find(p => RANKS.indexOf(p.belt) >= RANKS.indexOf(belt))
@@ -115,8 +118,14 @@ export function computeAchievements() {
     n => `${big(n)} miles covered`, n => `Run, ride or swim ${big(n)} miles (${big(Math.round(n * 1.609))} km)`))
 
   // Study
-  out.push(...family('Study', 'learned', count(S.tech.filter(t => t.learned), createdDate), [5, 15, 30, 60],
-    n => `${n} moves learned`, n => `Mark ${n} moves as learned in the belt checklists`))
+  out.push(...family('Study', 'video-hours', S.study.map(v => ({ date: v.date, amount: (+v.minutes || 0) / 60 })), [1, 5, 10, 25, 50],
+    n => `${n} hours of video study`, n => `Log ${plural(n, 'hour')} of instructionals or match study`))
+  out.push(...family('Study', 'reviews', (S.settings.reviewLog || []).map(date => ({ date, amount: 1 })), [10, 50, 250, 1000, 5000],
+    n => `${big(n)} cards reviewed`, n => `Review ${big(n)} cards in your deck`))
+  out.push(...family('Study', 'learned', count(allTechs().filter(t => masteryOf(t).level >= 3), t => firstLiveSuccess(t.id) || (t.updatedAt ? isoDate(new Date(t.updatedAt)) : today())), [5, 15, 30, 60, 100],
+    n => `${n} moves hit in sparring`, n => `Reach “hit it in sparring” on ${n} moves`))
+  out.push(...family('Study', 'higher-belt', count(allTechs().filter(t => masteryOf(t).level >= 4), t => firstLiveSuccess(t.id) || (t.updatedAt ? isoDate(new Date(t.updatedAt)) : today())), [1, 5, 15, 30],
+    n => n === 1 ? 'First move hit on a higher belt' : `${n} moves hit on higher belts`, n => `Land ${plural(n, 'move')} on a higher-ranked partner`))
   const quizzes = S.settings.quizLog || []
   out.push(...family('Study', 'quizzes', count(quizzes), [1, 10, 25, 50, 100],
     n => n === 1 ? 'First quiz' : `${n} quizzes`, n => `Finish ${plural(n, 'quiz', 'quizzes')}`))

@@ -1,3 +1,4 @@
+import { cached } from './store.js'
 import { LIBRARY_GROUPS } from './vocab.js'
 import { $, $$, esc, toast } from './util.js'
 import { allTechs, myTechs } from './model.js'
@@ -25,14 +26,18 @@ export function radioChips(name, options, value) {
 }
 
 // A select of every move, your moves first, the rest grouped by position.
-export function techSelect(name, value, { empty = 'None', extra = '' } = {}) {
+// The ~350 options are built once per change to the journal and reused by every select.
+const techOptions = () => cached('techOptions', () => {
+  const option = t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`
   const mine = myTechs(), all = allTechs()
-  const option = t => `<option value="${esc(t.id)}" ${t.id === value ? 'selected' : ''}>${esc(t.name)}</option>`
   const groups = LIBRARY_GROUPS.map(g => [g, all.filter(t => t.position === g)]).filter(([, list]) => list.length)
-  return `<select name="${name}" ${extra}><option value="">${esc(empty)}</option>
-    ${mine.length ? `<optgroup label="My moves">${mine.map(option).join('')}</optgroup>` : ''}
-    ${groups.map(([g, list]) => `<optgroup label="${esc(g)}">${list.sort((a, b) => a.name.localeCompare(b.name)).map(option).join('')}</optgroup>`).join('')}
-  </select>`
+  return (mine.length ? `<optgroup label="My moves">${mine.map(option).join('')}</optgroup>` : '')
+    + groups.map(([g, list]) => `<optgroup label="${esc(g)}">${list.sort((a, b) => a.name.localeCompare(b.name)).map(option).join('')}</optgroup>`).join('')
+})
+
+export function techSelect(name, value, { empty = 'None', extra = '' } = {}) {
+  const options = value ? techOptions().replace(`value="${esc(value)}"`, `value="${esc(value)}" selected`) : techOptions()
+  return `<select name="${name}" ${extra}><option value="">${esc(empty)}</option>${options}</select>`
 }
 
 // Chips for your usual moves, plus a search box that can add any move from the library.
@@ -48,7 +53,7 @@ export function techPicker(name, selected = []) {
 const techChip = (name, t, checked) =>
   `<label class="chip"><input type="checkbox" name="${name}" value="${esc(t.id)}" ${checked ? 'checked' : ''}><span>${esc(t.name)}</span></label>`
 
-const techDatalist = () => `<datalist id="dl-techs">${allTechs().map(t => `<option value="${esc(t.name)}"></option>`).join('')}</datalist>`
+const techDatalist = () => cached('techDatalist', () => `<datalist id="dl-techs">${allTechs().map(t => `<option value="${esc(t.name)}"></option>`).join('')}</datalist>`)
 
 function wireTechPickers(form) {
   $$('[data-tech-add]', form).forEach(input => input.addEventListener('change', () => {

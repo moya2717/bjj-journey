@@ -1,9 +1,10 @@
 import { S } from '../store.js'
 import { POSITIONS, RESULTS } from '../vocab.js'
-import { byDateDesc, daysAgo, esc, fmtDate, hrs, plural, pct, posRole, rate, span, sum, toast, today, topKeys, trunc } from '../util.js'
+import { byDateAsc, byDateDesc, daysAgo, parseD, esc, fmtDate, hrs, plural, pct, posRole, rate, span, sum, toast, today, topKeys, trunc } from '../util.js'
 import { allTechs, currentRank, nodePath, rankName, rollTechId, seqById, techById } from '../model.js'
 import { badSpots, hardestMatchup, monthlySeries, problemTrends, techStats, unpromoted, weakestStep } from '../analysis.js'
 import { lineChart } from '../charts.js'
+import { dueCards } from '../srs.js'
 import { computeAchievements, goalStatus, progressOf } from '../achievements.js'
 
 export function view() {
@@ -14,6 +15,7 @@ export function view() {
       <div class="head-actions"><button class="btn" data-act="new-session">Log training</button><button class="btn ghost" data-act="load-examples">Load example entries</button></div>
     </div>`
   return `
+    ${nudges()}
     <div class="overview-bar"><p class="muted">From your last 60 days of training</p>
       <div class="head-actions"><button class="btn" data-act="new-session">Log training</button><button class="btn ghost" data-act="new-roll">Log a roll</button></div></div>
     <div class="questions">
@@ -24,6 +26,17 @@ export function view() {
     <section class="review" aria-labelledby="rv-h"><div class="review-head">
       <div><h2 id="rv-h">Coaching review with Claude</h2><p class="lede">Packs your last 60 days of notes with a coaching prompt. Paste it into the Claude app for patterns, blind spots and questions to test on the mat.</p></div>
       <div class="head-actions"><button class="btn" data-act="review">Copy for Claude</button></div></div></section>`
+}
+
+function nudges() {
+  const due = dueCards().length
+  const next = [...S.profile.tournaments].sort(byDateAsc).find(t => t.date >= today())
+  const days = next && Math.round((parseD(next.date) - parseD(today())) / 864e5)
+  const items = [
+    due && `<button class="nudge" data-act="tab" data-view="study"><strong>${due}</strong> ${due === 1 ? 'card' : 'cards'} to review today</button>`,
+    next && days <= 90 && `<button class="nudge" data-act="tab" data-view="compete"><strong>${days === 0 ? 'Today' : days + (days === 1 ? ' day' : ' days')}</strong> until ${esc(next.name)}</button>`,
+  ].filter(Boolean)
+  return items.length ? `<div class="nudges">${items.join('')}</div>` : ''
 }
 
 const arrow = (now, before, lowerIsBetter) => {

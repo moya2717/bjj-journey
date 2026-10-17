@@ -48,13 +48,24 @@ Importing the same file again fills in mat time and rolls that an earlier import
 
 **Journal → Log other activity** records running, strength training, yoga, mobility, recovery and other sports, with time, duration, distance and intensity. They appear on the calendar as hollow dots and in Stats, and count toward Cross-training achievements, but never toward mat hours.
 
+## Study
+
+- **Review deck:** every move you’ve seen, starred, drilled or put in a sequence becomes a flash card. Recall it, flip it to check against your own notes, and grade yourself. Cards you know come back less often; cards you forget come back tomorrow. Up to 10 new cards a day.
+- **Mastery levels:** each move climbs from *seen it* → *drilled it* → *hit it in sparring* → *hit it on a higher belt*. Your logs fill these in (drilling, reps, rolls that worked, submission wins in competition); tap the level on any move to raise it yourself.
+- **Video study:** log instructionals and match study with timestamped notes. YouTube timestamps link to that moment, and notes tied to a move are copied into its Library notes.
+- **Mistakes and fixes:** every roll cause (grips, base, frames…) has the usual errors behind it, cues to fix it and a drill. Tap a cause on any roll note to open it.
+
+## Compete
+
+Add your next tournament to get a countdown, a prep checklist, an A-game plan (one sequence each for standing, top and bottom, suggested from your best sequences), and the rules for your belt. After the event, log each match: result, how it ended, points and what happened. Your record comes from the matches.
+
 ## Quiz
 
 **Sequences → Quiz me** asks multiple-choice questions built from your sequences, the game maps and the move library: “Your partner sprawls. What’s your best answer?” Questions you miss come back more often, and quizzes count toward Study achievements.
 
 ## Backups
 
-Because everything lives on your phone, a lost or wiped phone means a lost journal. Back up once in a while:
+Because everything lives on your phone, a lost or wiped phone means a lost journal. Back up once in a while. A backup is a `.zip` with your journal and every photo as a normal image file:
 
 - **Stats → Back up now**, then choose **Save to Files** and put it in iCloud Drive.
 - To restore on a new phone, install the app, then use **Stats → Restore from a backup**.
@@ -94,7 +105,9 @@ js/catalog.js         the built-in library of about 350 moves
 js/maps.js            ready-made game maps (decision trees) shown in Resources
 js/resources.js       curated learning links shown in Resources
 js/importer.js        reads CSV/JSON exports from other training apps
-js/zip.js             reads .zip files, for importing whole folders of photos
+js/zip.js             reads and writes .zip files (imports and backups)
+js/srs.js             review deck scheduling (spaced repetition)
+js/fixes.js           mistake and fix cards for each roll cause
 js/views/*.js         one file per tab; each exports view(), an optional mount(), and its actions
 ```
 
