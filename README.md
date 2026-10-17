@@ -1,0 +1,81 @@
+# LosMoya BJJ Journey
+
+A private jiu-jitsu training journal that installs on your iPhone like an app, works offline, and needs no account.
+
+Your entries, photos and achievements are stored **only on your phone**. Nobody else can see them, including whoever hosts the app. Each friend who installs it gets their own empty journal.
+
+## Put it on your iPhone
+
+The app has to live at a web address once, so your phone can download it. After that it runs from your phone, even in airplane mode.
+
+### 1. Host it for free on GitHub Pages (one time, about 10 minutes)
+
+1. Create a free account at [github.com](https://github.com).
+2. Click **New repository**. Name it `bjj-journey`, choose **Public**, and click **Create repository**.
+3. On the new repository page, click **uploading an existing file**.
+4. Drag in everything in this folder **except** the `archive` folder: `index.html`, `manifest.webmanifest`, `sw.js`, `README.md`, and the `css`, `js` and `icons` folders. Click **Commit changes**.
+5. Open **Settings → Pages**. Under **Branch**, pick `main` and `/ (root)`, then **Save**.
+6. After a minute your app is live at `https://YOUR-USERNAME.github.io/bjj-journey/`.
+
+Public here only means people can download the app's code. Your journal never leaves your phone.
+
+### 2. Install it
+
+1. On your iPhone, open that address in **Safari**.
+2. Tap the **Share** button, then **Add to Home Screen**, then **Add**.
+3. Open **BJJ Journey** from your Home Screen. It opens full screen like any app.
+
+Always open it from the Home Screen icon. On iPhone, the Home Screen app keeps its own storage, separate from Safari tabs.
+
+### 3. Share with friends
+
+Send them the same address and these install steps. Everyone's journal is separate and private to their own phone.
+
+## Moving your entries over from the claude.ai version
+
+1. Open the old journal on claude.ai, go to **Stats → Export as JSON**, and save the file.
+2. In the new app, go to **Stats → Restore from a backup** and choose that file.
+
+## Backups
+
+Because everything lives on your phone, a lost or wiped phone means a lost journal. Back up once in a while:
+
+- **Stats → Back up now**, then choose **Save to Files** and put it in iCloud Drive.
+- To restore on a new phone, install the app, then use **Stats → Restore from a backup**.
+
+Backups include your photos.
+
+## Coaching review with Claude
+
+On the Overview page, **Copy for Claude** packs your last 60 days of notes with a coaching prompt. Paste it into the Claude app to get patterns, blind spots and questions to test. Nothing is sent anywhere unless you paste it yourself.
+
+## Updating the app
+
+Change the files, then raise the version at the top of `sw.js` (for example `bjj-journey-v1` → `bjj-journey-v2`) and upload the changed files to GitHub. Phones pick up the new version the next time the app opens with a connection, and the change shows on the launch after that. Your journal data is never touched by an update.
+
+## Running it on your computer
+
+```bash
+python -m http.server 8000
+```
+
+Then open http://localhost:8000.
+
+## How the code is organized
+
+Plain HTML, CSS and JavaScript modules: no framework, no build step, no dependencies. Edit a file, reload, done.
+
+```
+index.html            the page shell
+css/app.css           all styles; colors are tokens at the top, with light and dark themes
+sw.js                 offline caching
+js/app.js             boot, tabs, and the one click handler: buttons name an action with data-act
+js/store.js           IndexedDB storage; the whole journal is loaded into memory at launch
+js/model.js           lookups: moves, sequences, partners, rank
+js/analysis.js        the numbers behind Overview, Matchups and Stats
+js/achievements.js    milestone ladders and your own challenges
+js/catalog.js         the built-in library of about 180 moves
+js/views/*.js         one file per tab; each exports view(), an optional mount(), and its actions
+```
+
+To add a feature, find the tab it belongs to in `js/views/`, add its markup to `view()` and its buttons to `actions`.
