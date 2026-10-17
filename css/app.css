@@ -429,3 +429,16 @@ td .meter{display:inline-block;width:64px;vertical-align:middle;margin:0 8px 0 0
   .cal-dots i{width:5px;height:5px}
   .rep-row{grid-template-columns:minmax(0,1fr) 80px auto}
 }
+
+/* ---------- Resources ---------- */
+.map-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.map-card summary{cursor:pointer;display:flex;flex-direction:column;gap:2px;list-style:none}
+.map-card summary::-webkit-details-marker{display:none}
+.map-title::before{content:"▸ ";color:var(--muted)}
+.map-card[open] .map-title::before{content:"▾ "}
+.map-title{font-weight:750;font-stretch:108%;font-size:1.05rem}
+.map-card .node{min-width:0}
+.res-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr))}
+.res-item{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.res-name{font-weight:700;color:var(--mat);text-decoration:none}
+.res-name:hover{text-decoration:underline}

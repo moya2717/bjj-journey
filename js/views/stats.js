@@ -7,6 +7,7 @@ import { monthlySeries, problemTrends, weeklyStreak } from '../analysis.js'
 import { beltArt, heatmap, lineChart, spark } from '../charts.js'
 import { exportBackup, importBackup } from '../backup.js'
 import { exampleRecords } from '../examples.js'
+import { readOtherApp } from '../importer.js'
 
 export function view() {
   const month = ym(new Date()), thisMonth = S.session.filter(s => s.date.startsWith(month))
@@ -54,6 +55,44 @@ export function mount() {
       const n = await importBackup(file)
       toast(n.records ? `Restored ${plural(n.records, 'entry', 'entries')}${n.photos ? ` and ${plural(n.photos, 'photo')}` : ''}` : 'That file has no journal entries.')
     } catch { toast('That file isn’t a journal backup.') }
+  })
+  $('#other-app-file')?.addEventListener('change', async e => {
+    const file = e.target.files[0]
+    e.target.value = ''
+    if (file) previewImport(file)
+  })
+}
+
+// ---------- Importing from other apps ----------
+
+const FIELD_LABELS = { date: 'Date', minutes: 'Mat time', type: 'Class type', rounds: 'Rounds', notes: 'Notes', techniques: 'Techniques', title: 'Title' }
+
+async function previewImport(file) {
+  let result
+  try { result = await readOtherApp(file) } catch { toast('Couldn’t read that file. Export it as CSV or JSON and try again.'); return }
+  const { sessions, skipped, columns, headers } = result
+  const fresh = sessions.filter(s => !S.session.some(x => x.id === s.id))
+  const dates = sessions.map(s => s.date).sort()
+  if (!sessions.length) {
+    openSheet('Nothing to import yet', `
+      <p>I couldn’t find training dates in <strong>${esc(file.name)}</strong>.</p>
+      ${headers.length ? `<p class="hint">Columns found: ${esc(headers.join(', '))}</p>` : '<p class="hint">The file looks empty, or it isn’t CSV or JSON.</p>'}
+      <p class="hint">If the app exports a spreadsheet (.xlsx) or PDF, export or save it as CSV instead. If it still doesn’t work, the importer can be adjusted for this file’s layout.</p>`)
+    return
+  }
+  openSheet('Import training history', `
+    <p>Found <strong>${plural(sessions.length, 'session')}</strong> in ${esc(file.name)}, from ${fmtDate(dates[0])} ${dates[0].slice(0, 4)} to ${fmtDate(dates.at(-1))} ${dates.at(-1).slice(0, 4)}.
+      ${fresh.length < sessions.length ? `${sessions.length - fresh.length} are already in your journal and will be skipped.` : ''}
+      ${skipped.length ? `${plural(skipped.length, 'row')} had no date and will be left out.` : ''}</p>
+    <dl class="refl">${Object.entries(columns).map(([k, h]) => `<dt>${FIELD_LABELS[k]}</dt><dd>from “${esc(h)}”</dd>`).join('')}</dl>
+    <p class="hint">Other columns are kept in each session’s notes. Imported sessions show up on the calendar, and you can edit them like any other entry.</p>
+    <div class="stack">${sessions.slice(0, 3).map(s => `<div class="roll-mini"><span><strong>${fmtDate(s.date)}</strong> · ${esc(s.type)}${s.minutes ? ` · ${s.minutes} min` : ''}${s.notes ? ` · <span class="muted">${esc(trunc(s.notes.replace(/\n/g, ' · '), 80))}</span>` : ''}</span></div>`).join('')}</div>`, {
+    submitLabel: fresh.length ? `Import ${plural(fresh.length, 'session')}` : 'Nothing new to import',
+    onSubmit: async () => {
+      if (!fresh.length) return
+      await saveMany(fresh)
+      toast(`Imported ${plural(fresh.length, 'session')}`)
+    },
   })
 }
 
@@ -189,6 +228,7 @@ function dataPanel() {
     <div class="data-actions">
       <button class="btn sm" data-act="export">Back up now</button>
       <label class="btn ghost sm file-btn">Restore from a backup<input type="file" id="import-file" accept="application/json,.json"></label>
+      <label class="btn ghost sm file-btn">Import from another app<input type="file" id="other-app-file" accept=".csv,.tsv,.txt,.json,text/csv,application/json"></label>
       ${hasExamples ? '<button class="btn ghost sm" data-act="remove-examples">Remove example entries</button>' : '<button class="btn ghost sm" data-act="load-examples">Load example entries</button>'}
       <button class="btn danger sm" data-act="clear-all">Delete everything</button>
     </div>

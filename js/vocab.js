@@ -1,6 +1,6 @@
 // The words of the sport. Everything the forms offer as a choice lives here.
 
-export const POSITIONS = ['Standing', 'Closed guard', 'Half guard', 'Butterfly guard', 'De La Riva', 'Spider / lasso', 'Open guard', 'Leg entanglement', 'Side control', 'Mount', 'Back', 'Knee on belly', 'North-south', 'Turtle']
+export const POSITIONS = ['Standing', 'Front headlock', 'Closed guard', 'Half guard', 'Butterfly guard', 'De La Riva', 'Reverse De La Riva', 'X-guard', 'Spider / lasso', 'Lapel guards', 'Open guard', 'Leg entanglement', 'Side control', 'Mount', 'Back', 'Knee on belly', 'North-south', 'Turtle']
 export const LIBRARY_GROUPS = [...POSITIONS, 'Solo drills']
 export const ROLES = ['Top', 'Bottom', 'Neutral']
 export const SESSION_TYPES = ['Gi', 'No-gi', 'Open mat', 'Private', 'Competition', 'Drilling only']

@@ -4,7 +4,7 @@ import { today } from './util.js'
 // A backup is one JSON file: every record, plus photos as data URLs.
 // It also reads exports from the earlier claude.ai version of the journal.
 
-const KINDS = ['session', 'roll', 'tech', 'seq', 'goal', 'settings', 'profile']
+const KINDS = ['session', 'roll', 'tech', 'seq', 'goal', 'link', 'settings', 'profile']
 
 const toDataURL = blob => new Promise(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(blob) })
 const fromDataURL = url => fetch(url).then(r => r.blob())

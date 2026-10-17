@@ -12,6 +12,7 @@ import * as rolls from './views/rolls.js'
 import * as matchups from './views/matchups.js'
 import * as sequences from './views/sequences.js'
 import * as library from './views/library.js'
+import * as resources from './views/resources.js'
 import * as achievements from './views/achievements.js'
 import * as stats from './views/stats.js'
 
@@ -22,6 +23,7 @@ const VIEWS = {
   matchups: ['Matchups', matchups],
   sequences: ['Sequences', sequences],
   library: ['Library', library],
+  resources: ['Resources', resources],
   achievements: ['Achievements', achievements],
   stats: ['Stats', stats],
 }

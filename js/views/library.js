@@ -4,6 +4,7 @@ import { LIBRARY_GROUPS, TECH_TYPES } from '../vocab.js'
 import { $, esc, newId, pct, toast, trunc } from '../util.js'
 import { field, selectEl, openSheet } from '../sheet.js'
 import { allTechs, isCustom, myTechs, techById } from '../model.js'
+import { videoSearch } from '../catalog.js'
 import { techStats } from '../analysis.js'
 
 export function view() {
@@ -53,7 +54,9 @@ function card(t) {
     ${st.n ? `<div class="meter good"><span style="width:${Math.max(4, (st.rate || 0) * 100)}%"></span></div>` : ''}
     ${t.notes ? `<p class="small">${esc(trunc(t.notes, 160))}</p>` : ''}
     <div class="row-actions">
-      ${/^https?:\/\//i.test(t.link || '') ? `<a class="btn sm ghost" href="${esc(t.link)}" target="_blank" rel="noopener noreferrer">Watch / read</a>` : ''}
+      ${/^https?:\/\//i.test(t.link || '')
+        ? `<a class="btn sm ghost" href="${esc(t.link)}" target="_blank" rel="noopener noreferrer">My link</a>`
+        : `<a class="btn sm ghost" href="${esc(videoSearch(t.name))}" target="_blank" rel="noopener noreferrer">Find videos</a>`}
       <button class="btn sm ghost" data-act="edit-tech" data-id="${esc(t.id)}">${t.notes || t.link ? 'Edit' : 'Add notes or link'}</button>
     </div>
   </article>`

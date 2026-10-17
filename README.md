@@ -36,6 +36,10 @@ Send them the same address and these install steps. Everyone's journal is separa
 1. Open the old journal on claude.ai, go to **Stats → Export as JSON**, and save the file.
 2. In the new app, go to **Stats → Restore from a backup** and choose that file.
 
+## Importing from other apps (myBJJ, spreadsheets)
+
+**Stats → Import from another app** reads CSV or JSON exports. It finds the date, duration, class type, notes and technique columns on its own, shows a preview, and keeps any other columns in each session’s notes. Importing the same file twice doesn’t create duplicates. If an app only exports a spreadsheet (.xlsx), save it as CSV first.
+
 ## Backups
 
 Because everything lives on your phone, a lost or wiped phone means a lost journal. Back up once in a while:
@@ -74,7 +78,10 @@ js/store.js           IndexedDB storage; the whole journal is loaded into memory
 js/model.js           lookups: moves, sequences, partners, rank
 js/analysis.js        the numbers behind Overview, Matchups and Stats
 js/achievements.js    milestone ladders and your own challenges
-js/catalog.js         the built-in library of about 180 moves
+js/catalog.js         the built-in library of about 350 moves
+js/maps.js            ready-made game maps (decision trees) shown in Resources
+js/resources.js       curated learning links shown in Resources
+js/importer.js        reads CSV/JSON exports from other training apps
 js/views/*.js         one file per tab; each exports view(), an optional mount(), and its actions
 ```
 

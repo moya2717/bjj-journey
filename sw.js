@@ -1,6 +1,6 @@
 // Offline support: the app's own files are cached on install, so it opens with no signal.
 // Bump VERSION whenever you change a file, so phones pick up the new version.
-const VERSION = 'bjj-journey-v1'
+const VERSION = 'bjj-journey-v2'
 
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
@@ -8,7 +8,8 @@ const FILES = [
   'js/app.js', 'js/store.js', 'js/ui.js', 'js/util.js', 'js/vocab.js', 'js/catalog.js', 'js/model.js',
   'js/analysis.js', 'js/achievements.js', 'js/charts.js', 'js/sheet.js', 'js/photos.js', 'js/backup.js', 'js/examples.js',
   'js/views/overview.js', 'js/views/journal.js', 'js/views/rolls.js', 'js/views/matchups.js',
-  'js/views/sequences.js', 'js/views/library.js', 'js/views/achievements.js', 'js/views/stats.js',
+  'js/views/sequences.js', 'js/views/library.js', 'js/views/resources.js', 'js/views/achievements.js', 'js/views/stats.js',
+  'js/maps.js', 'js/resources.js', 'js/importer.js',
 ]
 
 self.addEventListener('install', event => {
