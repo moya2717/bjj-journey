@@ -8,7 +8,7 @@
 
 import { isoDate, slug } from './util.js'
 import { allTechs } from './model.js'
-import { LIBRARY_GROUPS, TECH_TYPES } from './vocab.js'
+import { LIBRARY_GROUPS, RANKS, TECH_TYPES } from './vocab.js'
 import { isZip, readZip } from './zip.js'
 
 const FIELDS = {
@@ -281,14 +281,86 @@ function readTechniques(tables) {
   })).filter(Boolean)
 }
 
+// ---------- Profile and rank history ----------
+
+const PROFILE_FIELDS = {
+  name: /^(full name|name|display name|athlete name|user name|username)$/,
+  firstName: /^first name$/,
+  lastName: /^(last name|surname)$/,
+  nickname: /^nick ?name$/,
+  gym: /\b(academy|gym|club|school|dojo|home gym)\b/,
+  team: /\b(team|affiliation|association)\b/,
+  coach: /\b(coach|instructor|professor|teacher|head coach)\b/,
+  startDate: /\b(start date|started|training since|began|first class|start training|jiu jitsu since|bjj since)\b/,
+  belt: /^(belt|rank|belt color|belt colour|current belt|current rank|grade)$/,
+  stripes: /\b(stripes?|degrees?)\b/,
+  beltDate: /\b(belt|rank|promotion|promoted|graduation)\b.*\b(date|since|on)\b|^last promotion$/,
+  birthday: /\b(birthday|birth date|date of birth|dob|born)\b/,
+  weight: /^(body weight|weight|current weight)$/,
+  height: /^height$/,
+  weightClass: /\b(weight class|division)\b/,
+  goal: /\b(goal|goals|bio|about|about me)\b/,
+}
+
+const beltOf = text => RANKS.find(r => norm(text).split(' ').includes(r.toLowerCase())) || ''
+
+// Reads one object's profile fields; returns how many it recognised, so the best match wins.
+function profileFrom(obj) {
+  const flat = flatten(obj), out = {}
+  for (const [key, value] of Object.entries(flat)) {
+    const k = norm(key.split(' ').slice(-2).join(' ')), v = String(value ?? '').trim()
+    if (!v || v.length > 300) continue
+    for (const [field, re] of Object.entries(PROFILE_FIELDS)) if (!out[field] && re.test(k)) { out[field] = v; break }
+  }
+  if (!out.name && (out.firstName || out.lastName)) out.name = [out.firstName, out.lastName].filter(Boolean).join(' ')
+  const p = {
+    name: out.name || out.nickname || '', gym: out.gym || '', team: out.team || '', coach: out.coach || '',
+    startDate: parseDate(out.startDate), birthday: parseDate(out.birthday), weight: out.weight || '', height: out.height || '',
+    weightClass: out.weightClass || '', goal: out.goal || '',
+    belt: beltOf(out.belt || ''), stripes: Math.min(4, parseInt(out.stripes, 10) || 0), beltDate: parseDate(out.beltDate),
+  }
+  const score = Object.values(p).filter(v => v !== '' && v !== 0).length
+  return { profile: p, score }
+}
+
+function promotionsFrom(tables) {
+  return tables.filter(t => /promot|belt|rank|graduat|stripe/i.test(t.name)).flatMap(t => t.rows.map(row => {
+    const headers = Object.keys(row)
+    const date = parseDate(row[pickColumns(headers).date] ?? row[headers.find(h => /date|on|when/.test(norm(h)))])
+    const belt = beltOf(row[headers.find(h => /belt|rank|color|colour/.test(norm(h)))] ?? '')
+    const stripes = Math.min(4, parseInt(row[headers.find(h => /stripe|degree/.test(norm(h)))], 10) || 0)
+    const note = String(row[headers.find(h => /note|comment|by|coach|professor/.test(norm(h)))] ?? '').trim()
+    return date && belt ? { date, belt, stripes, note } : null
+  })).filter(Boolean)
+}
+
+// The profile is the object (or one-row table) that looks most like a person.
+function findProfile(roots, tables) {
+  const candidates = []
+  const visit = (v, key, depth) => {
+    if (!v || typeof v !== 'object' || depth > 4) return
+    if (Array.isArray(v)) return
+    candidates.push({ obj: v, bonus: /profile|user|athlete|me|account|person/i.test(key) ? 2 : 0 })
+    Object.entries(v).forEach(([k, x]) => visit(x, k, depth + 1))
+  }
+  roots.forEach(r => visit(r, '', 0))
+  tables.filter(t => /profile|user|athlete|account/i.test(t.name) && t.rows.length).forEach(t => candidates.push({ obj: t.rows[0], bonus: 2 }))
+  const best = candidates.map(c => ({ ...profileFrom(c.obj), bonus: c.bonus })).sort((a, b) => (b.score + b.bonus) - (a.score + a.bonus))[0]
+  const promotions = promotionsFrom(tables)
+  if ((!best || best.score < 2) && !promotions.length) return null
+  return { ...(best && best.score >= 2 ? best.profile : {}), promotions }
+}
+
 // ---------- Public ----------
 
 export async function readOtherApp(files) {
   const { dataFiles, media, skipped: otherFiles } = await expand([...files])
   const tables = (await Promise.all(dataFiles.map(readTables))).flat().filter(t => t.rows.length)
+  const roots = (await Promise.all(dataFiles.map(async f => { try { return JSON.parse(await f.text()) } catch { return null } }))).filter(Boolean)
+  const profile = findProfile(roots, tables)
   const techniques = readTechniques(tables)
-  const sessionTables = tables.filter(t => !/techni|move/i.test(t.name))
-  const empty = { sessions: [], skipped: [], columns: {}, headers: [], techniques, media, otherFiles }
+  const sessionTables = tables.filter(t => !/techni|move|promot|belt|rank|graduat|profile|user|athlete|account/i.test(t.name))
+  const empty = { sessions: [], skipped: [], columns: {}, headers: [], techniques, media, otherFiles, profile }
   if (!sessionTables.length) return empty
   const main = [...sessionTables].sort((a, b) => sessionScore(b) - sessionScore(a))[0]
   const rows = main.rows

@@ -520,3 +520,8 @@ td .meter{display:inline-block;width:64px;vertical-align:middle;margin:0 8px 0 0
 .nudges{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
 .nudge{border:1px solid var(--mat);background:var(--mat-soft);color:var(--ink);border-radius:999px;padding:8px 14px;font-size:.92rem;cursor:pointer}
 .nudge strong{font-variant-numeric:tabular-nums}
+
+/* ---------- Profile details ---------- */
+.profile-facts{margin:0;font-size:.92rem}
+.profile-goal{font-style:italic;color:var(--muted);max-width:60ch}
+#pf-avatar{display:inline-flex;align-items:center;justify-content:center;cursor:default}

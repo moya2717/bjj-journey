@@ -1,14 +1,14 @@
 import { S, allRecords, eraseEverything, removeMany, save, saveMany } from '../store.js'
 import { ACTIVITY_TYPES, BELT_LOOK, FEELS, PLACES, POSITIONS, RANKS } from '../vocab.js'
 import { $, byDateAsc, dayPart, daysAgo, esc, fmtDate, fmtMonthY, hrs, monthLabel, newId, pct, plural, rate, span, sum, toast, today, trunc, ym } from '../util.js'
-import { field, selectEl, armDelete, openSheet } from '../sheet.js'
-import { currentRank, rankName } from '../model.js'
+import { field, selectEl, armDelete, openSheet, radioChips } from '../sheet.js'
+import { ageDivision, currentRank, rankName } from '../model.js'
 import { monthlySeries, problemTrends, weeklyStreak } from '../analysis.js'
 import { beltArt, heatmap, lineChart, spark } from '../charts.js'
 import { exportBackup, importBackup } from '../backup.js'
 import { exampleRecords } from '../examples.js'
 import { previewImport } from './importing.js'
-import { hydratePhotos } from '../photos.js'
+import { addPhotos, hydratePhotos, photoURL, removePhotos } from '../photos.js'
 
 export function view() {
   const month = ym(new Date()), thisMonth = S.session.filter(s => s.date.startsWith(month))
@@ -82,6 +82,7 @@ function profilePanel() {
       <div class="who-card">
         ${beltArt(rank)}
         <div class="fighter-id">${P.photo ? `<button class="avatar" data-act="view-photo" data-id="${P.photo}" aria-label="Open profile photo"><img data-photo="${P.photo}" alt=""></button>` : ''}<div><p class="fighter-name">${esc(P.name || 'Your name')}</p><p class="muted">${esc(rankName(rank))}${P.gym ? ` · ${esc(P.gym)}` : ''}</p></div></div>
+        ${profileDetails(P)}
         <div class="time-line">
           ${P.startDate ? `<span>Training for <strong>${span(P.startDate)}</strong>, since ${fmtMonthY(P.startDate)}</span>` : ''}
           ${rank.since ? `<span>At this rank for <strong>${span(rank.since)}</strong></span>` : ''}
@@ -113,14 +114,79 @@ function profilePanel() {
 
 const saveProfile = patch => save({ ...S.profile, ...patch, id: 'profile_main', kind: 'profile', example: false })
 
+function profileDetails(P) {
+  const age = ageDivision(P.birthday)
+  const facts = [
+    P.team && ['Team', P.team], P.coach && ['Coach', P.coach],
+    age && ['Age division', `${age.label} (age ${age.age} this year)`],
+    (P.weight || P.weightClass) && ['Weight', [P.weight, P.weightClass].filter(Boolean).join(' · ')],
+    P.height && ['Height', P.height], P.game && ['Plays', P.game],
+  ].filter(Boolean)
+  return `${facts.length ? `<dl class="refl profile-facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
+    ${P.goal ? `<p class="profile-goal">“${esc(P.goal)}”</p>` : ''}`
+}
+
+const GAMES = ['Gi', 'No-gi', 'Both']
+
 function profileForm() {
-  const P = S.profile
+  const P = S.profile, rank = currentRank()
+  let newPhoto = null
   openSheet(P.createdAt ? 'Edit profile' : 'Set up your profile', `
+    <div class="fighter-id"><span class="avatar" id="pf-avatar">${P.photo ? '<img alt="" id="pf-img">' : ''}</span>
+      <label class="btn sm ghost file-btn">${P.photo ? 'Change photo' : 'Add a photo'}<input type="file" id="pf-file" accept="image/*"></label></div>
     ${field('Name', `<input type="text" name="name" id="pf-name" value="${esc(P.name)}" placeholder="What your training partners call you">`)}
-    <div class="grid2">${field('Academy', `<input type="text" name="gym" id="pf-gym" value="${esc(P.gym)}" placeholder="Where you train">`)}${field('Started training', `<input type="date" name="startDate" id="pf-start" value="${esc(P.startDate)}">`)}</div>
-    <p class="hint">Your current belt comes from your latest promotion.</p>`, {
+    <div class="grid2">
+      ${field('Academy', `<input type="text" name="gym" id="pf-gym" value="${esc(P.gym)}" placeholder="Where you train">`)}
+      ${field('Team or affiliation', `<input type="text" name="team" id="pf-team" value="${esc(P.team || '')}" placeholder="Association your gym belongs to">`)}
+    </div>
+    <div class="grid2">
+      ${field('Coach', `<input type="text" name="coach" id="pf-coach" value="${esc(P.coach || '')}" placeholder="Head instructor">`)}
+      ${field('Started training', `<input type="date" name="startDate" id="pf-start" value="${esc(P.startDate)}">`)}
+    </div>
+    <fieldset><legend>Current rank</legend><div class="grid3">
+      ${field('Belt', selectEl('belt', RANKS, rank.belt, 'id="pf-belt"'))}
+      ${field('Stripes', selectEl('stripes', ['0', '1', '2', '3', '4'], String(rank.stripes), 'id="pf-stripes"'))}
+      ${field('Since', `<input type="date" name="since" id="pf-since" value="${esc(rank.since || today())}">`)}
+    </div><p class="hint">Changing your belt or stripes here adds a promotion to your history.</p></fieldset>
+    <div class="grid3">
+      ${field('Birthday', `<input type="date" name="birthday" id="pf-bday" value="${esc(P.birthday || '')}">`)}
+      ${field('Body weight', `<input type="text" name="weight" id="pf-weight" value="${esc(P.weight || '')}" placeholder="170 lb">`)}
+      ${field('Height', `<input type="text" name="height" id="pf-height" value="${esc(P.height || '')}" placeholder="5 ft 10">`)}
+    </div>
+    <div class="grid2">
+      ${field('Weight class', `<input type="text" name="weightClass" id="pf-class" value="${esc(P.weightClass || '')}" placeholder="Medium heavy">`)}
+      <fieldset><legend>You train</legend>${radioChips('game', GAMES, P.game || '')}</fieldset>
+    </div>
+    ${field('Long-term goal', `<textarea name="goal" id="pf-goal" rows="2" placeholder="Earn my purple belt and compete at Pans">${esc(P.goal || '')}</textarea>`)}`, {
     submitLabel: 'Save profile',
-    onSubmit: fd => { saveProfile({ name: fd.get('name').trim(), gym: fd.get('gym').trim(), startDate: fd.get('startDate') }); toast('Profile saved') },
+    onMount: async form => {
+      // A new rank starts today unless you pick another date.
+      const since = form.querySelector('#pf-since')
+      ;['#pf-belt', '#pf-stripes'].forEach(sel => form.querySelector(sel).addEventListener('change', () => {
+        const changed = form.elements.belt.value !== rank.belt || +form.elements.stripes.value !== rank.stripes
+        since.value = changed ? today() : rank.since || today()
+      }))
+      if (P.photo) form.querySelector('#pf-img').src = await photoURL(P.photo)
+      form.querySelector('#pf-file').addEventListener('change', e => {
+        newPhoto = e.target.files[0] || null
+        if (newPhoto) form.querySelector('#pf-avatar').innerHTML = `<img alt="" src="${URL.createObjectURL(newPhoto)}">`
+      })
+    },
+    onSubmit: async fd => {
+      const patch = {}
+      ;['name', 'gym', 'team', 'coach', 'startDate', 'birthday', 'weight', 'height', 'weightClass', 'goal'].forEach(k => patch[k] = (fd.get(k) || '').trim())
+      patch.game = fd.get('game') || ''
+      if (newPhoto) {
+        const [id] = await addPhotos([newPhoto])
+        if (id) { if (P.photo) removePhotos([P.photo]); patch.photo = id }
+      }
+      const belt = fd.get('belt'), stripes = +fd.get('stripes') || 0
+      if (belt !== rank.belt || stripes !== rank.stripes) {
+        patch.promotions = [...S.profile.promotions, { id: newId('promo'), date: fd.get('since') || today(), belt, stripes, note: '' }]
+      }
+      saveProfile(patch)
+      toast('Profile saved')
+    },
   })
 }
 

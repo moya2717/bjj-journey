@@ -3,9 +3,9 @@
 // or overwriting changes you've made since.
 
 import { S, save, saveMany } from '../store.js'
-import { esc, fmtDate, hrs, plural, slug, sum, toast, trunc } from '../util.js'
+import { esc, fmtDate, hrs, newId, plural, slug, sum, toast, today, trunc } from '../util.js'
 import { openSheet } from '../sheet.js'
-import { allTechs, techById } from '../model.js'
+import { allTechs, rankName, techById } from '../model.js'
 import { matchMedia, readOtherApp } from '../importer.js'
 import { addPhotos } from '../photos.js'
 
@@ -42,14 +42,33 @@ function planTechniques(techniques) {
   })
 }
 
+const PROFILE_FIELDS = ['name', 'gym', 'team', 'coach', 'startDate', 'birthday', 'weight', 'height', 'weightClass', 'goal']
+
+// Fills only the profile fields you haven't set, and adds promotions you don't already have.
+function planProfile(found) {
+  if (!found) return null
+  const P = S.profile, patch = {}
+  PROFILE_FIELDS.forEach(k => { if (!P[k] && found[k]) patch[k] = found[k] })
+  const key = p => `${p.date}|${p.belt}|${+p.stripes || 0}`
+  const have = new Set(P.promotions.map(key))
+  const promotions = (found.promotions || []).filter(p => !have.has(key(p))).map(p => ({ ...p, id: newId('promo') }))
+  const known = [...P.promotions, ...promotions]
+  if (found.belt && !known.some(p => p.belt === found.belt && (+p.stripes || 0) >= found.stripes)) {
+    promotions.push({ id: newId('promo'), date: found.beltDate || today(), belt: found.belt, stripes: found.stripes,
+      note: found.beltDate ? 'Imported' : 'Imported as your current rank. Edit the date if you know it.' })
+  }
+  return Object.keys(patch).length || promotions.length ? { patch, promotions, rank: found.belt ? { belt: found.belt, stripes: found.stripes } : null } : null
+}
+
 export async function previewImport(files) {
   let found
   try { found = await readOtherApp(files) }
   catch { toast('Couldn’t read that. Choose the CSV or JSON export, or a .zip of the folder.'); return }
   const { sessions, skipped, columns, headers, techniques, media, otherFiles } = found
+  const profilePlan = planProfile(found.profile)
   const names = files.map(f => f.name).join(', ')
 
-  if (!sessions.length && !techniques.length && !media.length) {
+  if (!sessions.length && !techniques.length && !media.length && !profilePlan) {
     openSheet('Nothing to import yet', `
       <p>I couldn’t find training dates, moves or photos in <strong>${esc(names)}</strong>.</p>
       ${headers.length ? `<p class="hint">Columns found: ${esc(headers.join(', '))}</p>` : '<p class="hint">The file looks empty, or it isn’t CSV, JSON or a .zip.</p>'}
@@ -69,13 +88,14 @@ export async function previewImport(files) {
 
   const dates = sessions.map(s => s.date).sort()
   const total = fresh.length + updates.length
-  const anything = total || techRecords.length || newPhotos || techPhotos || plan.profile
+  const anything = total || techRecords.length || newPhotos || techPhotos || plan.profile || profilePlan
 
   openSheet('Import from another app', `
     ${sessions.length ? `<p>Found <strong>${plural(sessions.length, 'session')}</strong>, ${fmtDate(dates[0])} ${dates[0].slice(0, 4)} to ${fmtDate(dates.at(-1))} ${dates.at(-1).slice(0, 4)}:
       <strong>${hrs(sum(sessions, 'minutes'))} mat hours</strong> and <strong>${plural(sum(sessions, 'rounds'), 'roll')}</strong>.</p>
       <p>${[fresh.length && `${plural(fresh.length, 'new session')} to add`, updates.length && `${plural(updates.length, 'earlier import')} to fill in`, unchanged && `${unchanged} already complete`].filter(Boolean).join(', ')}.
       ${skipped.length ? `${plural(skipped.length, 'row')} had no date and will be left out.` : ''}</p>` : ''}
+    ${profilePlan ? `<p><strong>Profile</strong>: ${[profilePlan.patch.name && esc(profilePlan.patch.name), profilePlan.rank && esc(rankName(profilePlan.rank)), Object.keys(profilePlan.patch).length && `fills ${plural(Object.keys(profilePlan.patch).length, 'empty field')}`, profilePlan.promotions.length && plural(profilePlan.promotions.length, 'promotion') + ' to add'].filter(Boolean).join(', ')}. Anything you’ve already entered is kept.</p>` : ''}
     ${techniques.length ? `<p><strong>${plural(techniques.length, 'move')}</strong>: ${techniques.filter(t => t.match).length} match moves in your library, ${techniques.filter(t => !t.match).length} will be added as your own.</p>` : ''}
     ${media.length ? `<p><strong>${plural(media.length, 'photo')}</strong>: ${[newPhotos && `${newPhotos} for journal entries`, techPhotos && `${techPhotos} for moves`, plan.profile && 'a profile photo', plan.unmatched.length && `${plan.unmatched.length} with no matching entry (left out)`].filter(Boolean).join(', ') || 'all already imported'}.</p>
       ${plan.unmatched.length ? `<details class="more"><summary>Photos left out</summary><div><p class="hint">${esc(plan.unmatched.slice(0, 30).map(m => m.name).join(', '))}${plan.unmatched.length > 30 ? '…' : ''}</p></div></details>` : ''}` : ''}
@@ -88,6 +108,7 @@ export async function previewImport(files) {
     onSubmit: async () => {
       if (!anything) return
       toast('Importing…')
+      if (profilePlan) await save({ ...S.profile, ...profilePlan.patch, promotions: [...S.profile.promotions, ...profilePlan.promotions], id: 'profile_main', kind: 'profile', example: false })
       const records = new Map([...updates, ...fresh, ...techRecords].map(r => [r.id, r]))
       const recordFor = (id, fallback) => records.get(id) || { ...fallback() }
 
@@ -113,7 +134,7 @@ export async function previewImport(files) {
         if (photo) await save({ ...S.profile, photo, mediaNames: [...(S.profile.mediaNames || []), plan.profile.name] })
       }
       await saveMany([...records.values()])
-      toast(['Import finished', total && plural(total, 'session'), techRecords.length && plural(techRecords.length, 'move'), done && plural(done, 'photo')].filter(Boolean).join(' · '))
+      toast(['Import finished', profilePlan && 'profile', total && plural(total, 'session'), techRecords.length && plural(techRecords.length, 'move'), done && plural(done, 'photo')].filter(Boolean).join(' · '))
     },
   })
 }

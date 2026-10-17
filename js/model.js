@@ -124,4 +124,13 @@ export function currentRank() {
   return last ? { belt: last.belt, stripes: +last.stripes || 0, since: last.date } : { belt: 'White', stripes: 0, since: '' }
 }
 
+// IBJJF age divisions go by the age you turn this calendar year.
+export function ageDivision(birthday) {
+  if (!birthday) return null
+  const age = new Date().getFullYear() - +birthday.slice(0, 4)
+  const masters = [[61, 7], [56, 6], [51, 5], [46, 4], [41, 3], [36, 2], [30, 1]].find(([min]) => age >= min)
+  const label = masters ? `Master ${masters[1]}` : age >= 18 ? 'Adult' : age >= 16 ? 'Juvenile' : 'Kids or teens'
+  return { age, label }
+}
+
 export const rankName = r => r.belt + ' belt' + (+r.stripes ? ', ' + plural(+r.stripes, 'stripe') : '')

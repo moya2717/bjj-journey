@@ -4,7 +4,7 @@ import { UI } from '../ui.js'
 import { PLACES } from '../vocab.js'
 import { $, $$, byDateAsc, daysAgo, esc, fmtDate, fmtDateLong, newId, parseD, pct, plural, posRole, rate, today } from '../util.js'
 import { field, openSheet, radioChips, techSelect } from '../sheet.js'
-import { currentRank, seqById, techById } from '../model.js'
+import { ageDivision, currentRank, seqById, techById } from '../model.js'
 import { badSpots, hardestMatchup } from '../analysis.js'
 import { POINTS } from '../resources.js'
 
@@ -103,7 +103,7 @@ function planSlot(t, slot, label, role) {
 function rulesPanel() {
   const belt = currentRank().belt
   return `<section class="panel"><h2>Rules for your division</h2>
-    <p>As an adult ${belt.toLowerCase()} belt, IBJJF matches usually last <strong>${MATCH_MINUTES[belt]} minutes</strong>.</p>
+    <p>As an adult ${belt.toLowerCase()} belt, IBJJF matches usually last <strong>${MATCH_MINUTES[belt]} minutes</strong>.${ageDivision(S.profile.birthday) ? ` Your age division is <strong>${ageDivision(S.profile.birthday).label}</strong>; masters matches are often shorter.` : ' Add your birthday to your profile to see your age division.'}</p>
     <div class="table-scroll" style="margin-top:10px"><table><thead><tr><th scope="col">Position</th><th scope="col">Points</th></tr></thead>
       <tbody>${POINTS.table.map(([what, pts]) => `<tr><td>${esc(what)}</td><td>${pts}</td></tr>`).join('')}</tbody></table></div>
     <ul class="small fix-list" style="margin-top:10px">${POINTS.notes.map(n => `<li>${esc(n)}</li>`).join('')}
@@ -143,7 +143,7 @@ function tournamentForm(id) {
   const hasMatches = (t.matches || []).length
   openSheet(id ? 'Edit tournament' : 'Add a tournament', `
     <div class="grid2">${field('Date', `<input type="date" name="date" id="tc-date" value="${esc(t.date)}" required>`)}${field('Event', `<input type="text" name="name" id="tc-name" value="${esc(t.name)}" placeholder="Fall Open" required>`)}</div>
-    ${field('Division', `<input type="text" name="division" id="tc-div" value="${esc(t.division)}" placeholder="Adult ${esc(currentRank().belt)} Gi, middleweight">`)}
+    ${field('Division', `<input type="text" name="division" id="tc-div" value="${esc(t.division)}" placeholder="${esc(ageDivision(S.profile.birthday)?.label || 'Adult')} ${esc(currentRank().belt)} Gi, ${esc(S.profile.weightClass || 'middleweight')}">`)}
     <p class="hint">Results are for after the event. For an upcoming event, leave them and use the prep checklist.</p>
     <fieldset><legend>Result</legend>${radioChips('place', PLACES, t.place)}</fieldset>
     ${hasMatches ? `<p class="hint">Your record comes from the ${plural(hasMatches, 'match', 'matches')} you’ve logged.</p>` : `<div class="grid3">

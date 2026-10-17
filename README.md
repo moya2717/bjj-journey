@@ -42,6 +42,8 @@ Send them the same address and these install steps. Everyone's journal is separa
 
 **Photos (myBJJ’s Media folder):** in the Files app, press and hold the **Media** folder and choose **Compress**. Then choose the resulting `.zip` together with the data export. Photos from **Journal** are matched to sessions by file name or date, **Techniques** photos to moves, and the **Profile** photo becomes your profile picture. The preview lists any photo it couldn’t place. Videos are skipped.
 
+**Profile:** your name, academy, coach, start date, birthday, weight, current belt and promotion history are read from the export too. Only empty profile fields are filled, and promotions you already have aren’t added twice.
+
 Importing the same file again fills in mat time and rolls that an earlier import missed, without duplicating sessions or overwriting your edits. If an app only exports a spreadsheet (.xlsx), save it as CSV first.
 
 ## Other training
