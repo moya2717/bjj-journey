@@ -105,6 +105,13 @@ export function computeAchievements() {
   out.push(...family('Journal habits', 'photos', count(sessions.filter(s => (s.photos || []).length)), [1, 10, 50],
     n => n === 1 ? 'First photo' : `${n} days in photos`, n => `Add photos to ${plural(n, 'session')}`))
 
+  // Study
+  const quizzes = S.settings.quizLog || []
+  out.push(...family('Study', 'quizzes', count(quizzes), [1, 10, 25, 50, 100],
+    n => n === 1 ? 'First quiz' : `${n} quizzes`, n => `Finish ${plural(n, 'quiz', 'quizzes')}`))
+  out.push(...family('Study', 'perfect', count(quizzes.filter(q => q.total >= 5 && q.score === q.total)), [1, 5, 10, 25],
+    n => n === 1 ? 'Perfect quiz' : `${n} perfect quizzes`, n => `Score 100% on ${plural(n, 'quiz', 'quizzes')} of 5+ questions`))
+
   return out
 }
 

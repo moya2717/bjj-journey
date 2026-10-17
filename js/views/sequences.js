@@ -5,10 +5,12 @@ import { $, esc, newId, pct, plural, posRole, rate, trunc } from '../util.js'
 import { field, selectEl, techSelect, openSheet } from '../sheet.js'
 import { seqById, techById } from '../model.js'
 import { stepStats } from '../analysis.js'
+import { mountQuiz, quizActions, quizView } from './quiz.js'
 
 export function view() {
   const head = `<div class="page-head"><div><h1>Sequences</h1><p class="lede">Decision trees for your game: your move, how they react, and your answer to each reaction. Steps that keep breaking in rolls are marked.</p></div>
-    <div class="head-actions"><button class="btn" data-act="new-seq">New sequence</button></div></div>`
+    <div class="head-actions"><button class="btn ghost" data-act="quiz-open">Quiz me</button><button class="btn" data-act="new-seq">New sequence</button></div></div>`
+  if (UI.quiz) return head + quizView()
   if (!S.seq.length) return head + `<div class="empty-state"><h2>Map your first sequence</h2><p>Start with the move you go to most from one position. Then add the two or three ways partners usually react, and what you do against each.</p><button class="btn" data-act="new-seq">New sequence</button></div>`
   if (!seqById(UI.seqSel)) UI.seqSel = S.seq[0].id
   const seq = seqById(UI.seqSel), stats = stepStats(), rolls = S.roll.filter(r => r.seqId === seq.id)
@@ -110,11 +112,16 @@ function nodeForm(seqId, nodeId, parentId, who) {
   })
 }
 
+export function mount(root) {
+  if (UI.quiz) mountQuiz(root)
+}
+
 export const actions = {
+  ...quizActions,
   'new-seq': () => seqForm(),
   'edit-seq': el => seqForm(el.dataset.id),
   'pick-seq': el => { UI.seqSel = el.dataset.id },
-  'open-seq': el => { UI.seqSel = el.dataset.id; UI.view = 'sequences'; scrollTo(0, 0) },
+  'open-seq': el => { UI.seqSel = el.dataset.id; UI.view = 'sequences'; UI.quiz = null; scrollTo(0, 0) },
   'add-node': el => nodeForm(el.dataset.seq, null, el.dataset.parent || null, el.dataset.who),
   'edit-node': el => nodeForm(el.dataset.seq, el.dataset.id),
 }

@@ -57,41 +57,65 @@ export function mount() {
     } catch { toast('That file isn’t a journal backup.') }
   })
   $('#other-app-file')?.addEventListener('change', async e => {
-    const file = e.target.files[0]
+    const files = [...e.target.files]
     e.target.value = ''
-    if (file) previewImport(file)
+    if (files.length) previewImport(files)
   })
 }
 
 // ---------- Importing from other apps ----------
 
-const FIELD_LABELS = { date: 'Date', minutes: 'Mat time', type: 'Class type', rounds: 'Rounds', notes: 'Notes', techniques: 'Techniques', title: 'Title' }
+const FIELD_LABELS = { date: 'Date', hours: 'Hours', minutes: 'Minutes', seconds: 'Seconds', duration: 'Mat time', start: 'Start time', end: 'End time', type: 'Class type', rounds: 'Rolls', notes: 'Notes', techniques: 'Techniques', title: 'Title' }
 
-async function previewImport(file) {
+// Re-importing fills in what an earlier import missed (mat time, rolls) without duplicating
+// sessions or overwriting anything you've changed since.
+function planImport(sessions) {
+  const claimed = new Set(), fresh = [], updates = []
+  sessions.forEach(s => {
+    const match = S.session.find(x => x.id === s.id && !claimed.has(x.id))
+      || S.session.find(x => x.imported && x.date === s.date && !claimed.has(x.id))
+    if (!match) { fresh.push(s); return }
+    claimed.add(match.id)
+    const fill = {}
+    if (!match.minutes && s.minutes) fill.minutes = s.minutes
+    if (!match.rounds && s.rounds) fill.rounds = s.rounds
+    if (s.notes.includes('Rolls:\n') && !(match.notes || '').includes('Rolls:\n')) fill.notes = [match.notes, s.notes.slice(s.notes.indexOf('Rolls:\n'))].filter(Boolean).join('\n')
+    if (Object.keys(fill).length) updates.push({ ...match, ...fill })
+  })
+  return { fresh, updates, unchanged: sessions.length - fresh.length - updates.length }
+}
+
+async function previewImport(files) {
   let result
-  try { result = await readOtherApp(file) } catch { toast('Couldn’t read that file. Export it as CSV or JSON and try again.'); return }
+  try { result = await readOtherApp(files) } catch { toast('Couldn’t read that file. Export it as CSV or JSON and try again.'); return }
   const { sessions, skipped, columns, headers } = result
-  const fresh = sessions.filter(s => !S.session.some(x => x.id === s.id))
-  const dates = sessions.map(s => s.date).sort()
+  const names = files.map(f => f.name).join(', ')
   if (!sessions.length) {
     openSheet('Nothing to import yet', `
-      <p>I couldn’t find training dates in <strong>${esc(file.name)}</strong>.</p>
+      <p>I couldn’t find training dates in <strong>${esc(names)}</strong>.</p>
       ${headers.length ? `<p class="hint">Columns found: ${esc(headers.join(', '))}</p>` : '<p class="hint">The file looks empty, or it isn’t CSV or JSON.</p>'}
-      <p class="hint">If the app exports a spreadsheet (.xlsx) or PDF, export or save it as CSV instead. If it still doesn’t work, the importer can be adjusted for this file’s layout.</p>`)
+      <p class="hint">If the app exports a spreadsheet (.xlsx) or PDF, save it as CSV instead.</p>`)
     return
   }
+  const { fresh, updates, unchanged } = planImport(sessions)
+  const dates = sessions.map(s => s.date).sort()
+  const minutes = sum(sessions, 'minutes'), rounds = sum(sessions, 'rounds')
+  const total = fresh.length + updates.length
   openSheet('Import training history', `
-    <p>Found <strong>${plural(sessions.length, 'session')}</strong> in ${esc(file.name)}, from ${fmtDate(dates[0])} ${dates[0].slice(0, 4)} to ${fmtDate(dates.at(-1))} ${dates.at(-1).slice(0, 4)}.
-      ${fresh.length < sessions.length ? `${sessions.length - fresh.length} are already in your journal and will be skipped.` : ''}
+    <p>Found <strong>${plural(sessions.length, 'session')}</strong> in ${esc(names)}, from ${fmtDate(dates[0])} ${dates[0].slice(0, 4)} to ${fmtDate(dates.at(-1))} ${dates.at(-1).slice(0, 4)}:
+      <strong>${hrs(minutes)} mat hours</strong> and <strong>${plural(rounds, 'roll')}</strong>.</p>
+    <p>${[fresh.length && `${plural(fresh.length, 'new session')} to add`, updates.length && `${plural(updates.length, 'earlier import')} to fill in with mat time or rolls`, unchanged && `${unchanged} already complete`].filter(Boolean).join(', ')}.
       ${skipped.length ? `${plural(skipped.length, 'row')} had no date and will be left out.` : ''}</p>
-    <dl class="refl">${Object.entries(columns).map(([k, h]) => `<dt>${FIELD_LABELS[k]}</dt><dd>from “${esc(h)}”</dd>`).join('')}</dl>
-    <p class="hint">Other columns are kept in each session’s notes. Imported sessions show up on the calendar, and you can edit them like any other entry.</p>
-    <div class="stack">${sessions.slice(0, 3).map(s => `<div class="roll-mini"><span><strong>${fmtDate(s.date)}</strong> · ${esc(s.type)}${s.minutes ? ` · ${s.minutes} min` : ''}${s.notes ? ` · <span class="muted">${esc(trunc(s.notes.replace(/\n/g, ' · '), 80))}</span>` : ''}</span></div>`).join('')}</div>`, {
-    submitLabel: fresh.length ? `Import ${plural(fresh.length, 'session')}` : 'Nothing new to import',
+    ${!minutes ? '<p class="form-error">No mat time found in this file. Check the column list below.</p>' : ''}
+    ${!rounds ? '<p class="hint">No rolls found. If your app exports rolls as a separate file, choose both files together.</p>' : ''}
+    <dl class="refl">${Object.entries(columns).map(([k, h]) => `<dt>${FIELD_LABELS[k] || k}</dt><dd>from “${esc(h)}”</dd>`).join('')}</dl>
+    <details class="more"><summary>All columns in the file</summary><div><p class="hint">${esc(headers.join(', '))}</p></div></details>
+    <div class="stack">${sessions.slice(0, 3).map(s => `<div class="roll-mini"><span><strong>${fmtDate(s.date)}</strong> · ${esc(s.type)}${s.minutes ? ` · ${s.minutes} min` : ''}${s.rounds ? ` · ${plural(s.rounds, 'roll')}` : ''}</span></div>`).join('')}</div>`, {
+    submitLabel: total ? (fresh.length ? `Import ${plural(total, 'session')}` : `Update ${plural(total, 'session')}`) : 'Nothing new to import',
     onSubmit: async () => {
-      if (!fresh.length) return
-      await saveMany(fresh)
-      toast(`Imported ${plural(fresh.length, 'session')}`)
+      if (!total) return
+      await saveMany([...fresh, ...updates])
+      toast([fresh.length && `Imported ${plural(fresh.length, 'session')}`, updates.length && `updated ${updates.length}`].filter(Boolean).join(', '))
     },
   })
 }
@@ -228,7 +252,7 @@ function dataPanel() {
     <div class="data-actions">
       <button class="btn sm" data-act="export">Back up now</button>
       <label class="btn ghost sm file-btn">Restore from a backup<input type="file" id="import-file" accept="application/json,.json"></label>
-      <label class="btn ghost sm file-btn">Import from another app<input type="file" id="other-app-file" accept=".csv,.tsv,.txt,.json,text/csv,application/json"></label>
+      <label class="btn ghost sm file-btn">Import from another app<input type="file" id="other-app-file" multiple accept=".csv,.tsv,.txt,.json,text/csv,application/json"></label>
       ${hasExamples ? '<button class="btn ghost sm" data-act="remove-examples">Remove example entries</button>' : '<button class="btn ghost sm" data-act="load-examples">Load example entries</button>'}
       <button class="btn danger sm" data-act="clear-all">Delete everything</button>
     </div>

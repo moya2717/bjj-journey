@@ -38,7 +38,13 @@ Send them the same address and these install steps. Everyone's journal is separa
 
 ## Importing from other apps (myBJJ, spreadsheets)
 
-**Stats → Import from another app** reads CSV or JSON exports. It finds the date, duration, class type, notes and technique columns on its own, shows a preview, and keeps any other columns in each session’s notes. Importing the same file twice doesn’t create duplicates. If an app only exports a spreadsheet (.xlsx), save it as CSV first.
+**Stats → Import from another app** reads CSV or JSON exports. It finds the date, mat time, rolls, class type, notes and technique columns on its own and shows a preview first. Mat time can come from one duration column, separate hours/minutes columns, or start and end times. Rolls can be a count, a list inside each session, or a separate rolls file: choose both files together. Any other columns are kept in each session’s notes.
+
+Importing the same file again fills in mat time and rolls that an earlier import missed, without duplicating sessions or overwriting your edits. If an app only exports a spreadsheet (.xlsx), save it as CSV first.
+
+## Quiz
+
+**Sequences → Quiz me** asks multiple-choice questions built from your sequences, the game maps and the move library: “Your partner sprawls. What’s your best answer?” Questions you miss come back more often, and quizzes count toward Study achievements.
 
 ## Backups
 

@@ -39,6 +39,7 @@ function render() {
   const app = $('#app')
   app.innerHTML = view.view()
   view.mount?.(app)
+  $('.fab').hidden = UI.view === 'sequences' && !!UI.quiz
 }
 
 // The header is your belt: its color follows your rank, and the tape on the bar

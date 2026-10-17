@@ -9,6 +9,7 @@ export const UI = {
   rollPos: '',
   rollRes: '',
   seqSel: null,
+  quiz: null,
   libQ: '',
   libGroup: '',
   libScope: 'mine',
