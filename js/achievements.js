@@ -118,6 +118,11 @@ function buildAchievements() {
     n => `${big(n)} miles covered`, n => `Run, ride or swim ${big(n)} miles (${big(Math.round(n * 1.609))} km)`))
 
   // Study
+  const liveRolls = S.settings.simLog || []
+  out.push(...family('Study', 'sim-wins', count(liveRolls.filter(r => r.result === 'win')), [1, 10, 25, 50],
+    n => n === 1 ? 'First live roll won' : `${n} live rolls won`, n => `Win ${plural(n, 'live roll')} in the Game section`))
+  out.push(...family('Study', 'sim-subs', count(liveRolls.filter(r => r.how?.startsWith('Submission'))), [1, 10, 25],
+    n => n === 1 ? 'First live roll submission' : `${n} live roll submissions`, n => `Finish ${plural(n, 'live roll')} by submission`))
   out.push(...family('Study', 'video-hours', S.study.map(v => ({ date: v.date, amount: (+v.minutes || 0) / 60 })), [1, 5, 10, 25, 50],
     n => `${n} hours of video study`, n => `Log ${plural(n, 'hour')} of instructionals or match study`))
   out.push(...family('Study', 'reviews', (S.settings.reviewLog || []).map(date => ({ date, amount: 1 })), [10, 50, 250, 1000, 5000],

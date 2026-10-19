@@ -2,7 +2,7 @@ import { S, save, saveMany, remove } from '../store.js'
 import { UI } from '../ui.js'
 import { ACTIVITY_TYPES, AREAS, BELTS, FEELS, INTENSITIES, PLAN_HIT, POSITIONS, PROMPTS, REASONS, RESULTS, ROLES, SESSION_TYPES, SIZES, promptFor } from '../vocab.js'
 import { $, $$, byDateDesc, esc, fmtDateLong, fmtTime, hrs, isoDate, monthLabel, newId, parseD, plural, posRole, shiftMonth, sum, toast, today, weekStart, ym } from '../util.js'
-import { field, selectEl, chipsEl, radioChips, techPicker, techSelect, openSheet } from '../sheet.js'
+import { field, selectEl, chipsEl, focusPicker, radioChips, techSelect, openSheet } from '../sheet.js'
 import { partnerProfile, seqById, techById } from '../model.js'
 import { heatLevel } from '../charts.js'
 import { addPhotos, removePhotos, hydratePhotos, photoURL } from '../photos.js'
@@ -189,9 +189,8 @@ function sessionForm(id, date) {
       <div class="ql-rolls" id="s-rolls"></div>
       <div><button type="button" class="btn sm ghost" id="s-add-roll">+ Add a roll</button></div>`)}
     <p class="optional-label">Optional</p>
-    <details class="more" ${id && ((s.focus || []).length || (s.drilled || []).length) ? 'open' : ''}><summary>Moves drilled and class focus</summary><div>
-      <fieldset><legend>Moves you drilled</legend>${techPicker('drilled', s.drilled || [])}</fieldset>
-      <fieldset><legend>Positions you focused on</legend>${chipsEl('focus', POSITIONS, s.focus || [])}</fieldset>
+    <details class="more" ${id && ((s.focus || []).length || (s.drilled || []).length) ? 'open' : ''}><summary>What class covered: positions and moves drilled</summary><div>
+      ${focusPicker(s.focus || [], s.drilled || [])}
     </div></details>
     <details class="more" ${(s.reps || []).length ? 'open' : ''}><summary>Drill reps (shrimps, bridges, stand-ups…)</summary><div>
       <div class="reps" id="s-reps">${(s.reps || []).map((r, i) => repRow(i, r)).join('')}</div>

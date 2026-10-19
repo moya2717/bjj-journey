@@ -1,6 +1,6 @@
 // Offline support: the app's own files are cached on install, so it opens with no signal.
 // Bump VERSION whenever you change a file, so phones pick up the new version.
-const VERSION = 'bjj-journey-v7'
+const VERSION = 'bjj-journey-v9'
 
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
@@ -9,11 +9,15 @@ const FILES = [
   'js/analysis.js', 'js/achievements.js', 'js/charts.js', 'js/sheet.js', 'js/photos.js', 'js/backup.js', 'js/examples.js',
   'js/views/overview.js', 'js/views/journal.js', 'js/views/rolls.js', 'js/views/matchups.js',
   'js/views/sequences.js', 'js/views/library.js', 'js/views/resources.js', 'js/views/achievements.js', 'js/views/stats.js',
-  'js/maps.js', 'js/resources.js', 'js/importer.js', 'js/quiz.js', 'js/views/quiz.js', 'js/zip.js', 'js/views/importing.js', 'js/fixes.js', 'js/srs.js', 'js/views/study.js', 'js/views/compete.js',
+  'js/maps.js', 'js/resources.js', 'js/importer.js', 'js/quiz.js', 'js/views/quiz.js', 'js/zip.js', 'js/views/importing.js', 'js/fixes.js', 'js/srs.js', 'js/views/study.js', 'js/views/compete.js', 'js/sim.js', 'js/views/sim.js',
 ]
 
+// Each version is installed as a whole, straight from the server (skipping the browser's own
+// 10-minute cache), so a phone never runs a mix of old and new files.
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()))
+  event.waitUntil(caches.open(VERSION)
+    .then(cache => cache.addAll(FILES.map(f => new Request(f, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()))
 })
 
 self.addEventListener('activate', event => {
@@ -22,8 +26,8 @@ self.addEventListener('activate', event => {
     .then(() => self.clients.claim()))
 })
 
-// Serve from the cache first, then refresh the cached copy in the background.
-// The Google font is cached the same way the first time it loads.
+// The app's own files come from this version's cache; only a new version changes them.
+// The Google font is cached the first time it loads and refreshed in the background.
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return
   const url = new URL(event.request.url)
@@ -33,6 +37,7 @@ self.addEventListener('fetch', event => {
 
   event.respondWith(caches.open(VERSION).then(async cache => {
     const cached = await cache.match(event.request, { ignoreSearch: ours })
+    if (ours) return cached || fetch(event.request)
     const fresh = fetch(event.request)
       .then(response => { if (response.ok || response.type === 'opaque') cache.put(event.request, response.clone()); return response })
       .catch(() => cached)

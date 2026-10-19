@@ -4,7 +4,7 @@ import { $, byDateAsc, dayPart, daysAgo, esc, fmtDate, fmtMonthY, hrs, monthLabe
 import { field, selectEl, armDelete, openSheet, radioChips } from '../sheet.js'
 import { ageDivision, currentRank, rankName } from '../model.js'
 import { areaCounts, monthlySeries, problemTrends, weeklyStreak } from '../analysis.js'
-import { beltArt, heatmap, lineChart, spark } from '../charts.js'
+import { heatmap, lineChart, spark } from '../charts.js'
 import { exportBackup, importBackup } from '../backup.js'
 import { exampleRecords } from '../examples.js'
 import { previewImport } from './importing.js'
@@ -20,9 +20,10 @@ export function view() {
     .filter(x => x.f || x.r).sort((a, b) => (b.f + b.r) - (a.f + a.r))
   const maxAttention = Math.max(1, ...positions.map(x => x.f + x.r))
 
-  return `<div class="page-head"><div><h1>Profile and stats</h1><p class="lede">Your rank and competition history, mat time, consistency, and where your attention has gone.</p></div></div>
+  return `<h1 class="sr">Profile and stats</h1>
   <div class="stat-grid">
     ${profilePanel()}
+    <h2 class="section-title wide">Training</h2>
     <section class="panel wide"><h2>Consistency</h2>
       <div class="figures">
         <div class="figure"><div class="big">${thisMonth.length}</div><div class="lbl">sessions this month</div></div>
@@ -37,6 +38,7 @@ export function view() {
       ${positions.length ? `<div class="bars">${positions.slice(0, 8).map(x => `<div class="bar-row"><span>${esc(x.p)}</span><div class="meter mat"><span style="width:${(x.f + x.r) / maxAttention * 100}%"></span></div><span class="n">${x.f + x.r}</span></div>`).join('')}</div>
         <p class="small muted" style="margin-top:10px">Counts session focus plus roll notes from each position.</p>` : '<p class="muted">Nothing logged in the last 90 days.</p>'}
     </section>
+    <h2 class="section-title wide">Your game</h2>
     ${areasPanel()}
     ${timeOfDayPanel()}
     ${otherTrainingPanel()}
@@ -45,6 +47,7 @@ export function view() {
       <thead><tr><th scope="col">Month</th><th scope="col">Sessions</th><th scope="col">Mat hours</th><th scope="col">Rolls logged</th><th scope="col">Broke down</th><th scope="col">Success</th></tr></thead>
       <tbody>${series.slice().reverse().map(s => `<tr><td>${monthLabel(s.m)}</td><td>${s.sessions}</td><td>${hrs(s.minutes)}</td><td>${s.n}</td><td>${s.broke}</td><td>${pct(s.rate)}</td></tr>`).join('')}</tbody></table></div>
     </section>
+    <h2 class="section-title wide">Settings</h2>
     ${dataPanel()}
   </div>`
 }
@@ -70,62 +73,84 @@ export function mount(root) {
 
 // ---------- Fighter profile ----------
 
+// The fighter card: your belt as a banner, the numbers that matter, and a tale of the tape.
 function profilePanel() {
-  const P = S.profile, rank = currentRank()
-  const promotions = [...P.promotions].sort(byDateAsc).reverse(), tournaments = [...P.tournaments].sort(byDateAsc).reverse()
-  const sinceRank = S.session.filter(s => !rank.since || s.date >= rank.since)
+  const P = S.profile, rank = currentRank(), look = BELT_LOOK[rank.belt] || BELT_LOOK.White
   const wins = sum(P.tournaments, 'wins'), losses = sum(P.tournaments, 'losses')
   const medals = place => P.tournaments.filter(t => t.place === place).length
-  const medalCount = medals('Gold') + medals('Silver') + medals('Bronze')
-  return `<section class="panel wide" aria-labelledby="fp-h">
-    <div class="history-head"><h2 id="fp-h" style="margin:0">Fighter profile</h2><button class="btn sm ghost" data-act="edit-profile">${P.createdAt ? 'Edit profile' : 'Set up profile'}</button></div>
-    <div class="profile" style="margin-top:12px">
-      <div class="who-card">
-        ${beltArt(rank)}
-        <div class="fighter-id">${P.photo ? `<button class="avatar" data-act="view-photo" data-id="${P.photo}" aria-label="Open profile photo"><img data-photo="${P.photo}" alt=""></button>` : ''}<div><p class="fighter-name">${esc(P.name || 'Your name')}</p><p class="muted">${esc(rankName(rank))}${P.gym ? ` · ${esc(P.gym)}` : ''}</p></div></div>
-        ${profileDetails(P)}
-        <div class="time-line">
-          ${P.startDate ? `<span>Training for <strong>${span(P.startDate)}</strong>, since ${fmtMonthY(P.startDate)}</span>` : ''}
-          ${rank.since ? `<span>At this rank for <strong>${span(rank.since)}</strong></span>` : ''}
-          ${sinceRank.length ? `<span class="muted">${plural(sinceRank.length, 'session')} and ${hrs(sum(sinceRank, 'minutes'))} mat hours logged ${rank.since ? 'since your last promotion' : 'so far'}</span>` : ''}
-        </div>
-        <div class="figures">
-          <div class="figure"><div class="big">${P.tournaments.length}</div><div class="lbl">tournaments</div></div>
-          <div class="figure"><div class="big">${wins}–${losses}</div><div class="lbl">match record</div></div>
-          <div class="figure"><div class="big">${medalCount}</div><div class="lbl">${medalCount ? `medals (${[['Gold', 'gold'], ['Silver', 'silver'], ['Bronze', 'bronze']].filter(([k]) => medals(k)).map(([k, l]) => medals(k) + ' ' + l).join(', ')})` : 'medals'}</div></div>
-        </div>
-      </div>
-      <div class="history">
-        <div><div class="history-head"><h3>Promotions</h3><button class="btn sm ghost" data-act="new-promo">Add promotion</button></div>
-          ${promotions.length ? promotions.map((p, i) => `<div class="hist-row"><span class="when">${fmtMonthY(p.date)}</span>
-            <div class="what"><span class="swatch" style="background:${(BELT_LOOK[p.belt] || BELT_LOOK.White).belt}"></span><strong>${esc(rankName(p))}</strong>${promotions[i + 1] ? ` <span class="small muted">after ${span(promotions[i + 1].date, p.date)}</span>` : ''}${p.note ? `<p class="small muted">${esc(p.note)}</p>` : ''}</div>
-            <button class="mini" data-act="edit-promo" data-id="${p.id}">Edit</button></div>`).join('')
-          : '<p class="muted small">Add each belt and stripe with its date. The header turns your belt color, and time at each rank shows here.</p>'}
-        </div>
-        <div><div class="history-head"><h3>Tournaments</h3><button class="btn sm ghost" data-act="new-comp">Add tournament</button></div>
-          ${tournaments.length ? tournaments.map(t => `<div class="hist-row"><span class="when">${fmtMonthY(t.date)}</span>
-            <div class="what"><strong>${esc(t.name)}</strong>${t.division ? ` <span class="small muted">${esc(t.division)}</span>` : ''}
-              <p class="small">${+t.wins || 0}–${+t.losses || 0}${+t.subs ? `, ${plural(+t.subs, 'win')} by submission` : ''}${t.notes ? ` · <span class="muted">${esc(trunc(t.notes, 140))}</span>` : ''}</p></div>
-            <span class="row-actions" style="margin:0;align-items:center"><span class="medal ${t.place === 'No medal' ? '' : esc((t.place || '').toLowerCase())}">${esc(t.place || 'No medal')}</span><button class="mini" data-act="edit-comp" data-id="${t.id}">Edit</button></span></div>`).join('')
-          : '<p class="muted small">Log each event with your division, your record and the main lesson.</p>'}
+  const sinceRank = S.session.filter(s => !rank.since || s.date >= rank.since)
+  const initials = (P.name || 'You').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  const tiles = [
+    [P.startDate ? span(P.startDate) : '—', 'training'],
+    [S.session.length, plural(S.session.length, 'session').replace(/^\d+ /, '')],
+    [hrs(sum(S.session, 'minutes')), 'mat hours'],
+    [`${wins}–${losses}`, 'match record'],
+  ]
+  return `<section class="fighter-card wide" aria-labelledby="fp-h" style="--fc-belt:${look.belt};--fc-ink:${look.ink};--fc-muted:${look.muted};--fc-bar:${look.bar}">
+    <div class="fc-banner">
+      <div class="fc-bar" aria-hidden="true">${'<i></i>'.repeat(Math.min(4, rank.stripes))}</div>
+      <button class="btn sm fc-edit" data-act="edit-profile">${P.createdAt ? 'Edit' : 'Set up profile'}</button>
+      <div class="fc-id">
+        ${P.photo ? `<button class="fc-avatar" data-act="view-photo" data-id="${P.photo}" aria-label="Open profile photo"><img data-photo="${P.photo}" alt=""></button>` : `<button class="fc-avatar fc-initials" data-act="edit-profile" aria-label="Add a profile photo">${esc(initials)}</button>`}
+        <div class="fc-names">
+          <h2 id="fp-h">${esc(P.name || 'Your name')}</h2>
+          <p>${esc(rankName(rank))}</p>
+          ${P.gym || P.team ? `<p class="fc-gym">${esc([P.gym, P.team].filter(Boolean).join(' · '))}</p>` : ''}
         </div>
       </div>
-    </div></section>`
+    </div>
+    <div class="fc-tiles">${tiles.map(([v, l]) => `<div><span class="fc-num">${esc(v)}</span><span class="fc-lbl">${esc(l)}</span></div>`).join('')}</div>
+    <div class="fc-body">
+      ${taleOfTheTape(P, rank, sinceRank)}
+      ${P.goal ? `<p class="profile-goal">“${esc(P.goal)}”</p>` : ''}
+      ${medals('Gold') + medals('Silver') + medals('Bronze') ? `<div class="fc-medals">${[['Gold', 'gold'], ['Silver', 'silver'], ['Bronze', 'bronze']].filter(([k]) => medals(k)).map(([k, c]) => `<span class="medal ${c}">${medals(k)} × ${k}</span>`).join('')}</div>` : ''}
+    </div>
+  </section>
+  ${rankPanel(P)}
+  ${tournamentPanel(P)}`
+}
+
+// Like the stat comparison before a fight: only what you've filled in.
+function taleOfTheTape(P, rank, sinceRank) {
+  const age = ageDivision(P.birthday)
+  const rows = [
+    ['Age', age && `${age.age} · ${age.label}`],
+    ['Height', P.height], ['Weight', [P.weight, P.weightClass].filter(Boolean).join(' · ')],
+    ['Plays', P.game], ['Coach', P.coach],
+    ['Training since', P.startDate && fmtMonthY(P.startDate)],
+    ['At this rank', rank.since && `${span(rank.since)} · ${plural(sinceRank.length, 'session')}, ${hrs(sum(sinceRank, 'minutes'))} hrs`],
+  ].filter(([, v]) => v)
+  return `<div class="tape"><h3>Tale of the tape</h3>
+    ${rows.length ? `<dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
+    ${rows.length < 4 ? `<p class="small muted">Add your birthday, weight, height and coach in <button class="link" data-act="edit-profile">Edit profile</button> to fill this in.</p>` : ''}</div>`
+}
+
+function rankPanel(P) {
+  const promotions = [...P.promotions].sort(byDateAsc).reverse()
+  return `<section class="panel"><div class="history-head"><h2 style="margin:0">Rank history</h2><button class="btn sm ghost" data-act="new-promo">Add promotion</button></div>
+    ${promotions.length ? `<ol class="rank-line">${promotions.map((p, i) => {
+      const look = BELT_LOOK[p.belt] || BELT_LOOK.White
+      return `<li class="${i === 0 ? 'current' : ''}">
+        <span class="mini-belt" style="background:${look.belt}" aria-hidden="true"><span style="background:${look.bar}">${'<i></i>'.repeat(Math.min(4, +p.stripes || 0))}</span></span>
+        <div class="what"><strong>${esc(rankName(p))}</strong><span class="small muted">${fmtMonthY(p.date)}${promotions[i + 1] ? ` · after ${span(promotions[i + 1].date, p.date)}` : ''}${i === 0 ? ' · current' : ''}</span>
+          ${p.note ? `<p class="small muted">${esc(p.note)}</p>` : ''}</div>
+        <button class="mini" data-act="edit-promo" data-id="${p.id}">Edit</button></li>`
+    }).join('')}</ol>` : '<p class="muted small" style="margin-top:8px">Add each belt and stripe with its date. Your header and fighter card take your belt color, and time at each rank shows here.</p>'}
+  </section>`
+}
+
+function tournamentPanel(P) {
+  const tournaments = [...P.tournaments].sort(byDateAsc).reverse()
+  return `<section class="panel"><div class="history-head"><h2 style="margin:0">Competition</h2><button class="btn sm ghost" data-act="new-comp">Add tournament</button></div>
+    ${tournaments.length ? `<div class="stack" style="margin-top:10px">${tournaments.map(t => `<div class="comp-row">
+      <span class="medal-dot ${t.place && t.place !== 'No medal' ? esc(t.place.toLowerCase()) : ''}" aria-hidden="true">${t.place === 'Gold' ? '1' : t.place === 'Silver' ? '2' : t.place === 'Bronze' ? '3' : '–'}</span>
+      <div class="what"><strong>${esc(t.name)}</strong><span class="small muted">${fmtMonthY(t.date)}${t.division ? ` · ${esc(t.division)}` : ''} · ${+t.wins || 0}–${+t.losses || 0}</span></div>
+      <button class="mini" data-act="edit-comp" data-id="${t.id}">Edit</button></div>`).join('')}</div>`
+      : '<p class="muted small" style="margin-top:8px">Log each event with your division, your record and the main lesson. Plan the next one under You → Compete.</p>'}
+  </section>`
 }
 
 const saveProfile = patch => save({ ...S.profile, ...patch, id: 'profile_main', kind: 'profile', example: false })
-
-function profileDetails(P) {
-  const age = ageDivision(P.birthday)
-  const facts = [
-    P.team && ['Team', P.team], P.coach && ['Coach', P.coach],
-    age && ['Age division', `${age.label} (age ${age.age} this year)`],
-    (P.weight || P.weightClass) && ['Weight', [P.weight, P.weightClass].filter(Boolean).join(' · ')],
-    P.height && ['Height', P.height], P.game && ['Plays', P.game],
-  ].filter(Boolean)
-  return `${facts.length ? `<dl class="refl profile-facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
-    ${P.goal ? `<p class="profile-goal">“${esc(P.goal)}”</p>` : ''}`
-}
 
 const GAMES = ['Gi', 'No-gi', 'Both']
 

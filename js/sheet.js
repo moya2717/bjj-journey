@@ -1,7 +1,7 @@
 import { cached } from './store.js'
-import { LIBRARY_GROUPS } from './vocab.js'
+import { LIBRARY_GROUPS, POSITIONS } from './vocab.js'
 import { $, $$, esc, toast } from './util.js'
-import { allTechs, myTechs } from './model.js'
+import { allTechs, myTechs, techById } from './model.js'
 
 // Form building blocks. Every form in the app is a sheet: a dialog with a form inside.
 
@@ -40,14 +40,36 @@ export function techSelect(name, value, { empty = 'None', extra = '' } = {}) {
   return `<select name="${name}" ${extra}><option value="">${esc(empty)}</option>${options}</select>`
 }
 
-// Chips for your usual moves, plus a search box that can add any move from the library.
-export function techPicker(name, selected = []) {
-  const shown = [...new Set([...myTechs().slice(0, 14).map(t => t.id), ...selected])]
-  const byId = Object.fromEntries(allTechs().map(t => [t.id, t]))
-  return `<div class="tech-pick">
-    <div class="chips" data-chips="${name}">${shown.filter(id => byId[id]).map(id => techChip(name, byId[id], selected.includes(id))).join('')}</div>
-    <input type="search" list="dl-techs" data-tech-add="${name}" placeholder="Search all moves to add one" autocomplete="off" aria-label="Add a move">
+// What class covered: pick positions first, and that position's moves appear to tap.
+// With no position picked, your usual moves show instead. Search adds anything else.
+export function focusPicker(focus = [], drilled = []) {
+  return `<div class="focus-pick" data-focus-pick>
+    <p class="pick-step"><span class="step-n small-n">1</span>Which positions did class cover?</p>
+    <div class="chips">${POSITIONS.map(p => `<label class="chip"><input type="checkbox" name="focus" value="${esc(p)}" ${focus.includes(p) ? 'checked' : ''}><span>${esc(p)}</span></label>`).join('')}</div>
+    <p class="pick-step"><span class="step-n small-n">2</span>Which moves did you drill?</p>
+    <div data-focus-moves>${focusMoves(focus, drilled)}</div>
+    <input type="search" list="dl-techs" data-tech-add="drilled" placeholder="Something else? Search all moves" autocomplete="off" aria-label="Add another move">
   </div>`
+}
+
+function focusMoves(focus, drilled) {
+  const groups = focus.length
+    ? focus.map(p => [p, allTechs().filter(t => t.position === p)])
+    : [['Your usual moves', myTechs().filter(t => t.type !== 'Movement').slice(0, 12)]]
+  const shown = new Set(groups.flatMap(([, list]) => list.map(t => t.id)))
+  const others = drilled.filter(id => !shown.has(id)).map(techById).filter(Boolean)
+  return groups.map(([title, list]) => list.length ? `<div class="move-group"><p class="small muted">${esc(title)}</p>
+      <div class="chips">${list.map(t => techChip('drilled', t, drilled.includes(t.id))).join('')}</div></div>` : '').join('')
+    + `<div class="move-group"><div class="chips" data-chips="drilled">${others.map(t => techChip('drilled', t, true)).join('')}</div></div>`
+}
+
+function wireFocusPickers(form) {
+  $$('[data-focus-pick]', form).forEach(box => box.addEventListener('change', e => {
+    if (e.target.name !== 'focus') return
+    const focus = $$('input[name="focus"]:checked', box).map(i => i.value)
+    const drilled = $$('input[name="drilled"]:checked', box).map(i => i.value)
+    $('[data-focus-moves]', box).innerHTML = focusMoves(focus, drilled)
+  }))
 }
 
 const techChip = (name, t, checked) =>
@@ -102,6 +124,7 @@ export function openSheet(title, body, { submitLabel = 'Save', onSubmit, onMount
   const del = $('[data-delete]', dlg)
   if (del) del.addEventListener('click', () => { if (armDelete(del, onDelete)) { dlg.close(); toast('Deleted') } })
   wireTechPickers(form)
+  wireFocusPickers(form)
   onMount?.(form)
   dlg.showModal()
   const first = $('.sheet-body input:not([type=checkbox]):not([type=radio]):not([type=file]),.sheet-body select,.sheet-body textarea', form)

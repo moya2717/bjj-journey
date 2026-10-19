@@ -587,3 +587,77 @@ main{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
 legend .hint{font-weight:500;margin-left:4px}
 .optional-label{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:4px}
 .form-step .ql-roll{background:var(--surface)}
+
+/* ---------- What class covered ---------- */
+.focus-pick{display:flex;flex-direction:column;gap:10px}
+.pick-step{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.92rem}
+.step-n.small-n{width:20px;height:20px;font-size:.72rem}
+.move-group{display:flex;flex-direction:column;gap:6px}
+.move-group:empty{display:none}
+
+/* ---------- Live roll ---------- */
+.sim{max-width:720px}
+.choice-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:6px}
+.choice{padding:12px;border-radius:12px;border:1.5px solid var(--line-strong);background:var(--surface);font-weight:650;text-align:left;cursor:pointer}
+.choice.on{border-color:var(--mat);background:var(--mat-soft)}
+.scoreboard{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;background:var(--belt);color:var(--belt-ink);border-radius:14px;padding:12px 16px;box-shadow:inset -18px 0 0 var(--bar)}
+.scoreboard > div{display:flex;flex-direction:column;align-items:center}
+.scoreboard .lbl{font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;opacity:.8}
+.scoreboard .big{font-stretch:75%;font-weight:800;font-size:2.4rem;line-height:1;font-variant-numeric:tabular-nums}
+.scoreboard .clock{font-weight:700;font-variant-numeric:tabular-nums;text-align:center}
+.scoreboard .verdict{color:inherit}
+.sim-where{margin-top:14px;font-size:1.05rem;font-weight:650}
+.sim-react{margin-top:8px;padding:10px 12px;border-radius:10px;background:var(--partial-soft);font-weight:650}
+.sim-log{list-style:none;margin:14px 0 6px;padding:0;display:flex;flex-direction:column;gap:6px;font-size:.92rem}
+.sim-log li{padding:8px 10px;border-radius:8px;background:var(--surface-2);border-left:3px solid var(--line-strong)}
+.sim-log li.worked{border-left-color:var(--worked)}
+
+/* ---------- Fighter card (You → Profile & stats) ---------- */
+.fighter-card{grid-column:1/-1;border-radius:18px;overflow:hidden;background:var(--surface);border:1px solid var(--line)}
+.fc-banner{position:relative;background:var(--fc-belt);color:var(--fc-ink);padding:18px 18px 20px;min-height:150px;display:flex;align-items:flex-end;box-shadow:inset 0 -6px 0 rgba(0,0,0,.14),inset 0 6px 0 rgba(255,255,255,.08)}
+.fc-bar{position:absolute;top:0;bottom:0;right:28px;width:88px;background:var(--fc-bar);display:flex;align-items:center;justify-content:center;gap:6px}
+.fc-bar i{display:block;width:7px;height:56%;background:var(--tape);border-radius:1px}
+.fc-edit{position:absolute;top:14px;right:136px;background:rgba(0,0,0,.28);border-color:transparent;color:#fff}
+.fc-id{position:relative;display:flex;align-items:center;gap:16px;min-width:0;padding-right:110px}
+.fc-avatar{width:84px;height:84px;border-radius:50%;overflow:hidden;flex:none;border:3px solid var(--fc-ink);padding:0;background:rgba(0,0,0,.25);cursor:pointer}
+.fc-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.fc-initials{display:flex;align-items:center;justify-content:center;font-stretch:112%;font-weight:800;font-size:1.6rem;color:var(--fc-ink)}
+.fc-names{min-width:0}
+.fc-names h2{font-stretch:125%;font-weight:820;font-size:clamp(1.5rem,5vw,2.1rem);letter-spacing:-.02em;color:var(--fc-ink);overflow-wrap:anywhere}
+.fc-names p{color:var(--fc-ink);font-weight:650}
+.fc-names .fc-gym{color:var(--fc-muted);font-weight:500;font-size:.92rem}
+.fc-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:1px solid var(--line)}
+.fc-tiles > div{display:flex;flex-direction:column;align-items:center;padding:14px 6px;text-align:center;border-left:1px solid var(--line)}
+.fc-tiles > div:first-child{border-left:0}
+.fc-num{font-stretch:75%;font-weight:800;font-size:1.6rem;line-height:1.05;font-variant-numeric:tabular-nums}
+.fc-lbl{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.fc-body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:12px}
+.tape h3{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.tape dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:0;margin:0}
+.tape dt,.tape dd{padding:8px 0;border-top:1px solid var(--line);margin:0}
+.tape dt{color:var(--muted);padding-right:16px;font-size:.92rem}
+.tape dd{font-weight:650;text-align:right}
+.fc-medals{display:flex;gap:8px;flex-wrap:wrap}
+.section-title{grid-column:1/-1;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:10px}
+.rank-line{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column}
+.rank-line li{display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.rank-line li:first-child{border-top:0}
+.rank-line .what{display:flex;flex-direction:column;min-width:0}
+.rank-line li.current strong{color:var(--mat)}
+.mini-belt{display:flex;justify-content:flex-end;height:18px;border-radius:2px;box-shadow:0 0 0 1px var(--line)}
+.mini-belt > span{width:28px;margin-right:8px;display:flex;align-items:center;justify-content:center;gap:2px}
+.mini-belt i{display:block;width:3px;height:12px;background:var(--tape)}
+.comp-row{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center}
+.comp-row .what{display:flex;flex-direction:column;min-width:0}
+.medal-dot{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;background:var(--surface-2);color:var(--muted)}
+.medal-dot.gold{background:#F3E2A6;color:#5C4600}.medal-dot.silver{background:#E1E5E9;color:#3B4651}.medal-dot.bronze{background:#EED3BD;color:#6A3A15}
+@media (max-width:560px){
+  .fc-banner{min-height:170px;padding:14px 14px 16px}
+  .fc-bar{right:16px;width:64px}
+  .fc-edit{right:92px;top:12px}
+  .fc-id{padding-right:72px;gap:12px}
+  .fc-avatar{width:68px;height:68px}
+  .fc-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fc-tiles > div:nth-child(3){border-left:0}
+  .fc-tiles > div:nth-child(n+3){border-top:1px solid var(--line)}
+}

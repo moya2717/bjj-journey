@@ -39,7 +39,7 @@ The bar at the bottom has five sections. Each one holds a few screens, shown as 
 |---|---|
 | **Home** | Your overview: what keeps going wrong, what to work on next, whether you’re improving |
 | **Journal** | Calendar · Rolls · Matchups |
-| **Game** | Sequences (with the quiz) · Moves |
+| **Game** | Sequences (with the quiz) · Moves · Live roll |
 | **Learn** | Resources · Study (review deck, video study, fixes) |
 | **You** | Profile & stats · Compete · Achievements |
 
@@ -74,6 +74,10 @@ Importing the same file again fills in mat time and rolls that an earlier import
 ## Compete
 
 Add your next tournament to get a countdown, a prep checklist, an A-game plan (one sequence each for standing, top and bottom, suggested from your best sequences), and the rules for your belt. After the event, log each match: result, how it ended, points and what happened. Your record comes from the matches.
+
+## Live roll
+
+**Game → Live roll** is a turn-based roll against a simulated partner. Pick where it starts and who you’re rolling with, then choose one move per turn from options that fit your position. Points follow IBJJF scoring and a submission ends it. Moves you’ve mastered in your journal land more often, and moves from your sequences (or the game maps) draw the reactions you mapped, with your answer offered next. Some options are moves from a different position: spot them, or pay for it.
 
 ## Quiz
 

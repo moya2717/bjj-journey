@@ -12,6 +12,8 @@ export const UI = {
   seqNode: null,
   quiz: null,
   review: null,
+  sim: null,
+  simSetup: null,
   libQ: '',
   libGroup: '',
   libScope: 'mine',
