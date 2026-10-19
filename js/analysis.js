@@ -153,5 +153,12 @@ export function problemTrends() {
   return { causes, spots }
 }
 
+// How often each area of the game was ticked as going well or giving trouble after class.
+export function areaCounts(field, from) {
+  const counts = {}
+  S.session.filter(s => !from || s.date >= from).forEach(s => (s[field] || []).forEach(a => counts[a] = (counts[a] || 0) + 1))
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])
+}
+
 // "Try next" ideas that worked but aren't in a sequence yet.
 export const unpromoted = () => S.roll.filter(r => r.tryNext && r.tryStatus === 'worked' && !r.promoted && !r.promoteSkip).sort(byDateDesc)

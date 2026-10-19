@@ -30,7 +30,7 @@ export function mount(root) {
 function reviewIntro() {
   const due = dueCards(), size = deck().length, next = nextDue()
   const reviewedToday = (S.settings.reviewLog || []).filter(d => d === today()).length
-  if (!size) return `<h2>Review deck</h2><p class="muted">Moves join your deck once you’ve seen them: star a move in the Library, add it to a sequence, or log drilling it.</p>`
+  if (!size) return `<h2>Review deck</h2><p class="muted">Moves join your deck once you’ve seen them: star a move under Game → Moves, add it to a sequence, or log drilling it.</p>`
   return `<h2>Review deck</h2>
     <div class="figures">
       <div class="figure"><div class="big">${due.length}</div><div class="lbl">cards due today</div></div>
@@ -89,7 +89,7 @@ function videoCard(v) {
 function videoPanel() {
   const month = S.study.filter(v => v.date >= daysAgo(29))
   return `<section class="panel wide"><div class="history-head"><h2 style="margin:0">Video study</h2><button class="btn sm ghost" data-act="new-study">Log video study</button></div>
-    <p class="small muted" style="margin:6px 0 12px">${hrs(sum(month, 'minutes'))} hours of study in the last 30 days. Notes tied to a move are added to that move’s notes in the Library.</p>
+    <p class="small muted" style="margin:6px 0 12px">${hrs(sum(month, 'minutes'))} hours of study in the last 30 days. Notes tied to a move are added to that move’s notes under Game → Moves.</p>
     ${S.study.length ? `<div class="res-grid">${[...S.study].sort(byDateDesc).slice(0, 12).map(videoCard).join('')}</div>` : '<p class="muted">Log an instructional or match you watched, with timestamped notes like “4:32 knee shield counter”.</p>'}
   </section>`
 }

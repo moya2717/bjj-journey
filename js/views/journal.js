@@ -1,6 +1,6 @@
 import { S, save, saveMany, remove } from '../store.js'
 import { UI } from '../ui.js'
-import { ACTIVITY_TYPES, BELTS, FEELS, INTENSITIES, PLAN_HIT, POSITIONS, PROMPTS, REASONS, RESULTS, ROLES, SESSION_TYPES, SIZES, promptFor } from '../vocab.js'
+import { ACTIVITY_TYPES, AREAS, BELTS, FEELS, INTENSITIES, PLAN_HIT, POSITIONS, PROMPTS, REASONS, RESULTS, ROLES, SESSION_TYPES, SIZES, promptFor } from '../vocab.js'
 import { $, $$, byDateDesc, esc, fmtDateLong, fmtTime, hrs, isoDate, monthLabel, newId, parseD, plural, posRole, shiftMonth, sum, toast, today, weekStart, ym } from '../util.js'
 import { field, selectEl, chipsEl, radioChips, techPicker, techSelect, openSheet } from '../sheet.js'
 import { partnerProfile, seqById, techById } from '../model.js'
@@ -99,6 +99,7 @@ function entryCard(s) {
       <div class="entry-top"><h3>${esc(s.type)}${s.time ? ` <span class="entry-time">${fmtTime(s.time)}</span>` : ''}</h3><span class="entry-meta">${s.minutes ? esc(s.minutes) + ' min' : ''}${s.rounds ? `, ${plural(+s.rounds, 'round')}` : ''}</span></div>
       ${(s.focus || []).length || drilled.length ? `<div class="tags">${(s.focus || []).map(p => `<span class="tag pos">${esc(p)}</span>`).join('')}${drilled.map(t => `<span class="tag">${esc(t.name)}</span>`).join('')}</div>` : ''}
       ${reps.length ? `<p class="small" style="margin-top:8px">Reps: ${reps.map(r => `${r.count} × ${esc(techById(r.techId).name.toLowerCase())}`).join(', ')}</p>` : ''}
+      ${(s.wentWell || []).length || (s.trouble || []).length ? `<div class="tags">${(s.wentWell || []).map(a => `<span class="tag good">✓ ${esc(a)}</span>`).join('')}${(s.trouble || []).map(a => `<span class="tag bad">✗ ${esc(a)}</span>`).join('')}</div>` : ''}
       ${notes.length ? `<dl class="refl">${notes.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
       ${s.reflectA ? `<p class="prompt-q">${esc(s.reflectQ)}</p><p class="small" style="max-width:70ch">${esc(s.reflectA)}</p>` : ''}
       ${s.coachQ ? `<p class="coach-q"><span class="tag pos">Ask coach</span> ${esc(s.coachQ)}${s.coachAsked ? ' <span class="small muted">(asked)</span>' : ''}</p>` : ''}
@@ -112,24 +113,30 @@ function entryCard(s) {
 }
 
 // ---------- Session form: the session, its drills, its rolls and photos on one screen ----------
+// Three numbered steps cover a typical log in under a minute. Everything else is folded away.
 
-function beforeFields(s) {
-  return `${field('What did you plan to work on?', `<input type="text" name="plan" id="f-plan" value="${esc(s.plan || '')}" placeholder="Win the underhook before I cut">`)}
-    <fieldset><legend>How did your body feel?</legend>${radioChips('feel', FEELS, s.feel || '')}</fieldset>`
+const step = (n, title, body) => `<section class="form-step"><h3 class="step-title"><span class="step-n" aria-hidden="true">${n}</span>${title}</h3>${body}</section>`
+
+function howItWent(s) {
+  return `<fieldset><legend>How did your body feel?</legend>${radioChips('feel', FEELS, s.feel || '')}</fieldset>
+    ${field('What did you plan to work on?', `<input type="text" name="plan" id="f-plan" value="${esc(s.plan || '')}" placeholder="Win the underhook before I cut">`)}
+    <fieldset><legend>Did you stick to your plan?</legend>${radioChips('planHit', PLAN_HIT, s.planHit || '')}</fieldset>
+    <fieldset><legend>What went well? <span class="hint">Pick any</span></legend>${chipsEl('wentWell', AREAS, s.wentWell || [])}</fieldset>
+    <fieldset><legend>What gave you trouble? <span class="hint">Pick any</span></legend>${chipsEl('trouble', AREAS, s.trouble || [])}</fieldset>
+    ${field('Lesson to keep', `<textarea name="lesson" id="f-lesson" rows="2" placeholder="One sentence you want to remember">${esc(s.lesson || '')}</textarea>`)}`
 }
 
-function reflectionFields(s) {
+function thinkItThrough(s) {
   const question = s.reflectQ || promptFor(s.date || today())
-  return `<fieldset><legend>Did you stick to your plan?</legend>${radioChips('planHit', PLAN_HIT, s.planHit || '')}</fieldset>
-    ${field('What worked', `<textarea name="worked" id="f-worked" rows="2" placeholder="A position or moment where it clicked">${esc(s.worked || '')}</textarea>`)}
-    ${field('What went wrong', `<textarea name="struggled" id="f-struggled" rows="2" placeholder="Where you got stuck, swept, passed or tapped">${esc(s.struggled || '')}</textarea>`)}
-    <div class="prompt-box">
+  // Entries written before the multiple-choice questions keep their notes editable.
+  const legacy = [['worked', 'What worked (your notes)', s.worked], ['struggled', 'What went wrong (your notes)', s.struggled]].filter(x => x[2])
+  return `<div class="prompt-box">
       <div class="prompt-head"><span class="small muted">Something to think about</span><button type="button" class="link small" data-new-prompt>Different question</button></div>
       <p class="q-text" data-prompt-text>${esc(question)}</p><input type="hidden" name="reflectQ" value="${esc(question)}">
       <textarea name="reflectA" id="f-reflect" rows="3" aria-label="Your answer" placeholder="Take a minute with this one">${esc(s.reflectA || '')}</textarea>
     </div>
-    ${field('Lesson to keep', `<textarea name="lesson" id="f-lesson" rows="2" placeholder="One sentence you want to remember">${esc(s.lesson || '')}</textarea>`)}
     ${field('Question for your coach', `<input type="text" name="coachQ" id="f-coach" value="${esc(s.coachQ || '')}" placeholder="How do I stop the knee shield coming back?">`)}
+    ${legacy.map(([name, label, value]) => field(label, `<textarea name="${name}" rows="2">${esc(value)}</textarea>`)).join('')}
     ${field('Other observations', `<textarea name="notes" id="f-notes" rows="4" placeholder="Anything else: injuries, what class covered, who you rolled with, ideas to try">${esc(s.notes || '')}</textarea>`)}`
 }
 
@@ -170,27 +177,31 @@ function sessionForm(id, date) {
 
   openSheet(id ? 'Edit training' : 'Log training', `
     ${id ? '' : `<p class="hint">Running, lifting, yoga or recovery? <button type="button" class="link" data-act="new-activity" data-date="${esc(s.date)}">Log other activity</button></p>`}
-    <div class="grid3">${field('Date', `<input type="date" name="date" id="s-date" value="${esc(s.date)}" required>`)}${field('Class time', `<input type="time" name="time" id="s-time" value="${esc(s.time || '')}">`)}${field('Class type', selectEl('type', SESSION_TYPES, s.type, 'id="s-type"'))}</div>
-    <div class="grid2">
-      ${field('Minutes on the mat', `<input type="number" name="minutes" id="s-min" min="0" max="600" step="5" inputmode="numeric" value="${esc(s.minutes)}">`)}
-      ${field('Rounds rolled', `<input type="number" name="rounds" id="s-rounds" min="0" max="40" inputmode="numeric" value="${esc(s.rounds)}">`)}
-    </div>
-    ${beforeFields(s)}
-    <details class="more" ${id && ((s.focus || []).length || (s.drilled || []).length) ? 'open' : ''}><summary>Class focus and moves drilled</summary><div>
-      <fieldset><legend>Positions you focused on</legend>${chipsEl('focus', POSITIONS, s.focus || [])}</fieldset>
+    ${step(1, 'The session', `
+      <div class="grid3">${field('Date', `<input type="date" name="date" id="s-date" value="${esc(s.date)}" required>`)}${field('Class time', `<input type="time" name="time" id="s-time" value="${esc(s.time || '')}">`)}${field('Class type', selectEl('type', SESSION_TYPES, s.type, 'id="s-type"'))}</div>
+      <div class="grid2">
+        ${field('Minutes on the mat', `<input type="number" name="minutes" id="s-min" min="0" max="600" step="5" inputmode="numeric" value="${esc(s.minutes)}">`)}
+        ${field('Rounds rolled', `<input type="number" name="rounds" id="s-rounds" min="0" max="40" inputmode="numeric" value="${esc(s.rounds)}">`)}
+      </div>`)}
+    ${step(2, 'How it went', howItWent(s))}
+    ${step(3, 'Key exchanges', `<p class="hint">One note per exchange that mattered. A roll without a result isn’t saved.</p>
+      ${existingRolls.length ? `<div>${existingRolls.map(r => `<div class="roll-mini"><span>${posRole(r.position, r.role)} <span class="result ${esc(r.result)}">${esc(RESULTS[r.result]?.label || '')}</span></span></div>`).join('')}<p class="hint">Edit saved rolls from the journal.</p></div>` : ''}
+      <div class="ql-rolls" id="s-rolls"></div>
+      <div><button type="button" class="btn sm ghost" id="s-add-roll">+ Add a roll</button></div>`)}
+    <p class="optional-label">Optional</p>
+    <details class="more" ${id && ((s.focus || []).length || (s.drilled || []).length) ? 'open' : ''}><summary>Moves drilled and class focus</summary><div>
       <fieldset><legend>Moves you drilled</legend>${techPicker('drilled', s.drilled || [])}</fieldset>
+      <fieldset><legend>Positions you focused on</legend>${chipsEl('focus', POSITIONS, s.focus || [])}</fieldset>
     </div></details>
     <details class="more" ${(s.reps || []).length ? 'open' : ''}><summary>Drill reps (shrimps, bridges, stand-ups…)</summary><div>
       <div class="reps" id="s-reps">${(s.reps || []).map((r, i) => repRow(i, r)).join('')}</div>
       <div><button type="button" class="btn sm ghost" id="s-add-rep">+ Add reps</button></div>
     </div></details>
-    <div><h3>Key exchanges</h3><p class="hint">One note per exchange that mattered. A roll without a result isn’t saved.</p></div>
-    ${existingRolls.length ? `<div>${existingRolls.map(r => `<div class="roll-mini"><span>${posRole(r.position, r.role)} <span class="result ${esc(r.result)}">${esc(RESULTS[r.result]?.label || '')}</span></span></div>`).join('')}<p class="hint">Edit saved rolls from the journal.</p></div>` : ''}
-    <div class="ql-rolls" id="s-rolls"></div>
-    <div><button type="button" class="btn sm ghost" id="s-add-roll">+ Add a roll</button></div>
-    <div><h3>Photos</h3><div class="photos" id="s-photos"></div>
-      <label class="btn sm ghost file-btn" style="margin-top:10px">Add photos<input type="file" id="s-file" accept="image/*" multiple></label></div>
-    <details class="more" open><summary>Reflection</summary><div>${reflectionFields(s)}</div></details>
+    <details class="more" ${(s.photos || []).length ? 'open' : ''}><summary>Photos</summary><div>
+      <div class="photos" id="s-photos"></div>
+      <label class="btn sm ghost file-btn">Add photos<input type="file" id="s-file" accept="image/*" multiple></label>
+    </div></details>
+    <details class="more" ${s.reflectA || s.coachQ || s.notes || s.worked || s.struggled ? 'open' : ''}><summary>Think it through: reflection, coach question, notes</summary><div>${thinkItThrough(s)}</div></details>
     ${partnerDatalist()}
     <p class="form-error" id="form-error"></p>`, {
     submitLabel: id ? 'Save changes' : 'Save',
@@ -266,7 +277,8 @@ function sessionForm(id, date) {
         reps: $$('[data-rep]', form).map(r => ({ techId: fd.get(`rep${r.dataset.rep}_tech`), count: +fd.get(`rep${r.dataset.rep}_count`) || 0 })).filter(r => r.techId && r.count),
         photos: [...keptPhotos, ...added],
         plan: fd.get('plan').trim(), feel: fd.get('feel') || '', planHit: fd.get('planHit') || '',
-        worked: fd.get('worked').trim(), struggled: fd.get('struggled').trim(), lesson: fd.get('lesson').trim(),
+        wentWell: fd.getAll('wentWell'), trouble: fd.getAll('trouble'),
+        worked: (fd.get('worked') ?? s.worked ?? '').trim(), struggled: (fd.get('struggled') ?? s.struggled ?? '').trim(), lesson: fd.get('lesson').trim(),
         reflectQ: answer ? fd.get('reflectQ') : '', reflectA: answer, notes: fd.get('notes').trim(),
         coachQ, coachAsked: coachQ && coachQ === s.coachQ ? !!s.coachAsked : false,
       }
@@ -316,7 +328,7 @@ function activityForm(id, date) {
   const a = id ? S.activity.find(x => x.id === id) : { date: date || today(), time: '', type: last?.type || 'Running', minutes: 30, distance: '', unit: last?.unit || 'mi', intensity: 'Moderate', notes: '' }
   if (!a) return
   openSheet(id ? 'Edit activity' : 'Log other activity', `
-    <p class="hint">Training outside BJJ. It shows on your calendar and in Stats, but doesn’t count toward mat hours.</p>
+    <p class="hint">Training outside BJJ. It shows on your calendar and in your stats, but doesn’t count toward mat hours.</p>
     <fieldset><legend>Activity</legend>${radioChips('type', ACTIVITY_TYPES, a.type)}</fieldset>
     <div class="grid3">
       ${field('Date', `<input type="date" name="date" id="a-date" value="${esc(a.date)}" required>`)}

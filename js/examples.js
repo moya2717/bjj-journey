@@ -55,6 +55,12 @@ export function exampleRecords() {
     s.feel = FEELS[(i * 3 + 2) % 5]
     if (all[i - 1]?.lesson && s.type !== 'Drilling only') { s.plan = all[i - 1].lesson; s.planHit = PLAN_HIT[i % 3] }
   })
+  const AREA_FOR = { 'Half guard': 'Passing', 'Closed guard': 'Sweeps', 'Mount': 'Escapes', 'Back': 'Back takes', 'Turtle': 'Back takes', 'Standing': 'Takedowns' }
+  sessions.forEach(s => {
+    const areas = s.focus.map(p => AREA_FOR[p]).filter(Boolean)
+    s.wentWell = s.worked ? areas.slice(0, 1).concat(s.minutes >= 105 ? ['Cardio and pace'] : []) : []
+    s.trouble = s.struggled ? areas.slice(-1).concat(/tired|cardio/i.test(s.struggled) ? ['Cardio and pace'] : []) : []
+  })
   const kneeShield = sessions.find(s => s.date === daysAgo(29))
   Object.assign(kneeShield, { coachQ: 'How do I pass a knee shield that keeps coming back?', reflectQ: PROMPTS[1], reflectA: 'Purple belts rebuild the knee shield every time I back off to re-grip. I give them the space myself.' })
   const sessionOn = d => sessions.find(s => s.date === daysAgo(d))?.id || ''

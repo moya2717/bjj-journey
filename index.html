@@ -30,10 +30,11 @@
       </div>
     </div>
   </header>
-  <nav class="tabs" aria-label="Sections"><div class="tabs-inner" id="tabs"></div></nav>
+  <nav class="subnav" id="subnav" aria-label="In this section" hidden></nav>
 </div>
 <main id="app" tabindex="-1"><p class="muted">Loading your journal…</p></main>
-<button class="btn fab" data-act="new-session">+ Log training</button>
+<button class="btn fab" data-act="new-session" aria-label="Log training"><span aria-hidden="true">+</span><span class="fab-label"> Log training</span></button>
+<nav class="bottombar" id="bottombar" aria-label="Sections"></nav>
 <dialog id="sheet"></dialog>
 <div id="toast" role="status" aria-live="polite"></div>
 </body>

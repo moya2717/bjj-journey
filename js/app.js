@@ -19,21 +19,41 @@ import * as achievements from './views/achievements.js'
 import * as stats from './views/stats.js'
 
 const VIEWS = {
-  overview: ['Overview', overview],
-  journal: ['Journal', journal],
-  rolls: ['Rolling analysis', rolls],
+  overview: ['Home', overview],
+  journal: ['Calendar', journal],
+  rolls: ['Rolls', rolls],
   matchups: ['Matchups', matchups],
   sequences: ['Sequences', sequences],
-  library: ['Library', library],
-  study: ['Study', study],
+  library: ['Moves', library],
   resources: ['Resources', resources],
+  study: ['Study', study],
+  stats: ['Profile & stats', stats],
   compete: ['Compete', compete],
   achievements: ['Achievements', achievements],
-  stats: ['Stats', stats],
 }
 
+// Five sections on the bottom bar, each holding one or more screens as sub-tabs.
+// Icons are simple 24px line drawings, so they follow the theme's text color.
+const SECTIONS = {
+  home: { label: 'Home', views: ['overview'], icon: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>' },
+  journal: { label: 'Journal', views: ['journal', 'rolls', 'matchups'], icon: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
+  game: { label: 'Game', views: ['sequences', 'library'], icon: '<circle cx="5" cy="12" r="2.2"/><circle cx="19" cy="5" r="2.2"/><circle cx="19" cy="19" r="2.2"/><path d="M7 11l10-5M7 13l10 5"/>' },
+  learn: { label: 'Learn', views: ['resources', 'study'], icon: '<path d="M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M9 7h7"/>' },
+  you: { label: 'You', views: ['stats', 'compete', 'achievements'], icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>' },
+}
+const sectionOf = view => Object.keys(SECTIONS).find(k => SECTIONS[k].views.includes(view))
+const lastIn = {}
+
 const actions = Object.assign(
-  { tab: el => { UI.view = el.dataset.view; scrollTo(0, 0) } },
+  {
+    tab: el => { UI.view = el.dataset.view; scrollTo(0, 0) },
+    // Tapping the section you're in goes back to its first screen, like any iPhone tab bar.
+    section: el => {
+      const key = el.dataset.section, s = SECTIONS[key]
+      UI.view = sectionOf(UI.view) === key ? s.views[0] : lastIn[key] || s.views[0]
+      scrollTo(0, 0)
+    },
+  },
   ...Object.values(VIEWS).map(([, view]) => view.actions),
 )
 
@@ -56,9 +76,15 @@ function renderHeader() {
     if (look) root.setProperty(token, look[key])
     else root.removeProperty(token)
   }
-  $('#tabs').innerHTML = Object.entries(VIEWS).map(([key, [label]]) =>
-    `<button class="tab" data-act="tab" data-view="${key}" ${UI.view === key ? 'aria-current="page"' : ''}>${label}</button>`).join('')
-  $('.tab[aria-current]').scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  const current = sectionOf(UI.view)
+  lastIn[current] = UI.view
+  $('#bottombar').innerHTML = `<div class="bottombar-inner">${Object.entries(SECTIONS).map(([key, s]) =>
+    `<button data-act="section" data-section="${key}" ${key === current ? 'aria-current="page"' : ''}>
+      <svg viewBox="0 0 24 24" aria-hidden="true">${s.icon}</svg><span>${s.label}</span></button>`).join('')}</div>`
+  const subviews = SECTIONS[current].views
+  $('#subnav').hidden = subviews.length < 2
+  $('#subnav').innerHTML = `<div class="subnav-inner">${subviews.map(key =>
+    `<button data-act="tab" data-view="${key}" ${key === UI.view ? 'aria-current="page"' : ''}>${VIEWS[key][0]}</button>`).join('')}</div>`
   const weeks = weeksOnTarget(), hits = weeks.filter(Boolean).length, target = S.settings.weeklyTarget || 3
   $('#rankbar').innerHTML = weeks.map(on => `<span class="stripe ${on ? 'on' : ''}"></span>`).join('')
   $('#rankbar').setAttribute('aria-label', `${hits} of the last 4 weeks at your target of ${target} sessions. Open stats.`)

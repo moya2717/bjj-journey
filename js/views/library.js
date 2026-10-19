@@ -10,7 +10,7 @@ import { techStats } from '../analysis.js'
 
 export function view() {
   const scope = UI.libScope === 'mine' && !myTechs().length ? 'all' : UI.libScope
-  return `<div class="page-head"><div><h1>Library</h1><p class="lede">Every common move, ready to pick when you log. Star the ones you’re working on, add your own details and video links, or add moves that aren’t here.</p></div>
+  return `<div class="page-head"><div><h1>Moves</h1><p class="lede">Every common move, ready to pick when you log. Star the ones you’re working on, add your own details and video links, or add moves that aren’t here.</p></div>
     <div class="head-actions"><button class="btn" data-act="new-tech">Add a move</button></div></div>
     <div class="lib-tools">
       <label class="field search"><span class="field-label">Search moves</span><input type="search" id="lib-search" value="${esc(UI.libQ)}" placeholder="Try “armbar” or “sweep”"></label>

@@ -31,6 +31,20 @@ Always open it from the Home Screen icon. On iPhone, the Home Screen app keeps i
 
 Send them the same address and these install steps. Everyone's journal is separate and private to their own phone.
 
+## Finding your way around
+
+The bar at the bottom has five sections. Each one holds a few screens, shown as tabs under the header:
+
+| Section | Screens |
+|---|---|
+| **Home** | Your overview: what keeps going wrong, what to work on next, whether you’re improving |
+| **Journal** | Calendar · Rolls · Matchups |
+| **Game** | Sequences (with the quiz) · Moves |
+| **Learn** | Resources · Study (review deck, video study, fixes) |
+| **You** | Profile & stats · Compete · Achievements |
+
+Tap a section twice to go back to its first screen. The round **+** button logs training from anywhere.
+
 ## Moving your entries over from the claude.ai version
 
 1. Open the old journal on claude.ai, go to **Stats → Export as JSON**, and save the file.

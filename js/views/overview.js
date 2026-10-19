@@ -2,7 +2,7 @@ import { S } from '../store.js'
 import { POSITIONS, RESULTS } from '../vocab.js'
 import { byDateAsc, byDateDesc, daysAgo, parseD, esc, fmtDate, hrs, plural, pct, posRole, rate, span, sum, toast, today, topKeys, trunc } from '../util.js'
 import { allTechs, currentRank, nodePath, rankName, rollTechId, seqById, techById } from '../model.js'
-import { badSpots, hardestMatchup, monthlySeries, problemTrends, techStats, unpromoted, weakestStep } from '../analysis.js'
+import { areaCounts, badSpots, hardestMatchup, monthlySeries, problemTrends, techStats, unpromoted, weakestStep } from '../analysis.js'
 import { lineChart } from '../charts.js'
 import { dueCards } from '../srs.js'
 import { computeAchievements, goalStatus, progressOf } from '../achievements.js'
@@ -45,8 +45,15 @@ const arrow = (now, before, lowerIsBetter) => {
   return `<span class="${better ? 'delta-up' : 'delta-down'}" aria-hidden="true">${now > before ? '▲' : '▼'}</span>`
 }
 
+function flaggedTrouble() {
+  const top = areaCounts('trouble', daysAgo(59)).slice(0, 3)
+  return top.length ? `<div class="callout"><p class="small muted">Trouble you flagged after class, last 60 days</p>
+    <div class="tags">${top.map(([a, n]) => `<span class="tag bad">${esc(a)} · ${n}</span>`).join('')}</div></div>` : ''
+}
+
 function whatGoesWrong() {
   const from = daysAgo(59), recent = S.roll.filter(r => r.date >= from)
+  if (!recent.length && areaCounts('trouble', from).length) return flaggedTrouble() + '<p class="small muted">Log a few rolls too, to see exactly where things break down.</p>'
   if (!recent.length) return '<p class="empty">Log a few rolls with where they broke down. Your repeat problem spots show up here.</p><button class="link" data-act="new-roll">Log a roll</button>'
   const { bad, groups } = badSpots(from)
   if (!bad.length) return `<p>No breakdowns in ${plural(recent.length, 'logged roll')}. Either it’s going well, or the hard rounds aren’t making it into the log.</p>`
@@ -65,6 +72,7 @@ function whatGoesWrong() {
       </li>`
     }).join('')}</ul>
     ${topCauses.length ? `<p class="small muted">Most common causes overall: ${topCauses.map(([k, v]) => `${esc(k.toLowerCase())} (${v})`).join(', ')}</p>` : ''}
+    ${flaggedTrouble()}
     ${weak ? `<div class="callout"><p class="small muted">Weakest step in your sequences</p><p><strong>${esc(weak.label)}</strong> (${esc(weak.seq)}) went wrong in ${weak.broke + weak.partial} of ${weak.n} rolls.</p><div><button class="link" data-act="open-seq" data-id="${weak.seqId}">Open the sequence</button></div></div>` : ''}
     ${hard ? `<div class="callout"><p class="small muted">Hardest matchup, last 90 days</p><p>Against <strong>${esc(hard.label)}</strong> partners you’re at ${pct(hard.rate)}, against everyone else ${pct(hard.others)}.</p><div><button class="link" data-act="tab" data-view="matchups">See matchups</button></div></div>` : ''}`
 }
@@ -89,7 +97,7 @@ function whatNext() {
     <div class="row-actions"><button class="btn sm" data-act="promote" data-id="${r.id}">Add to sequence</button><button class="btn sm ghost" data-act="promote-skip" data-id="${r.id}">Don’t add</button></div></li>`)
   section('Things to test in your next rolls', experiments.slice(0, 4), r => `<li><p>${esc(r.tryNext)}</p><p class="small muted">${posRole(r.position, r.role)}, from ${fmtDate(r.date)}</p>
     <div class="row-actions"><button class="btn sm ghost" data-act="exp" data-id="${r.id}" data-status="worked">Tried it, worked</button><button class="btn sm ghost" data-act="exp" data-id="${r.id}" data-status="failed">Tried it, didn’t work</button></div></li>`,
-    experiments.length > 4 ? `<p class="small muted">${experiments.length - 4} more in Rolling analysis</p>` : '')
+    experiments.length > 4 ? `<p class="small muted">${experiments.length - 4} more under Journal → Rolls</p>` : '')
   section('Reactions you have no answer for', unanswered.slice(0, 3), o => `<li><p>${esc(o.node.label)}</p><p class="small muted">${esc(o.seq.name)}</p>
     <div class="row-actions"><button class="btn sm ghost" data-act="add-node" data-seq="${o.seq.id}" data-parent="${o.node.id}" data-who="me">Add your answer</button></div></li>`)
   section('Ask your coach', coachQs.slice(0, 3), s => `<li><p>${esc(s.coachQ)}</p><p class="small muted">From ${fmtDate(s.date)}</p>
@@ -140,7 +148,7 @@ function reviewData() {
   return {
     today: today(),
     fighter: { rank: rankName(rank), timeAtRank: rank.since ? span(rank.since) : '', trainingFor: S.profile.startDate ? span(S.profile.startDate) : '', tournamentsLastYear: S.profile.tournaments.filter(t => t.date >= daysAgo(365)).map(t => ({ date: t.date, division: t.division, place: t.place, wins: t.wins, losses: t.losses, notes: trunc(t.notes, 200) })) },
-    sessions: S.session.filter(s => s.date >= from).sort(byDateDesc).map(s => ({ date: s.date, time: s.time || '', type: s.type, minutes: s.minutes, plan: s.plan || '', stuckToPlan: s.planHit || '', felt: s.feel || '', drilled: (s.drilled || []).map(name).filter(Boolean), reps: (s.reps || []).map(r => `${r.count} ${name(r.techId)}`), worked: trunc(s.worked, 300), wentWrong: trunc(s.struggled, 300), lesson: trunc(s.lesson, 200), reflection: s.reflectA ? `${s.reflectQ} ${trunc(s.reflectA, 300)}` : '', coachQuestion: s.coachQ || '', notes: trunc(s.notes, 300) })),
+    sessions: S.session.filter(s => s.date >= from).sort(byDateDesc).map(s => ({ date: s.date, time: s.time || '', type: s.type, wentWell: s.wentWell || [], trouble: s.trouble || [], minutes: s.minutes, plan: s.plan || '', stuckToPlan: s.planHit || '', felt: s.feel || '', drilled: (s.drilled || []).map(name).filter(Boolean), reps: (s.reps || []).map(r => `${r.count} ${name(r.techId)}`), worked: trunc(s.worked, 300), wentWrong: trunc(s.struggled, 300), lesson: trunc(s.lesson, 200), reflection: s.reflectA ? `${s.reflectQ} ${trunc(s.reflectA, 300)}` : '', coachQuestion: s.coachQ || '', notes: trunc(s.notes, 300) })),
     rolls: S.roll.filter(r => r.date >= from).sort(byDateDesc).map(r => { const seq = seqById(r.seqId); return { date: r.date, partnerBelt: r.level, partnerSize: r.size || '', partnerStyle: r.styles || [], position: r.position, role: r.role, move: name(rollTechId(r)), sequence: seq ? seq.name + ': ' + nodePath(seq, r.nodeId).join(' > ') : '', result: RESULTS[r.result]?.label || r.result, causes: r.reasons || [], whatHappened: trunc(r.what, 300), tryNext: r.tryNext || '', tryNextStatus: r.tryNext ? (r.tryStatus || 'open') : '' } }),
     otherTraining: S.activity.filter(a => a.date >= from).map(a => ({ date: a.date, type: a.type, minutes: a.minutes, intensity: a.intensity, notes: trunc(a.notes, 200) })),
     challenges: S.goal.map(g => ({ title: g.title, target: g.target, progress: goalStatus(g).value, status: goalStatus(g).label })),

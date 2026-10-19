@@ -25,31 +25,34 @@ export function view() {
       const bad = st.broke + st.partial * 0.5
       stat = `<span class="node-stat ${bad / st.n >= 0.5 ? 'bad' : bad > 0 ? 'mid' : 'good'}">${st.worked} of ${st.n} worked</span>`
     }
-    return `<li><div class="node ${n.who === 'them' ? 'them' : 'me'} ${unanswered ? 'open' : ''}">
+    const selected = UI.seqNode === n.id
+    return `<li><div class="node ${n.who === 'them' ? 'them' : 'me'} ${unanswered ? 'open' : ''} ${selected ? 'selected' : ''}" data-act="seq-node" data-id="${n.id}" role="button" tabindex="0" aria-expanded="${selected}">
       <span class="who ${n.who === 'them' ? 'them' : 'me'}">${n.who === 'them' ? 'They' : 'You'}</span>
       <span class="node-label">${esc(n.label)}${tech ? ` <span class="node-tech">(${esc(tech.name)})</span>` : ''}</span>
       ${n.fromRoll ? '<span class="node-src" title="Added after it worked in a roll">Proven in a roll</span>' : ''}
       ${stat}${unanswered ? `<span class="node-flag">${testing.length ? 'Testing an answer' : 'No answer yet'}</span>` : ''}
       ${testing.length ? `<p class="node-test">Testing: ${testing.slice(0, 2).map(r => `“${esc(trunc(r.tryNext, 70))}”`).join(', ')}</p>` : ''}
-      <span class="node-actions">
+      ${selected ? `<span class="node-actions">
         ${n.who === 'me' ? `<button class="mini" data-act="add-node" data-seq="${seq.id}" data-parent="${n.id}" data-who="them">+ Their reaction</button>` : ''}
         <button class="mini" data-act="add-node" data-seq="${seq.id}" data-parent="${n.id}" data-who="me">+ ${n.who === 'them' ? 'Your answer' : 'Your next move'}</button>
         <button class="mini" data-act="edit-node" data-seq="${seq.id}" data-id="${n.id}">Edit</button>
         <button class="mini" data-act="log-node" data-seq="${seq.id}" data-id="${n.id}">Log a roll here</button>
-      </span></div>${kids.length ? `<ul class="tree">${kids.map(nodeHtml).join('')}</ul>` : ''}</li>`
+      </span>` : ''}</div>${kids.length ? `<ul class="tree">${kids.map(nodeHtml).join('')}</ul>` : ''}</li>`
   }
 
   return head + `<div class="seq-layout">
     <div class="seq-list">${S.seq.map(s => {
       const n = S.roll.filter(r => r.seqId === s.id)
-      return `<button class="seq-pick" data-act="pick-seq" data-id="${s.id}" aria-current="${s.id === seq.id}"><strong>${esc(s.name)}</strong><span>${posRole(s.position, s.role)}${n.length ? `, ${pct(rate(n))} over ${plural(n.length, 'roll')}` : ''}</span></button>`
+      return `<button class="seq-pick" data-act="pick-seq" data-id="${s.id}" aria-current="${s.id === seq.id}">
+        <strong>${esc(s.name)}</strong><span>${posRole(s.position, s.role)} · ${plural(s.nodes.length, 'step')}</span>
+        <span class="seq-pick-bar"><span class="meter good"><span style="width:${n.length ? Math.max(4, rate(n) * 100) : 0}%"></span></span><span>${n.length ? pct(rate(n)) : 'No rolls yet'}</span></span></button>`
     }).join('')}</div>
     <section class="seq-main">
       <div class="seq-head"><div><h2>${esc(seq.name)}</h2>
         <p class="muted small">${posRole(seq.position, seq.role)}${rolls.length ? `. ${plural(rolls.length, 'roll')} logged, ${pct(rate(rolls))} success` : '. No rolls logged against it yet'}</p>
         ${seq.notes ? `<p class="small" style="margin-top:6px">${esc(seq.notes)}</p>` : ''}</div>
         <div class="head-actions"><button class="btn sm ghost" data-act="edit-seq" data-id="${seq.id}">Edit sequence</button></div></div>
-      <div class="legend"><span><span class="who me">You</span> your move</span><span><span class="who them">They</span> their reaction</span><span><span class="node-stat bad">0 of 2 worked</span> results from your rolls</span></div>
+      <div class="legend"><span><span class="who me">You</span> your move</span><span><span class="who them">They</span> their reaction</span><span>Tap a step to add to it, edit it or log a roll</span></div>
       <div class="tree-wrap">${children(null).length ? `<ul class="tree">${children(null).map(nodeHtml).join('')}</ul>` : `<button class="btn sm" data-act="add-node" data-seq="${seq.id}" data-parent="" data-who="me">Add your first move</button>`}</div>
     </section></div>`
 }
@@ -120,7 +123,8 @@ export const actions = {
   ...quizActions,
   'new-seq': () => seqForm(),
   'edit-seq': el => seqForm(el.dataset.id),
-  'pick-seq': el => { UI.seqSel = el.dataset.id },
+  'pick-seq': el => { UI.seqSel = el.dataset.id; UI.seqNode = null },
+  'seq-node': el => { UI.seqNode = UI.seqNode === el.dataset.id ? null : el.dataset.id },
   'open-seq': el => { UI.seqSel = el.dataset.id; UI.view = 'sequences'; UI.quiz = null; scrollTo(0, 0) },
   'add-node': el => nodeForm(el.dataset.seq, null, el.dataset.parent || null, el.dataset.who),
   'edit-node': el => nodeForm(el.dataset.seq, el.dataset.id),

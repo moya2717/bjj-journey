@@ -3,7 +3,7 @@ import { ACTIVITY_TYPES, BELT_LOOK, FEELS, PLACES, POSITIONS, RANKS } from '../v
 import { $, byDateAsc, dayPart, daysAgo, esc, fmtDate, fmtMonthY, hrs, monthLabel, newId, pct, plural, rate, span, sum, toast, today, trunc, ym } from '../util.js'
 import { field, selectEl, armDelete, openSheet, radioChips } from '../sheet.js'
 import { ageDivision, currentRank, rankName } from '../model.js'
-import { monthlySeries, problemTrends, weeklyStreak } from '../analysis.js'
+import { areaCounts, monthlySeries, problemTrends, weeklyStreak } from '../analysis.js'
 import { beltArt, heatmap, lineChart, spark } from '../charts.js'
 import { exportBackup, importBackup } from '../backup.js'
 import { exampleRecords } from '../examples.js'
@@ -20,7 +20,7 @@ export function view() {
     .filter(x => x.f || x.r).sort((a, b) => (b.f + b.r) - (a.f + a.r))
   const maxAttention = Math.max(1, ...positions.map(x => x.f + x.r))
 
-  return `<div class="page-head"><div><h1>Stats</h1><p class="lede">Your rank and competition history, mat time, consistency, and where your attention has gone.</p></div></div>
+  return `<div class="page-head"><div><h1>Profile and stats</h1><p class="lede">Your rank and competition history, mat time, consistency, and where your attention has gone.</p></div></div>
   <div class="stat-grid">
     ${profilePanel()}
     <section class="panel wide"><h2>Consistency</h2>
@@ -37,6 +37,7 @@ export function view() {
       ${positions.length ? `<div class="bars">${positions.slice(0, 8).map(x => `<div class="bar-row"><span>${esc(x.p)}</span><div class="meter mat"><span style="width:${(x.f + x.r) / maxAttention * 100}%"></span></div><span class="n">${x.f + x.r}</span></div>`).join('')}</div>
         <p class="small muted" style="margin-top:10px">Counts session focus plus roll notes from each position.</p>` : '<p class="muted">Nothing logged in the last 90 days.</p>'}
     </section>
+    ${areasPanel()}
     ${timeOfDayPanel()}
     ${otherTrainingPanel()}
     ${trendsPanel()}
@@ -207,6 +208,22 @@ function promotionForm(id) {
       toast(id ? 'Promotion saved' : 'Congratulations. Promotion added')
     },
   })
+}
+
+// ---------- Strengths and trouble areas ----------
+
+function areasPanel() {
+  const from = daysAgo(59), good = areaCounts('wentWell', from), bad = areaCounts('trouble', from)
+  if (!good.length && !bad.length) return `<section class="panel wide"><h2>Strengths and trouble areas</h2><p class="muted">After each class, tick what went well and what gave you trouble. Patterns show up here.</p></section>`
+  const max = Math.max(1, ...[...good, ...bad].map(([, n]) => n))
+  const bars = (list, cls) => list.length ? `<div class="bars">${list.slice(0, 6).map(([a, n]) => `<div class="bar-row"><span>${esc(a)}</span><div class="meter ${cls}"><span style="width:${n / max * 100}%"></span></div><span class="n">${n}</span></div>`).join('')}</div>` : '<p class="muted small">Nothing ticked yet.</p>'
+  return `<section class="panel wide"><h2>Strengths and trouble areas, last 60 days</h2>
+    <div class="trend-grid">
+      <div><h3 style="margin-bottom:10px">Went well</h3>${bars(good, 'good')}</div>
+      <div><h3 style="margin-bottom:10px">Gave you trouble</h3>${bars(bad, '')}</div>
+    </div>
+    <p class="small muted" style="margin-top:10px">Counts the sessions where you ticked each area. An area on both lists is one you’re actively working through.</p>
+  </section>`
 }
 
 // ---------- Time of day and other training ----------

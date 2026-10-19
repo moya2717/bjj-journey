@@ -60,7 +60,7 @@ function wireTechPickers(form) {
     const wanted = input.value.trim().toLowerCase()
     if (!wanted) return
     const tech = allTechs().find(t => t.name.toLowerCase() === wanted)
-    if (!tech) { toast('No move by that name. Add it in the Library first.'); return }
+    if (!tech) { toast('No move by that name. Add it under Game → Moves first.'); return }
     const name = input.dataset.techAdd, chips = $(`[data-chips="${name}"]`, form)
     const existing = $$(`input[value="${CSS.escape(tech.id)}"]`, chips)[0]
     if (existing) existing.checked = true
