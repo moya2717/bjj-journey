@@ -12,6 +12,7 @@ export const MODS = ['No takedowns', 'Drilling only', 'Avoid guard bottom', 'Avo
 
 export const isActive = i => !i.endDate
 export const activeInjuries = () => S.injury.filter(isActive).sort((a, b) => (b.severity || 1) - (a.severity || 1) || b.startDate.localeCompare(a.startDate))
+export const injuriesOf = session => (session.injuryIds || []).map(id => S.injury.find(i => i.id === id)).filter(Boolean)
 export const activeOn = date => S.injury.filter(i => i.startDate <= date && (!i.endDate || i.endDate >= date))
 
 export function injuryName(i) {

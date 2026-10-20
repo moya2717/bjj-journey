@@ -1,7 +1,7 @@
 import { cached } from './store.js'
 import { LIBRARY_GROUPS, POSITIONS } from './vocab.js'
 import { $, $$, esc, toast } from './util.js'
-import { allTechs, myTechs, techById } from './model.js'
+import { MOVE_OUTCOMES, allTechs, myTechs, techById } from './model.js'
 
 // Form building blocks. Every form in the app is a sheet: a dialog with a form inside.
 
@@ -38,6 +38,30 @@ const techOptions = () => cached('techOptions', () => {
 export function techSelect(name, value, { empty = 'None', extra = '' } = {}) {
   const options = value ? techOptions().replace(`value="${esc(value)}"`, `value="${esc(value)}" selected`) : techOptions()
   return `<select name="${name}" ${extra}><option value="">${esc(empty)}</option>${options}</select>`
+}
+
+// "Moves used" in a roll: add moves from the list, then mark each landed, tried or caught by.
+let moveRows = 0
+const moveRow = m => {
+  const t = techById(m.techId), n = moveRows++
+  return t ? `<div class="move-row" data-move="${esc(t.id)}"><b>${esc(t.name)}</b>
+    <div class="chips">${Object.entries(MOVE_OUTCOMES).map(([k, label]) => `<label class="chip o-${k}"><input type="radio" name="mv${n}" value="${k}" ${m.outcome === k ? 'checked' : ''}><span>${label}</span></label>`).join('')}</div>
+    <button type="button" class="mini" data-move-drop aria-label="Remove ${esc(t.name)}">×</button></div>` : ''
+}
+
+export const movesPicker = (moves = []) => `<fieldset><legend>Moves used</legend><div class="moves-pick" data-moves>${moves.map(moveRow).join('')}
+  ${techSelect('', '', { empty: '+ Add a move', extra: 'data-move-add aria-label="Add a move you used or got caught by"' })}</div></fieldset>`
+
+export const readMoves = box => $$('[data-move]', box).map(row => ({ techId: row.dataset.move, outcome: $('input:checked', row)?.value || 'tried' }))
+
+function wireMovePickers(form) {
+  form.addEventListener('change', e => {
+    const pick = e.target.closest('[data-move-add]')
+    if (!pick?.value) return
+    if (!$(`[data-move="${CSS.escape(pick.value)}"]`, pick.parentElement)) pick.insertAdjacentHTML('beforebegin', moveRow({ techId: pick.value, outcome: 'landed' }))
+    pick.value = ''
+  })
+  form.addEventListener('click', e => e.target.closest('[data-move-drop]')?.closest('[data-move]').remove())
 }
 
 // What class covered: pick positions first, and that position's moves appear to tap.
@@ -125,6 +149,7 @@ export function openSheet(title, body, { submitLabel = 'Save', onSubmit, onMount
   if (del) del.addEventListener('click', () => { if (armDelete(del, onDelete)) { dlg.close(); toast('Deleted') } })
   wireTechPickers(form)
   wireFocusPickers(form)
+  wireMovePickers(form)
   onMount?.(form)
   dlg.showModal()
   const first = $('.sheet-body input:not([type=checkbox]):not([type=radio]):not([type=file]),.sheet-body select,.sheet-body textarea', form)

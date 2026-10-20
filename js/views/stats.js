@@ -3,8 +3,8 @@ import { ACTIVITY_TYPES, BELT_LOOK, FEELS, PLACES, POSITIONS, RANKS } from '../v
 import { $, byDateAsc, dayPart, daysAgo, esc, fmtDate, fmtMonthY, hrs, monthLabel, newId, pct, plural, rate, span, sum, toast, today, trunc, ym } from '../util.js'
 import { field, selectEl, armDelete, openSheet, radioChips } from '../sheet.js'
 import { ageDivision, currentRank, rankName } from '../model.js'
-import { areaCounts, bodyInsights, monthlySeries, problemTrends, weeklyStreak } from '../analysis.js'
-import { heatmap, lineChart, spark } from '../charts.js'
+import { areaCounts, bodyInsights, monthlySeries, moveTrends, problemTrends, weeklyStreak } from '../analysis.js'
+import { butterfly, heatmap, lineChart, spark, stackedBars } from '../charts.js'
 import { exportBackup, importBackup } from '../backup.js'
 import { exampleRecords } from '../examples.js'
 import { previewImport } from './importing.js'
@@ -40,6 +40,7 @@ export function view() {
     </section>
     <h2 class="section-title wide">Your game</h2>
     ${areasPanel()}
+    ${movesPanel()}
     ${timeOfDayPanel()}
     ${bodyPanel()}
     ${otherTrainingPanel()}
@@ -249,6 +250,25 @@ function areasPanel() {
       <div><h3 style="margin-bottom:10px">Gave you trouble</h3>${bars(bad, '')}</div>
     </div>
     <p class="small muted" style="margin-top:10px">Counts the sessions where you ticked each area. An area on both lists is one you’re actively working through.</p>
+  </section>`
+}
+
+// ---------- Moves landed and caught by, by type ----------
+
+function movesPanel() {
+  const t = moveTrends(12)
+  if (!t.landed && !t.caught) return `<section class="panel wide"><h2>Moves in your rolls</h2><p class="muted">Add the moves you used when you log a roll, and mark each one landed, tried or caught by. Your offense, control and defense trends show up here.</p></section>`
+  const max = Math.max(1, ...[...t.topLanded, ...t.topCaught].map(x => x.n))
+  const top = (list, cls, none) => list.length ? `<div class="bars">${list.map(x => `<div class="bar-row"><span>${esc(x.tech.name)}</span><div class="meter ${cls}"><span style="width:${x.n / max * 100}%"></span></div><span class="n">${x.n}</span></div>`).join('')}</div>` : `<p class="muted small">${none}</p>`
+  return `<section class="panel wide"><h2>Moves in your rolls</h2>
+    <div class="trend-grid">
+      <div><h3 style="margin-bottom:10px">Moves landed by month</h3>${t.months.some(m => m.counts.some(Boolean)) ? stackedBars(t.months, t.groups) : '<p class="muted small">Nothing landed in the last 12 months.</p>'}
+        <p class="key" aria-hidden="true">${t.groups.map((g, i) => `<span><i class="g${i}"></i>${g}</span>`).join('')}</p></div>
+      <div><h3 style="margin-bottom:10px">Landed vs caught by, per type</h3>${t.types.length ? butterfly(t.types) : '<p class="muted small">Log moves from the built-in library to see this.</p>'}</div>
+      <div><h3 style="margin-bottom:10px">Most landed</h3>${top(t.topLanded, 'good', 'Nothing landed yet.')}</div>
+      <div><h3 style="margin-bottom:10px">Most caught by</h3>${top(t.topCaught, '', 'Nobody has caught you with anything yet.')}</div>
+    </div>
+    <p class="small muted" style="margin-top:10px">Offensive is takedowns, sweeps, passes and submissions; control is control and transitions; defensive is escapes and retention. Older roll notes count their single move as landed when the roll worked.</p>
   </section>`
 }
 

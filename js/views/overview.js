@@ -1,12 +1,12 @@
 import { S } from '../store.js'
 import { POSITIONS, RESULTS } from '../vocab.js'
 import { byDateAsc, byDateDesc, daysAgo, parseD, esc, fmtDate, hrs, plural, pct, posRole, rate, span, sum, toast, today, topKeys, trunc } from '../util.js'
-import { allTechs, currentRank, nodePath, rankName, rollTechId, seqById, techById } from '../model.js'
+import { MOVE_OUTCOMES, allTechs, currentRank, nodePath, rankName, rollTechId, seqById, techById } from '../model.js'
 import { areaCounts, badSpots, bodyInsights, hardestMatchup, monthlySeries, problemTrends, techStats, unpromoted, weakestStep } from '../analysis.js'
 import { lineChart } from '../charts.js'
 import { dueCards } from '../srs.js'
 import { computeAchievements, goalStatus, progressOf } from '../achievements.js'
-import { activeInjuries, duration, injuryName } from '../body.js'
+import { activeInjuries, duration, injuriesOf, injuryName } from '../body.js'
 
 export function view() {
   if (!S.session.length && !S.roll.length) return `
@@ -153,9 +153,9 @@ function reviewData() {
   return {
     today: today(),
     fighter: { rank: rankName(rank), timeAtRank: rank.since ? span(rank.since) : '', trainingFor: S.profile.startDate ? span(S.profile.startDate) : '', tournamentsLastYear: S.profile.tournaments.filter(t => t.date >= daysAgo(365)).map(t => ({ date: t.date, division: t.division, place: t.place, wins: t.wins, losses: t.losses, notes: trunc(t.notes, 200) })) },
-    sessions: S.session.filter(s => s.date >= from).sort(byDateDesc).map(s => ({ date: s.date, time: s.time || '', type: s.type, wentWell: s.wentWell || [], trouble: s.trouble || [], minutes: s.minutes, plan: s.plan || '', stuckToPlan: s.planHit || '', felt: s.feel || '', drilled: (s.drilled || []).map(name).filter(Boolean), reps: (s.reps || []).map(r => `${r.count} ${name(r.techId)}`), worked: trunc(s.worked, 300), wentWrong: trunc(s.struggled, 300), lesson: trunc(s.lesson, 200), reflection: s.reflectA ? `${s.reflectQ} ${trunc(s.reflectA, 300)}` : '', coachQuestion: s.coachQ || '', notes: trunc(s.notes, 300), energy: s.energy || '', sleep: s.sleep || '', trainingAroundInjury: (s.injuryIds || []).map(id => S.injury.find(i => i.id === id)).filter(Boolean).map(injuryName) })),
+    sessions: S.session.filter(s => s.date >= from).sort(byDateDesc).map(s => ({ date: s.date, time: s.time || '', type: s.type, wentWell: s.wentWell || [], trouble: s.trouble || [], minutes: s.minutes, plan: s.plan || '', stuckToPlan: s.planHit || '', felt: s.feel || '', drilled: (s.drilled || []).map(name).filter(Boolean), reps: (s.reps || []).map(r => `${r.count} ${name(r.techId)}`), worked: trunc(s.worked, 300), wentWrong: trunc(s.struggled, 300), lesson: trunc(s.lesson, 200), reflection: s.reflectA ? `${s.reflectQ} ${trunc(s.reflectA, 300)}` : '', coachQuestion: s.coachQ || '', notes: trunc(s.notes, 300), energy: s.energy || '', sleep: s.sleep || '', trainingAroundInjury: injuriesOf(s).map(injuryName) })),
     injuries: S.injury.filter(i => !i.endDate || i.endDate >= from).map(i => ({ where: injuryName(i), severity: ['', 'mild', 'moderate', 'severe'][i.severity || 1], started: i.startDate, healed: i.endDate || 'still active', what: trunc(i.description, 200), trainingChanges: [...(i.mods || []), i.modNotes].filter(Boolean) })),
-    rolls: S.roll.filter(r => r.date >= from).sort(byDateDesc).map(r => { const seq = seqById(r.seqId); return { date: r.date, partnerBelt: r.level, partnerSize: r.size || '', partnerStyle: r.styles || [], position: r.position, role: r.role, move: name(rollTechId(r)), sequence: seq ? seq.name + ': ' + nodePath(seq, r.nodeId).join(' > ') : '', result: RESULTS[r.result]?.label || r.result, causes: r.reasons || [], whatHappened: trunc(r.what, 300), tryNext: r.tryNext || '', tryNextStatus: r.tryNext ? (r.tryStatus || 'open') : '' } }),
+    rolls: S.roll.filter(r => r.date >= from).sort(byDateDesc).map(r => { const seq = seqById(r.seqId); return { date: r.date, partnerBelt: r.level, partnerSize: r.size || '', partnerStyle: r.styles || [], position: r.position, role: r.role, move: name(rollTechId(r)), movesUsed: (r.moves || []).filter(m => name(m.techId)).map(m => `${name(m.techId)} (${MOVE_OUTCOMES[m.outcome] || m.outcome})`), sequence: seq ? seq.name + ': ' + nodePath(seq, r.nodeId).join(' > ') : '', result: RESULTS[r.result]?.label || r.result, causes: r.reasons || [], whatHappened: trunc(r.what, 300), tryNext: r.tryNext || '', tryNextStatus: r.tryNext ? (r.tryStatus || 'open') : '' } }),
     otherTraining: S.activity.filter(a => a.date >= from).map(a => ({ date: a.date, type: a.type, minutes: a.minutes, intensity: a.intensity, notes: trunc(a.notes, 200) })),
     challenges: S.goal.map(g => ({ title: g.title, target: g.target, progress: goalStatus(g).value, status: goalStatus(g).label })),
     sequenceGaps: S.seq.flatMap(s => s.nodes.filter(n => n.who === 'them' && !s.nodes.some(c => c.parentId === n.id)).map(n => s.name + ': ' + n.label)),

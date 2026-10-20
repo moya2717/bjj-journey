@@ -2,12 +2,12 @@ import { S, save, saveMany, remove } from '../store.js'
 import { UI } from '../ui.js'
 import { ACTIVITY_TYPES, AREAS, BELTS, ENERGY, FEELS, INTENSITIES, PLAN_HIT, POSITIONS, PROMPTS, REASONS, RESULTS, ROLES, SESSION_TYPES, SIZES, SLEEP, promptFor } from '../vocab.js'
 import { $, $$, byDateDesc, cap, esc, fmtDateLong, fmtTime, hrs, isoDate, monthLabel, newId, parseD, plural, posRole, shiftMonth, sum, toast, today, weekStart, ym } from '../util.js'
-import { field, selectEl, chipsEl, focusPicker, radioChips, techSelect, openSheet } from '../sheet.js'
+import { field, selectEl, chipsEl, focusPicker, radioChips, techSelect, openSheet, movesPicker, readMoves } from '../sheet.js'
 import { partnerProfile, seqById, techById } from '../model.js'
 import { heatLevel } from '../charts.js'
 import { addPhotos, removePhotos, hydratePhotos, photoURL } from '../photos.js'
 import { partnerDatalist, stepOptions } from './rolls.js'
-import { activeInjuries, activeOn, injuryName } from '../body.js'
+import { activeInjuries, activeOn, injuriesOf, injuryName } from '../body.js'
 
 // ---------- Calendar ----------
 
@@ -118,15 +118,14 @@ function entryCard(s) {
 // Three numbered steps cover a typical log in under a minute. Everything else is folded away.
 
 // Energy, sleep and injuries: optional one-tap tags that the Stats insights compare roll results across.
-const sessionInjuries = s => (s.injuryIds || []).map(id => S.injury.find(i => i.id === id)).filter(Boolean)
 const bodyNote = s => {
-  const parts = [s.energy && `energy ${ENERGY[s.energy].toLowerCase()}`, s.sleep && `sleep ${SLEEP[s.sleep].toLowerCase()}`, ...sessionInjuries(s).map(i => 'around ' + injuryName(i).toLowerCase())].filter(Boolean)
+  const parts = [s.energy && `energy ${ENERGY[s.energy].toLowerCase()}`, s.sleep && `sleep ${SLEEP[s.sleep].toLowerCase()}`, ...injuriesOf(s).map(i => 'around ' + injuryName(i).toLowerCase())].filter(Boolean)
   return parts.length ? `<p class="small muted" style="margin-top:6px">${esc(cap(parts.join(' · ')))}</p>` : ''
 }
 const tagChips = (name, options, value) => `<div class="chips">${Object.entries(options).map(([v, l]) => `<label class="chip"><input type="radio" name="${name}" value="${v}" ${v === value ? 'checked' : ''} data-untoggle><span>${l}</span></label>`).join('')}</div>`
 
 function bodyCheck(s) {
-  const tagged = sessionInjuries(s)
+  const tagged = injuriesOf(s)
   const hurt = [...new Map([...tagged, ...activeOn(s.date), ...activeInjuries()].map(i => [i.id, i])).values()]
   return `<div class="session-tags">
     <fieldset><legend>Energy</legend>${tagChips('energy', ENERGY, s.energy || '')}</fieldset>
@@ -195,6 +194,7 @@ function rollRow(i, preset) {
     <div class="grid2">${field('Position', selectEl(k('position'), POSITIONS, preset.position))}${field('Your role', selectEl(k('role'), ROLES, preset.role))}</div>
     <div class="grid2">${field('Sequence', selectEl(k('seqId'), seqOptions, preset.seqId, 'data-seq'))}${field('Step it reached', `<select name="${k('nodeId')}" data-node>${stepOptions(preset.seqId, '')}</select>`)}</div>
     <fieldset><legend>Result</legend><div class="chips">${Object.entries(RESULTS).map(([v, o]) => `<label class="chip r-${v}"><input type="radio" name="${k('result')}" value="${v}" data-result><span>${o.label}</span></label>`).join('')}</div></fieldset>
+    ${movesPicker()}
     <fieldset data-why hidden><legend>Why it went wrong</legend>${chipsEl(k('reasons'), REASONS, [])}</fieldset>
     ${field('What happened', `<textarea name="${k('what')}" rows="2" placeholder="Where it started and where it fell apart"></textarea>`)}
     ${field('Try next time', `<input type="text" name="${k('tryNext')}" placeholder="One thing to test">`)}
@@ -297,7 +297,7 @@ function sessionForm(id, date) {
       const date = fd.get('date')
       if (!date) { $('#form-error').textContent = 'Add the date you trained.'; return false }
       const rows = $$('[data-row]', form)
-      const typed = row => ['partner', 'what', 'tryNext'].some(n => (fd.get(`r${row.dataset.row}_${n}`) || '').trim())
+      const typed = row => ['partner', 'what', 'tryNext'].some(n => (fd.get(`r${row.dataset.row}_${n}`) || '').trim()) || readMoves(row).length
       const missing = rows.findIndex(row => !fd.get(`r${row.dataset.row}_result`) && typed(row))
       if (missing >= 0) { $('#form-error').textContent = `Pick a result for roll ${missing + 1}, or remove it.`; return false }
 
@@ -326,7 +326,7 @@ function sessionForm(id, date) {
         return {
           id: newId('roll'), kind: 'roll', date, sessionId, partner, level: g('level'), size: g('size'),
           styles: partnerProfile(partner)?.styles || [], position: g('position'), role: g('role'),
-          seqId, nodeId: seqId ? g('nodeId') : '', techId: '', result,
+          seqId, nodeId: seqId ? g('nodeId') : '', techId: '', moves: readMoves(row), result,
           reasons: result === 'worked' ? [] : fd.getAll(`r${row.dataset.row}_reasons`),
           what: g('what').trim(), tryNext, tryStatus: tryNext ? 'open' : '', createdAt: Date.now() + j,
         }

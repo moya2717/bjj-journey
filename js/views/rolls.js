@@ -2,8 +2,8 @@ import { S, save, saveMany, remove } from '../store.js'
 import { UI } from '../ui.js'
 import { BELTS, POSITIONS, REASONS, RESULTS, ROLES, SIZES, STYLES } from '../vocab.js'
 import { $, byDateDesc, esc, fmtDate, fmtDateLong, newId, posRole, toast, today, trunc } from '../util.js'
-import { field, selectEl, chipsEl, techSelect, openSheet } from '../sheet.js'
-import { nodeDepth, nodePath, partnerNames, partnerProfile, rollTechId, seqById, sizeLabel, techById, treeOrder } from '../model.js'
+import { field, selectEl, chipsEl, techSelect, openSheet, movesPicker, readMoves } from '../sheet.js'
+import { MOVE_OUTCOMES, nodeDepth, nodePath, partnerNames, partnerProfile, rollTechId, seqById, sizeLabel, techById, treeOrder } from '../model.js'
 
 export function view() {
   return `<div class="page-head"><div><h1>Rolling analysis</h1><p class="lede">One note per key exchange: where it started, where it broke down, and what you’ll try next.</p></div>
@@ -39,6 +39,7 @@ export function rollCard(r) {
     <div class="entry-top"><h3>${posRole(r.position, r.role)}</h3><span class="result ${esc(r.result)}">${esc(RESULTS[r.result]?.label || '')}</span></div>
     <p class="entry-meta">${[fmtDateLong(r.date), ...partnerBits].join(', ')}</p>
     ${seq ? `<p class="path">${esc(seq.name)}: ${nodePath(seq, r.nodeId).map(esc).join(' › ')}</p>` : tech ? `<p class="path">${esc(tech.name)}</p>` : ''}
+    ${movesUsed(r)}
     ${(r.reasons || []).length ? `<div class="tags">${r.reasons.map(x => `<button class="tag fix-tag" data-act="fix" data-reason="${esc(x)}" aria-label="How to fix: ${esc(x)}">${esc(x)} <span aria-hidden="true">›</span></button>`).join('')}</div>` : ''}
     ${r.what ? `<p style="margin-top:8px">${esc(r.what)}</p>` : ''}
     ${r.tryNext ? `<div class="trynext"><strong>Try next:</strong> ${esc(r.tryNext)} <span class="status ${status}">${statusLabel}</span>
@@ -52,6 +53,12 @@ export function rollCard(r) {
     </div>` : ''}
     <div class="row-actions"><button class="btn sm ghost" data-act="edit-roll" data-id="${r.id}">Edit</button></div>
   </article>`
+}
+
+// The "moves used" list, grouped by outcome: "Landed: Kimura, Armbar · Caught by: Triangle".
+export function movesUsed(r) {
+  const parts = Object.entries(MOVE_OUTCOMES).map(([k, label]) => [label, (r.moves || []).filter(m => m.outcome === k).map(m => techById(m.techId)).filter(Boolean)]).filter(([, list]) => list.length)
+  return parts.length ? `<p class="moves-used">${parts.map(([label, list]) => `<span><strong>${label}:</strong> ${list.map(t => esc(t.name)).join(', ')}</span>`).join('')}</p>` : ''
 }
 
 export function stepOptions(seqId, selected, first = 'Whole sequence') {
@@ -87,7 +94,8 @@ function rollForm(id, preset = {}) {
     <fieldset><legend>Their style</legend>${chipsEl('styles', STYLES, r.styles || [])}</fieldset>
     <div class="grid2">${field('Position', selectEl('position', POSITIONS, r.position, 'id="r-pos"'))}${field('Your role', selectEl('role', ROLES, r.role, 'id="r-role"'))}</div>
     <div class="grid2">${field('Sequence you ran', selectEl('seqId', seqOptions(), r.seqId, 'id="r-seq"'))}${field('Step it reached', `<select name="nodeId" id="r-node">${stepOptions(r.seqId, r.nodeId)}</select>`)}</div>
-    ${field('Move (if not in a sequence)', techSelect('techId', r.techId, { extra: 'id="r-tech"' }))}
+    ${field('Main move (if not in a sequence)', techSelect('techId', r.techId, { extra: 'id="r-tech"' }))}
+    ${movesPicker(r.moves || [])}
     <fieldset><legend>Result</legend><div class="chips">${Object.entries(RESULTS).map(([k, v]) => `<label class="chip r-${k}"><input type="radio" name="result" value="${k}" ${r.result === k ? 'checked' : ''}><span>${v.label}</span></label>`).join('')}</div></fieldset>
     <fieldset><legend>Why it went wrong</legend>${chipsEl('reasons', REASONS, r.reasons || [])}</fieldset>
     ${field('What happened', `<textarea name="what" id="r-what" rows="3" placeholder="He got the underhook as soon as I cut, came up, and I ended up on bottom">${esc(r.what)}</textarea>`)}
@@ -104,15 +112,16 @@ function rollForm(id, preset = {}) {
       $('#r-session', form).addEventListener('change', e => { const s = S.session.find(x => x.id === e.target.value); if (s) form.elements.date.value = s.date })
       $('#r-partner', form).addEventListener('change', e => fillFromPartner(form, e.target.value, id))
     },
-    onSubmit: fd => {
+    onSubmit: (fd, form) => {
       const date = fd.get('date')
       if (!date) { $('#form-error').textContent = 'Add the date of the roll.'; return false }
+      const moves = readMoves(form)
       const tryNext = fd.get('tryNext').trim()
       const rec = {
         ...(id ? r : {}), id: id || newId('roll'), kind: 'roll', date, sessionId: fd.get('sessionId'),
         partner: fd.get('partner').trim(), level: fd.get('level'), size: fd.get('size') || '', styles: fd.getAll('styles'),
         position: fd.get('position'), role: fd.get('role'), seqId: fd.get('seqId'), nodeId: fd.get('seqId') ? fd.get('nodeId') : '',
-        techId: fd.get('techId'), result: fd.get('result') || 'broke', reasons: fd.getAll('reasons'), what: fd.get('what').trim(),
+        techId: fd.get('techId'), moves, result: fd.get('result') || 'broke', reasons: fd.getAll('reasons'), what: fd.get('what').trim(),
         tryNext, tryStatus: tryNext ? (id && r.tryNext === tryNext ? (r.tryStatus || 'open') : 'open') : '',
       }
       if (id && r.tryNext !== tryNext) { delete rec.promoted; delete rec.promoteSkip }

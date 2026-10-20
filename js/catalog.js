@@ -132,6 +132,10 @@ export const CATALOG = Object.entries(MOVES).flatMap(([position, byType]) =>
 export const CATALOG_BY_ID = Object.fromEntries(CATALOG.map(t => [t.id, t]))
 
 // Solo movements are what the rep counter and rep achievements track by default.
+// Move types grouped for the trend charts. Types outside these (Movement) belong to no group.
+export const MOVE_GROUPS = { Offensive: ['Takedown', 'Sweep', 'Pass', 'Submission'], Control: ['Control', 'Transition'], Defensive: ['Escape', 'Retention'] }
+export const groupOf = type => Object.keys(MOVE_GROUPS).find(g => MOVE_GROUPS[g].includes(type)) || ''
+
 export const SOLO_DRILLS = CATALOG.filter(t => t.position === 'Solo drills')
 
 // Every move gets a one-tap video search, even before you save your own link.
