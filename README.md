@@ -77,7 +77,9 @@ Add your next tournament to get a countdown, a prep checklist, an A-game plan (o
 
 ## Live roll
 
-**Game → Live roll** is a turn-based roll against a simulated partner. Pick where it starts and who you’re rolling with, then choose one move per turn from options that fit your position. Points follow IBJJF scoring and a submission ends it. Moves you’ve mastered in your journal land more often, and moves from your sequences (or the game maps) draw the reactions you mapped, with your answer offered next. Some options are moves from a different position: spot them, or pay for it.
+**Game → Live roll** is a turn-based roll against a simulated partner. Pick where it starts and who you’re rolling with, then choose one move per turn from options that fit your position. Points follow IBJJF scoring (2 for a takedown, sweep or knee on belly, 3 for a pass, 4 for mount or the back) and only count once you stabilize; a near miss earns an advantage, and a submission ends it. Your partner counters with moves that fit the position, and when they attack a submission you can defend it. Moves you’ve mastered in your journal land more often, and moves from your sequences (or the game maps) draw the reactions you mapped, with your answer offered next. Some options are moves for the other person, like a sweep when you’re on top: spot them, or pay for it.
+
+Every position and role the game can reach has its own menu in `js/sim.js`. To check it after editing, run `import('./js/simcheck.js').then(m => m.checkSim())` in the browser console: it checks every move's landing, role and points, then plays a few thousand random games looking for dead ends and impossible scores.
 
 ## Quiz
 

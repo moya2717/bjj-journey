@@ -1,6 +1,6 @@
 // Offline support: the app's own files are cached on install, so it opens with no signal.
 // Bump VERSION whenever you change a file, so phones pick up the new version.
-const VERSION = 'bjj-journey-v12'
+const VERSION = 'bjj-journey-v13'
 
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',

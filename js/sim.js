@@ -2,20 +2,24 @@
 // Each turn you pick a move that fits your position. Success depends on the move, the position,
 // your partner, and how well you know the move (its mastery level from your journal).
 // Moves from your sequences and the game maps draw the reactions you mapped, and your mapped
-// answer becomes an option next turn. Points follow IBJJF scoring; a submission ends it.
+// answer becomes an option next turn. Points follow IBJJF scoring and only count once the
+// position is stabilized; a near miss earns an advantage. A submission ends it.
 
 import { S } from './store.js'
 import { GAME_MAPS } from './maps.js'
-import { allTechs, masteryOf, techById } from './model.js'
+import { allTechs, isCustom, masteryOf, techById } from './model.js'
+import { slug } from './util.js'
 
 export const TURNS = 12
-const GUARDS = ['Closed guard', 'Half guard', 'Butterfly guard', 'De La Riva', 'Reverse De La Riva', 'X-guard', 'Spider / lasso', 'Lapel guards', 'Open guard']
-const PINS = ['Side control', 'Mount', 'Back', 'Knee on belly', 'North-south', 'Turtle', 'Front headlock']
+export const GUARDS = ['Closed guard', 'Half guard', 'Butterfly guard', 'De La Riva', 'Reverse De La Riva', 'X-guard', 'Spider / lasso', 'Lapel guards', 'Open guard']
 
+// you: added to your odds. counter: how often they punish a miss. finish: how often their
+// submission finishes when you don't defend it. scramble: how often they wriggle out before you
+// stabilize a score. hold: how often they stabilize theirs.
 export const PARTNERS = {
-  easy: { label: 'A newer, lighter partner', bonus: 0.06 },
-  even: { label: 'A partner at your level', bonus: -0.06 },
-  tough: { label: 'A heavier, higher belt', bonus: -0.15 },
+  easy: { label: 'A lower belt, a bit lighter', you: 0.08, counter: 0.3, finish: 0.35, scramble: 0.1, hold: 0.7 },
+  even: { label: 'Your belt, your size', you: 0, counter: 0.45, finish: 0.5, scramble: 0.2, hold: 0.8 },
+  tough: { label: 'A heavier, higher belt', you: -0.1, counter: 0.6, finish: 0.65, scramble: 0.3, hold: 0.9 },
 }
 export const STARTS = {
   standing: { label: 'On the feet', pos: 'Standing', role: 'Neutral' },
@@ -24,9 +28,216 @@ export const STARTS = {
   bad: { label: 'Escaping side control', pos: 'Side control', role: 'Bottom' },
 }
 
-const BASE = { Takedown: 0.42, Sweep: 0.38, Pass: 0.38, Submission: 0.22, Escape: 0.38, Transition: 0.48, Control: 0.75, Retention: 0.6 }
+// Every move the game offers, by position and role: [library move, where it lands, your role there,
+// IBJJF points]. A move with no landing keeps you where you are: a submission finishes, anything else
+// is control that sets up your next attack. You and your partner both play from this table.
+// In a leg entanglement, Bottom is the one attacking the legs.
+export const MENU = {
+  'Standing|Neutral': [
+    ['Double leg', 'Half guard', 'Top', 2], ['Blast double', 'Open guard', 'Top', 2], ['Single leg', 'Open guard', 'Top', 2], ['Low single', 'Open guard', 'Top', 2],
+    ['Ankle pick', 'Open guard', 'Top', 2], ['Knee tap', 'Open guard', 'Top', 2], ['High crotch', 'Half guard', 'Top', 2], ['Body lock takedown', 'Half guard', 'Top', 2],
+    ['Inside trip', 'Half guard', 'Top', 2], ['Ouchi gari', 'Half guard', 'Top', 2], ['De ashi barai (foot sweep)', 'Open guard', 'Top', 2],
+    ['Osoto gari', 'Side control', 'Top', 2], ['Seoi nage', 'Side control', 'Top', 2], ['Uchi mata', 'Side control', 'Top', 2], ['Hip toss', 'Side control', 'Top', 2],
+    ['Snap down', 'Front headlock', 'Top'], ['Guard pull', 'Open guard', 'Bottom'], ['Sit-down guard pull', 'Open guard', 'Bottom'], ['Jumping closed guard', 'Closed guard', 'Bottom'],
+    ['Collar tie'], ['Collar and sleeve grips'], ['Underhook pummeling'], ['Russian tie'], ['Two-on-one'], ['Arm drag'], ['Inside tie (wrist control)'],
+    ['Standing guillotine'], ['Arm-in guillotine'],
+  ],
+  'Front headlock|Top': [
+    ['High elbow guillotine'], ['Japanese necktie'], ['Peruvian necktie'], ['D’arce choke'], ['Anaconda choke'], ['Chin strap control'],
+    ['Go-behind from front headlock', 'Turtle', 'Top'], ['Front headlock spin behind', 'Turtle', 'Top'],
+  ],
+  'Front headlock|Bottom': [
+    ['Front headlock escape', 'Standing', 'Neutral'], ['Turtle to single leg', 'Half guard', 'Top'], ['Granby roll escape', 'Open guard', 'Bottom'], ['Guillotine defense'],
+  ],
+  'Closed guard|Bottom': [
+    ['Hip bump sweep', 'Half guard', 'Top', 2], ['Scissor sweep', 'Half guard', 'Top', 2], ['Flower sweep', 'Half guard', 'Top', 2], ['Kimura sweep', 'Half guard', 'Top', 2],
+    ['Muscle sweep', 'Half guard', 'Top', 2], ['Lumberjack sweep', 'Open guard', 'Top', 2], ['Overhead sweep', 'Open guard', 'Top', 2],
+    ['Armbar from guard'], ['Triangle choke'], ['Triangle armbar'], ['Kimura'], ['Omoplata'], ['Guillotine'], ['Cross collar choke'], ['Loop choke'], ['Gogoplata'], ['Wristlock from guard'],
+    ['Breaking posture'], ['High guard'], ['Overhook guard'], ['Shoulder clamp'], ['Rubber guard'], ['Two-on-one from guard'],
+    ['Arm drag to back', 'Back', 'Top', 4], ['Collar sleeve guard', 'Open guard', 'Bottom'],
+  ],
+  'Closed guard|Top': [
+    ['Posture in closed guard'], ['Standing guard break', 'Open guard', 'Top'], ['Kneeling guard break', 'Open guard', 'Top'], ['Knee in the middle break', 'Open guard', 'Top'],
+  ],
+  'Open guard|Bottom': [
+    ['Collar sleeve sweep', 'Open guard', 'Top', 2], ['Shin-to-shin sweep', 'Open guard', 'Top', 2], ['Double ankle sweep', 'Open guard', 'Top', 2], ['Chair sweep', 'Open guard', 'Top', 2],
+    ['Hook sweep', 'Half guard', 'Top', 2], ['X-guard sweep from open guard', 'Open guard', 'Top', 2], ['Triangle choke'], ['Omoplata'],
+    ['Guard retention (frames and hips)'], ['Inversion'], ['Granby roll recovery'], ['Shoulder walk'], ['Collar sleeve guard'],
+    ['De La Riva hook', 'De La Riva', 'Bottom'], ['Reverse De La Riva hook', 'Reverse De La Riva', 'Bottom'], ['Seated guard', 'Butterfly guard', 'Bottom'],
+    ['Spider guard retention', 'Spider / lasso', 'Bottom'], ['X-guard entry', 'X-guard', 'Bottom'], ['Worm guard', 'Lapel guards', 'Bottom'],
+    ['Shin-to-shin entry', 'Leg entanglement', 'Bottom'], ['Technical stand-up from guard', 'Standing', 'Neutral'], ['Wrestle up', 'Standing', 'Neutral'],
+  ],
+  'Open guard|Top': [
+    ['Long step pass', 'Side control', 'Top', 3], ['Leg drag pass', 'Side control', 'Top', 3], ['Torreando pass', 'Side control', 'Top', 3], ['Over-under pass', 'Side control', 'Top', 3],
+    ['Double under pass', 'Side control', 'Top', 3], ['Stack pass', 'Side control', 'Top', 3], ['X-pass', 'Side control', 'Top', 3], ['Leg weave pass', 'Side control', 'Top', 3],
+    ['Smash pass', 'Side control', 'Top', 3], ['Float pass', 'Side control', 'Top', 3], ['Folding pass', 'Side control', 'Top', 3], ['Body lock pass', 'Side control', 'Top', 3],
+    ['Knee cut pass', 'Side control', 'Top', 3], ['Headquarters'], ['Ashi garami', 'Leg entanglement', 'Bottom'],
+  ],
+  'Half guard|Bottom': [
+    ['Underhook sweep', 'Half guard', 'Top', 2], ['Old school sweep', 'Half guard', 'Top', 2], ['Electric chair', 'Half guard', 'Top', 2], ['Waiter sweep', 'Open guard', 'Top', 2],
+    ['Deep half sweep', 'Half guard', 'Top', 2], ['Homer Simpson sweep', 'Half guard', 'Top', 2], ['Coyote half sweep', 'Open guard', 'Top', 2], ['John Wayne sweep', 'Half guard', 'Top', 2],
+    ['Kimura sweep from half guard', 'Half guard', 'Top', 2], ['Plan B sweep', 'Half guard', 'Top', 2],
+    ['Back take from half guard', 'Back', 'Top', 4], ['Back take from dogfight', 'Back', 'Top', 4],
+    ['Kimura from half guard'], ['Triangle from knee shield'], ['Guillotine'],
+    ['Knee shield'], ['Lockdown'], ['Z guard'], ['Deep half guard entry'], ['Dogfight'], ['Shrimp to guard recovery', 'Open guard', 'Bottom'],
+  ],
+  'Half guard|Top': [
+    ['Knee cut pass', 'Side control', 'Top', 3], ['Back step pass', 'Side control', 'Top', 3], ['Tripod pass', 'Side control', 'Top', 3], ['Underhook half pass', 'Side control', 'Top', 3],
+    ['Shin slide', 'Side control', 'Top', 3], ['Hip switch half pass', 'Side control', 'Top', 3], ['Smash pass', 'Side control', 'Top', 3],
+    ['Knee shield pass', 'Side control', 'Top', 3], ['Lockdown pass', 'Side control', 'Top', 3], ['Deep half pass', 'Side control', 'Top', 3],
+    ['Kimura from half guard'], ['D’arce choke'], ['Arm triangle from half guard'], ['Toe hold from half guard top'],
+    ['Crossface and underhook'], ['Flat half guard control'], ['Whizzer'],
+  ],
+  'Butterfly guard|Bottom': [
+    ['Butterfly sweep', 'Open guard', 'Top', 2], ['Arm drag sweep', 'Open guard', 'Top', 2], ['Elevator sweep', 'Open guard', 'Top', 2], ['Overhook butterfly sweep', 'Open guard', 'Top', 2],
+    ['Shoulder crunch sweep', 'Open guard', 'Top', 2], ['Butterfly back take', 'Back', 'Top', 4], ['Butterfly to single-leg X', 'Leg entanglement', 'Bottom'],
+    ['Butterfly ashi entry', 'Leg entanglement', 'Bottom'], ['Guillotine from butterfly'], ['Butterfly guard retention'], ['Shoulder crunch'],
+  ],
+  'Butterfly guard|Top': [
+    ['Butterfly pass (hip switch)', 'Side control', 'Top', 3], ['Knee pin pass', 'Side control', 'Top', 3], ['Body lock pass', 'Side control', 'Top', 3],
+    ['Smash pass', 'Side control', 'Top', 3], ['Over-under pass', 'Side control', 'Top', 3], ['Headquarters'],
+  ],
+  'De La Riva|Bottom': [
+    ['De La Riva sweep', 'Open guard', 'Top', 2], ['Tripod sweep', 'Open guard', 'Top', 2], ['Sickle sweep', 'Open guard', 'Top', 2], ['Single leg from De La Riva', 'Open guard', 'Top', 2],
+    ['Berimbolo', 'Back', 'Top', 4], ['Back take from De La Riva', 'Back', 'Top', 4], ['Matrix back take', 'Back', 'Top', 4], ['Crab ride', 'Back', 'Top', 4],
+    ['De La Riva to single-leg X', 'Leg entanglement', 'Bottom'], ['De La Riva omoplata'], ['De La Riva hook'], ['Reverse De La Riva hook', 'Reverse De La Riva', 'Bottom'],
+  ],
+  'De La Riva|Top': [
+    ['De La Riva pass (knee slide out)', 'Side control', 'Top', 3], ['Leg pin pass', 'Side control', 'Top', 3], ['Torreando pass', 'Side control', 'Top', 3],
+    ['Leg drag pass', 'Side control', 'Top', 3], ['Long step pass', 'Side control', 'Top', 3], ['Headquarters'],
+  ],
+  'Reverse De La Riva|Bottom': [
+    ['Reverse De La Riva sweep', 'Open guard', 'Top', 2], ['Kiss of the dragon', 'Back', 'Top', 4], ['Baby bolo', 'Back', 'Top', 4], ['Reverse De La Riva back take', 'Back', 'Top', 4],
+    ['Reverse De La Riva to single-leg X', 'Leg entanglement', 'Bottom'], ['Reverse De La Riva hook'], ['De La Riva hook', 'De La Riva', 'Bottom'],
+  ],
+  'Reverse De La Riva|Top': [
+    ['Reverse De La Riva pass', 'Side control', 'Top', 3], ['Back step pass', 'Side control', 'Top', 3], ['Smash pass', 'Side control', 'Top', 3],
+    ['Body lock pass', 'Side control', 'Top', 3], ['Headquarters'],
+  ],
+  'X-guard|Bottom': [
+    ['X-guard sweep', 'Open guard', 'Top', 2], ['X-guard stand-up sweep', 'Open guard', 'Top', 2], ['X-guard back roll sweep', 'Open guard', 'Top', 2],
+    ['Single-leg X sweep', 'Open guard', 'Top', 2], ['X-guard to leg drag', 'Open guard', 'Top', 2], ['Ashi garami', 'Leg entanglement', 'Bottom'],
+  ],
+  'X-guard|Top': [
+    ['X-guard pass', 'Side control', 'Top', 3], ['Back step pass', 'Side control', 'Top', 3], ['Smash pass', 'Side control', 'Top', 3],
+  ],
+  'Spider / lasso|Bottom': [
+    ['Spider guard sweep', 'Open guard', 'Top', 2], ['Lasso sweep', 'Open guard', 'Top', 2], ['Balloon sweep', 'Open guard', 'Top', 2], ['Spider guard overhead sweep', 'Open guard', 'Top', 2],
+    ['Triangle from spider'], ['Omoplata from lasso'], ['Lasso to back take', 'Back', 'Top', 4], ['Spider guard retention'],
+  ],
+  'Spider / lasso|Top': [
+    ['Spider guard pass (break the grips)', 'Side control', 'Top', 3], ['Lasso pass', 'Side control', 'Top', 3], ['Stack pass', 'Side control', 'Top', 3], ['Torreando pass', 'Side control', 'Top', 3],
+  ],
+  'Lapel guards|Bottom': [
+    ['Lapel guard sweep', 'Open guard', 'Top', 2], ['Berimbolo', 'Back', 'Top', 4], ['Worm guard'], ['Squid guard'], ['Ringworm guard'],
+  ],
+  'Lapel guards|Top': [
+    ['Lapel guard pass', 'Side control', 'Top', 3], ['Leg pin pass', 'Side control', 'Top', 3], ['Long step pass', 'Side control', 'Top', 3], ['Headquarters'],
+  ],
+  'Leg entanglement|Bottom': [
+    ['Straight ankle lock'], ['Inside heel hook'], ['Outside heel hook'], ['Kneebar'], ['Toe hold'], ['Estima lock'], ['Calf slicer'], ['Aoki lock'],
+    ['Single-leg X'], ['Ashi garami'], ['50/50'], ['Saddle (inside sankaku)'], ['Outside ashi'], ['Cross ashi'], ['Backside 50/50'], ['Single-leg X sweep', 'Open guard', 'Top', 2],
+  ],
+  'Leg entanglement|Top': [
+    ['Heel hook defense'], ['Boot escape', 'Open guard', 'Top'], ['Clear the knee line', 'Open guard', 'Top'], ['Straight ankle lock'], ['Toe hold'],
+  ],
+  'Side control|Top': [
+    ['Americana'], ['Kimura from side control'], ['Arm triangle'], ['Paper cutter choke'], ['Baseball bat choke'], ['Far-side armbar'], ['Step-over armbar'], ['Bread cutter choke'], ['Ezekiel from side control'],
+    ['Crossface control'], ['Kesa gatame'], ['Reverse kesa gatame'], ['Near-side underhook control'], ['Hip switch side control'],
+    ['Side control to mount', 'Mount', 'Top', 4], ['Side control to knee on belly', 'Knee on belly', 'Top', 2], ['Side control to north-south', 'North-south', 'Top'],
+  ],
+  'Side control|Bottom': [
+    ['Shrimp to guard recovery', 'Open guard', 'Bottom'], ['Elbow-knee escape', 'Half guard', 'Bottom'], ['Underhook escape to knees', 'Turtle', 'Bottom'],
+    ['Ghost escape', 'Turtle', 'Bottom'], ['Running escape', 'Turtle', 'Bottom'], ['Kesa gatame escape', 'Half guard', 'Bottom'],
+  ],
+  'Mount|Top': [
+    ['Armbar from mount'], ['Arm triangle from mount'], ['Ezekiel choke'], ['Cross collar choke from mount'], ['Americana from mount'], ['Mounted guillotine'], ['Armbar from S-mount'], ['Mounted triangle'],
+    ['High mount'], ['S-mount'], ['Technical mount'], ['Low mount'], ['Grapevine mount'],
+    ['Mount to back take', 'Back', 'Top', 4], ['Gift wrap', 'Back', 'Top', 4],
+  ],
+  'Mount|Bottom': [
+    ['Upa (bridge and roll)', 'Closed guard', 'Top'], ['Elbow-knee escape', 'Half guard', 'Bottom'], ['Kipping escape', 'Open guard', 'Bottom'], ['Heel drag escape', 'Half guard', 'Bottom'],
+  ],
+  'Back|Top': [
+    ['Rear naked choke'], ['Bow and arrow choke'], ['Collar choke from back'], ['Short choke'], ['Armbar from back'], ['Arm trap choke'], ['Back triangle'],
+    ['Seatbelt control'], ['Body triangle'], ['Hooks in'], ['Straight jacket'], ['Technical mount', 'Mount', 'Top', 4],
+  ],
+  'Back|Bottom': [
+    ['Back escape (shoulder to the mat)', 'Half guard', 'Top'], ['Back escape to guard', 'Open guard', 'Bottom'], ['Body triangle escape'], ['Two-on-one'],
+  ],
+  'Knee on belly|Top': [
+    ['Knee on belly control'], ['Far-side armbar from knee on belly'], ['Spinning armbar'], ['Baseball bat choke'],
+    ['Knee on belly to mount', 'Mount', 'Top', 4], ['Crossface control', 'Side control', 'Top'],
+  ],
+  'Knee on belly|Bottom': [
+    ['Knee on belly escape', 'Open guard', 'Bottom'], ['Shrimp to guard recovery', 'Open guard', 'Bottom'], ['Underhook escape to knees', 'Turtle', 'Bottom'],
+  ],
+  'North-south|Top': [
+    ['North-south choke'], ['Kimura from north-south'], ['Armbar from north-south'], ['North-south control'], ['Crossface control', 'Side control', 'Top'],
+  ],
+  'North-south|Bottom': [
+    ['North-south escape', 'Open guard', 'Bottom'], ['Shrimp to guard recovery', 'Open guard', 'Bottom'], ['Underhook escape to knees', 'Turtle', 'Bottom'],
+  ],
+  'Turtle|Top': [
+    ['Clock choke'], ['Anaconda choke'], ['Crucifix'], ['Calf slicer from the truck'], ['Spiral ride'], ['Truck entry'],
+    ['Seatbelt back take', 'Back', 'Top', 4], ['Back take from turtle (hooks in)', 'Back', 'Top', 4], ['Front headlock', 'Front headlock', 'Top'],
+  ],
+  'Turtle|Bottom': [
+    ['Sit-out', 'Standing', 'Neutral'], ['Granby roll escape', 'Open guard', 'Bottom'], ['Turtle to guard recovery', 'Open guard', 'Bottom'],
+    ['Turtle to single leg', 'Half guard', 'Top'], ['Peterson roll', 'Half guard', 'Top'],
+  ],
+}
+
+// Moves that only make sense once something else has happened in this position (by either of you).
+export const AFTER = {
+  'Triangle armbar': ['Triangle choke'], 'Armbar from S-mount': ['S-mount'], 'Mounted triangle': ['S-mount', 'High mount'],
+  'Electric chair': ['Lockdown'], 'Waiter sweep': ['Deep half guard entry'], 'Deep half sweep': ['Deep half guard entry'], 'Homer Simpson sweep': ['Deep half guard entry'],
+  'Back take from dogfight': ['Dogfight', 'Underhook sweep'], 'Triangle from knee shield': ['Knee shield', 'Z guard'], 'Shoulder crunch sweep': ['Shoulder crunch'],
+  'Lockdown pass': ['Lockdown'], 'Deep half pass': ['Deep half guard entry'], 'Knee shield pass': ['Knee shield', 'Z guard'], 'Whizzer': ['Dogfight', 'Underhook sweep'],
+  'Kesa gatame escape': ['Kesa gatame', 'Reverse kesa gatame'], 'Body triangle escape': ['Body triangle'], 'Calf slicer from the truck': ['Truck entry'],
+}
+
+// The defenses that answer a submission, besides the escapes of the position you're in.
+const DEFENSES = [
+  [/armbar|wristlock/i, 'Armbar defense (stack)'], [/^(?!arm triangle).*triangle/i, 'Triangle defense'], [/kimura|americana|omoplata/i, 'Kimura defense'],
+  [/guillotine|necktie|d’arce|anaconda/i, 'Guillotine defense'], [/heel hook|ankle|toe hold|kneebar|calf|estima|aoki/i, 'Heel hook defense'],
+]
+// Why a finish didn't land.
+const BLOCKS = [
+  [/heel hook|ankle|toe hold|kneebar|calf|estima|aoki/i, 'they clear the knee line and hide the heel'], [/armbar|wristlock|kimura|americana|omoplata|crucifix/i, 'they hide the arm and pull it free'],
+  [/^(?!arm triangle).*triangle/i, 'they posture and pop the head out'], [/./, 'they hand-fight and protect the neck'],
+]
+// Where you end up when you nearly score but they scramble before you stabilize (scorer's view).
+const SLIP = { 'Side control': 'Half guard', 'Mount': 'Half guard', 'Back': 'Turtle', 'Knee on belly': 'Side control' }
+export const slipTo = (from, to) => from === 'Standing' || !SLIP[to.pos] ? { pos: 'Standing', role: 'Neutral' } : { pos: SLIP[to.pos], role: 'Top' }
+// What a submission from a pin needs, for spotting the decoys.
+const NEEDS = { 'Back': 'their back', 'Mount': 'you mounted on them', 'Side control': 'you on top in side control', 'Knee on belly': 'your knee on their belly', 'North-south': 'you on top in north-south', 'Turtle': 'them turtled under you' }
+
+export const key = (pos, role) => pos + '|' + role
+const flip = role => ({ Top: 'Bottom', Bottom: 'Top' }[role] || role)
+const idOf = name => 'c:' + slug(name)
 const pick = list => list[Math.floor(Math.random() * list.length)]
 const shuffle = list => [...list].sort(() => Math.random() - 0.5)
+const attackerOf = pos => pos === 'Standing' ? 'Neutral' : GUARDS.includes(pos) || pos === 'Leg entanglement' ? 'Bottom' : 'Top'
+
+const TABLE = Object.fromEntries(Object.entries(MENU).map(([k, moves]) => [k, moves.map(([name, pos, role, pts = 0]) =>
+  ({ id: idOf(name), to: pos ? { pos, role } : null, pts, after: (AFTER[name] || []).map(idOf) }))]))
+
+// Moves you added yourself join in when their type says clearly what they do from here.
+function customMoves({ pos, role }) {
+  const guard = GUARDS.includes(pos), move = (id, to, pts = 0) => ({ id, to, pts, after: [] })
+  return allTechs().filter(t => isCustom(t) && t.position === pos).flatMap(t =>
+    t.type === 'Takedown' && pos === 'Standing' ? [move(t.id, { pos: 'Half guard', role: 'Top' }, 2)]
+    : t.type === 'Sweep' && guard && role === 'Bottom' ? [move(t.id, { pos: 'Half guard', role: 'Top' }, 2)]
+    : t.type === 'Pass' && guard && role === 'Top' ? [move(t.id, { pos: 'Side control', role: 'Top' }, 3)]
+    : (t.type === 'Submission' || t.type === 'Control') && role === attackerOf(pos) || t.type === 'Retention' && guard && role === 'Bottom' ? [move(t.id, null)]
+    : [])
+}
+
+export const menuFor = state => [...(TABLE[key(state.pos, state.role)] || []), ...customMoves(state)]
+  .filter(m => !m.after.length || m.after.some(id => state.setups.includes(id)))
+export const isFinish = m => !m.to && techById(m.id)?.type === 'Submission'
+const isAttack = m => isFinish(m) || m.pts > 0
 
 export function describe({ pos, role }) {
   if (pos === 'Standing') return 'You’re both standing'
@@ -39,155 +250,197 @@ export function describe({ pos, role }) {
   return role === 'Top' ? `You’re on top in ${pos.toLowerCase()}` : `They’re on top of you in ${pos.toLowerCase()}`
 }
 
-// Which kinds of moves make sense from here.
-function typesFor({ pos, role }) {
-  if (pos === 'Standing') return ['Takedown']
-  if (pos === 'Leg entanglement') return role === 'Bottom' ? ['Submission', 'Control'] : ['Escape']
-  if (GUARDS.includes(pos)) return role === 'Bottom' ? ['Sweep', 'Submission', 'Transition', 'Retention'] : ['Pass']
-  if (PINS.includes(pos)) return role === 'Top' ? ['Submission', 'Transition', 'Control'] : ['Escape']
-  return ['Escape']
+export function defensesFor(t, state) {
+  const own = menuFor(state).filter(m => ['Escape', 'Retention'].includes(techById(m.id)?.type)).map(m => m.id)
+  return [...new Set([...DEFENSES.filter(([re]) => re.test(t.name)).map(([, name]) => idOf(name)), ...own])]
 }
 
-function poolFor(state) {
-  const types = typesFor(state), all = allTechs()
-  const here = all.filter(t => t.position === state.pos && types.includes(t.type))
-  if (state.pos === 'Standing') here.push(...['c:guard-pull', 'c:sit-down-guard-pull'].map(techById).filter(Boolean))
-  // Passing works with the general open guard passes too.
-  if (state.role === 'Top' && GUARDS.includes(state.pos) && state.pos !== 'Open guard') here.push(...all.filter(t => t.position === 'Open guard' && t.type === 'Pass'))
-  return [...new Map(here.map(t => [t.id, t])).values()]
+// Decoys are moves that clearly belong to the other person: sweeps and escapes when you're on
+// top; passes and finishes from a pin when you're underneath or standing.
+const ALL = Object.entries(TABLE).flatMap(([k, moves]) => moves.map(m => ({ ...m, role: k.split('|')[1] })))
+function decoysFor(state) {
+  const here = new Set(menuFor(state).map(m => m.id))
+  return [...new Set(ALL.filter(m => !here.has(m.id) && (state.role === 'Top'
+    ? m.role === 'Bottom' && ['Sweep', 'Escape'].includes(techById(m.id).type)
+    : m.role === 'Top' && (techById(m.id).type === 'Pass' || isFinish(m) && NEEDS[techById(m.id).position]))).map(m => m.id))]
+}
+function decoyText(t) {
+  if (t.type === 'Pass') return `${t.name} is a guard pass, and you’re not on top of a guard.`
+  if (t.type === 'Sweep') return `${t.name} is a sweep from underneath, and you’re on top.`
+  if (t.type === 'Escape') return `${t.name} is an escape for whoever is underneath, and you’re on top.`
+  return `${t.name} needs ${NEEDS[t.position] || 'a different position'}.`
 }
 
-// Where a move takes you when it works, and the points it scores.
-function destination(t, state) {
-  const n = t.name.toLowerCase()
-  if (t.type === 'Takedown') return n.includes('snap down') ? { pos: 'Front headlock', role: 'Top', pts: 0 } : { pos: 'Half guard', role: 'Top', pts: 2 }
-  if (t.type === 'Sweep') return { pos: 'Half guard', role: 'Top', pts: 2 }
-  if (t.type === 'Pass') return { pos: 'Side control', role: 'Top', pts: 3 }
-  if (t.type === 'Escape') {
-    if (n.includes('upa')) return { pos: 'Closed guard', role: 'Top', pts: 0 }
-    if (/knees|single|sit-out|front headlock escape|heel hook|boot|knee line/.test(n)) return { pos: 'Standing', role: 'Neutral', pts: 0 }
-    if (n.includes('back escape')) return { pos: 'Half guard', role: 'Top', pts: 0 }
-    return { pos: 'Half guard', role: 'Bottom', pts: 0 }
-  }
-  if (t.type === 'Transition' || t.name === 'Snap down') {
-    if (/guard pull|jumping closed guard/.test(n)) return { pos: 'Closed guard', role: 'Bottom', pts: 0 }
-    if (/mount/.test(n)) return { pos: 'Mount', role: 'Top', pts: state.role === 'Top' ? 4 : 2 }
-    if (/back|seatbelt|go-behind|spin behind|crab ride|matrix|berimbolo|kiss of the dragon|baby bolo|twister/.test(n)) return { pos: 'Back', role: 'Top', pts: 4 }
-    if (n.includes('knee on belly')) return { pos: 'Knee on belly', role: 'Top', pts: 2 }
-    if (n.includes('north-south')) return { pos: 'North-south', role: 'Top', pts: 0 }
-    if (/single-leg x|ashi|imanari|reap/.test(n)) return { pos: 'Leg entanglement', role: 'Bottom', pts: 0 }
-    if (/stand-up|wrestle up/.test(n)) return { pos: 'Standing', role: 'Neutral', pts: 0 }
-    if (n.includes('truck')) return { pos: 'Turtle', role: 'Top', pts: 0 }
-    if (n.includes('x-guard entry')) return { pos: 'X-guard', role: 'Bottom', pts: 0 }
-    if (n.includes('leg drag')) return { pos: 'Side control', role: 'Top', pts: 3 }
-  }
-  return null
-}
-
-// Reactions you or the game maps have mapped for a move, with the answers to each.
-function mappedReactions(techId) {
+// Reactions you or the game maps have mapped for a move, with the answers that work from here.
+function mappedReactions(techId, state) {
+  const here = new Set(menuFor(state).map(m => m.id))
   const trees = [...S.seq, ...GAME_MAPS]
   return trees.flatMap(tree => tree.nodes.filter(n => n.who === 'me' && n.techId === techId).flatMap(n =>
     tree.nodes.filter(r => r.parentId === n.id && r.who === 'them').map(r => ({
-      label: r.label, from: tree.name, mine: S.seq.includes(tree),
-      answers: tree.nodes.filter(a => a.parentId === r.id && a.techId && techById(a.techId)).map(a => a.techId),
+      label: r.label, mine: S.seq.includes(tree),
+      answers: tree.nodes.filter(a => a.parentId === r.id && here.has(a.techId)).map(a => a.techId),
     })))).filter(r => r.answers.length)
 }
 
 export function newRoll(start, partner) {
   const s = STARTS[start] || STARTS[pick(Object.keys(STARTS))]
-  const state = { pos: s.pos, role: s.role, me: 0, them: 0, turn: 1, partner, momentum: false, pending: null, log: [], used: [], over: null }
+  const state = { pos: s.pos, role: s.role, me: 0, them: 0, advMe: 0, advThem: 0, turn: 1, partner: PARTNERS[partner] ? partner : 'even',
+    momentum: false, pending: null, threat: null, setups: [], log: [], used: [], over: null }
   state.options = optionsFor(state)
   return state
 }
 
 export function optionsFor(state) {
-  const pool = poolFor(state)
-  const known = shuffle(pool.filter(t => masteryOf(t).level >= 1)).slice(0, 1)
-  const rest = shuffle(pool.filter(t => !known.includes(t))).slice(0, 3 - known.length)
-  const options = [...known, ...rest].map(t => ({ id: t.id }))
-  if (state.pending) state.pending.answers.slice(0, 2).forEach(id => { if (!options.some(o => o.id === id)) options.unshift({ id, answer: true }) })
-  // Sometimes a move from somewhere else sneaks in, to test whether you know where moves belong.
-  if (Math.random() < 0.3) {
-    const types = typesFor(state)
-    const decoy = pick(allTechs().filter(t => t.position !== state.pos && types.includes(t.type) && t.position !== 'Open guard'))
-    if (decoy) options.splice(Math.floor(Math.random() * (options.length + 1)), 0, { id: decoy.id, decoy: true })
-  }
-  return shuffle(options).slice(0, 5)
+  const menu = shuffle(menuFor(state)), out = []
+  const add = (id, extra) => { if (id && !out.some(o => o.id === id)) out.push({ id, ...extra }) }
+  state.threat?.defenses.slice(0, 2).forEach(id => add(id, { defend: true }))
+  state.pending?.answers.slice(0, 2).forEach(id => add(id, { answer: true }))
+  const fresh = test => menu.find(m => test(m) && !out.some(o => o.id === m.id))?.id
+  add(fresh(m => masteryOf(techById(m.id)).level >= 1))
+  add(fresh(isAttack))
+  add(fresh(m => !isAttack(m)))
+  menu.forEach(m => out.length < 4 && add(m.id))
+  // Sometimes a move that belongs to the other person sneaks in. Spot it, or pay for it.
+  if (state.pos !== 'Leg entanglement' && Math.random() < 0.3) add(pick(decoysFor(state)), { decoy: true })
+  return [...out.filter(o => o.defend), ...shuffle(out.filter(o => !o.defend))]
 }
 
-function chance(t, state, option) {
-  let p = BASE[t.type] ?? 0.4
-  if (t.type === 'Submission' && ['Back', 'Mount', 'Front headlock'].includes(state.pos)) p = 0.32
-  if (state.momentum && ['Submission', 'Sweep', 'Pass', 'Transition'].includes(t.type)) p += 0.15
+function chance(m, t, state, option) {
+  const finish = isFinish(m)
+  let p = finish ? (['Back', 'Mount', 'Front headlock'].includes(state.pos) && state.role === 'Top' ? 0.32 : 0.22)
+    : m.pts ? { 2: 0.45, 3: 0.4, 4: 0.36 }[m.pts]
+    : m.to ? (t.type === 'Escape' ? 0.42 : 0.5) : 0.75
+  if (state.momentum && (finish || m.to)) p += 0.15
   if (option.answer) p += 0.2
-  p += masteryOf(t).level * 0.07 + PARTNERS[state.partner].bonus
+  p += masteryOf(t).level * 0.07 + PARTNERS[state.partner].you
   return Math.max(0.05, Math.min(0.9, p))
 }
 
-// What your partner does after your move fails.
-function counter(state, extra = 0) {
-  const r = Math.random() - extra
-  const { pos, role } = state
-  const go = (to, pts, text) => { Object.assign(state, to); state.them += pts; return text + (pts ? ` (+${pts} for them)` : '') }
-  if (pos === 'Standing' && r < 0.45) return go({ pos: 'Open guard', role: 'Bottom' }, 2, 'They take you down.')
-  if (GUARDS.includes(pos) && role === 'Bottom' && r < 0.45) return go({ pos: 'Side control', role: 'Bottom' }, 3, 'They pass your guard.')
-  if (GUARDS.includes(pos) && role === 'Top' && r < 0.4) return go({ pos: 'Half guard', role: 'Bottom' }, 2, 'They sweep you.')
-  if (PINS.includes(pos) && role === 'Top' && r < 0.4) return go({ pos: 'Half guard', role: 'Top' }, 0, 'They recover guard.')
-  if (pos === 'Leg entanglement' && role === 'Bottom' && r < 0.35) return go({ pos: 'Standing', role: 'Neutral' }, 0, 'They free their leg and stand.')
-  if (role === 'Bottom' || role === 'Top' && pos === 'Leg entanglement') {
-    if (['Side control', 'Knee on belly', 'North-south'].includes(pos) && r < 0.35) return go({ pos: 'Mount', role: 'Bottom' }, 4, 'They climb to mount.')
-    if ((pos === 'Mount' || pos === 'Turtle') && r < 0.3) return go({ pos: 'Back', role: 'Bottom' }, 4, 'They take your back.')
-    if ((pos === 'Back' && r < 0.35) || (pos === 'Front headlock' && r < 0.25) || (pos === 'Leg entanglement' && r < 0.3) || (pos === 'Mount' && r < 0.45) || (pos === 'Side control' && r < 0.42)) {
-      state.over = { result: 'loss', how: 'They submit you.' }
-      return 'They lock in the finish. You tap.'
-    }
-  }
-  return 'They hold their position.'
+function blockText(m, t) {
+  if (isFinish(m)) return BLOCKS.find(([re]) => re.test(t.name))[1]
+  if (m.to?.pos === 'Back') return 'they turn in to face you'
+  if (m.to?.pos === 'Mount') return 'they block your knee and hold you in place'
+  return { Takedown: 'they sprawl and square back up', Sweep: 'they post and keep their base', Pass: 'they frame and pummel a leg back in', Escape: 'they stay heavy and shut it down' }[t.type] || 'they fight it off'
 }
 
+// Someone lands a move: points count once the position is stabilized, otherwise it's an advantage.
+function land(state, mine, m, t, say) {
+  const p = PARTNERS[state.partner], from = state.pos, name = t.name.toLowerCase()
+  const go = ({ pos, role }) => { state.pos = pos; state.role = mine ? role : flip(role); state.setups = []; state.pending = null }
+  if (!m.pts) {
+    go(m.to)
+    return say(mine ? `${t.name} works. ${describe(state)}.` : `They answer with the ${name}. ${describe(state)}.`)
+  }
+  if (Math.random() >= (mine ? p.scramble : 1 - p.hold)) {
+    go(m.to)
+    if (mine) state.me += m.pts; else state.them += m.pts
+    return say(mine ? `${t.name} works and you stabilize: +${m.pts}. ${describe(state)}.` : `They hit the ${name} and settle it: +${m.pts} for them. ${describe(state)}.`)
+  }
+  go(slipTo(from, m.to))
+  if (mine) state.advMe++; else state.advThem++
+  say(mine ? `${t.name} nearly works, but they scramble before you stabilize. Advantage to you. ${describe(state)}.`
+    : `They nearly hit the ${name}, but you scramble before they stabilize. Advantage to them. ${describe(state)}.`)
+}
+
+// What your partner does after your move fails.
+function partnerMove(state, say, extra = 0) {
+  if (Math.random() >= PARTNERS[state.partner].counter + extra) return say('They hold their position.')
+  const menu = menuFor({ ...state, role: flip(state.role) }), attacks = menu.filter(m => m.to || isFinish(m))
+  const m = pick(attacks.length && Math.random() < 0.8 ? attacks : menu), t = techById(m.id)
+  state.setups.push(m.id)
+  if (isFinish(m)) {
+    state.threat = { id: m.id, defenses: defensesFor(t, state) }
+    return say(`They go for the ${t.name.toLowerCase()}!`)
+  }
+  if (m.to) return land(state, false, m, t, say)
+  say(`They work their ${t.name.toLowerCase()}.`)
+}
+
+const tap = (state, t) => { state.over = { result: 'loss', how: `Submitted: ${t.name}` } }
+
 export function play(state, index) {
-  const option = state.options[index], t = techById(option.id)
+  const option = state.options[index], t = option && techById(option.id)
   if (!t || state.over) return state
-  const entry = { turn: state.turn, move: t.name, id: t.id, worked: false, text: '' }
+  const p = PARTNERS[state.partner], entry = { turn: state.turn, move: t.name, id: t.id, worked: false, text: '' }
+  const say = text => { entry.text += (entry.text ? ' ' : '') + text }
   state.used.push(t.id)
+  const finishLater = () => end(state, entry)
+
+  // Their submission comes first: defend it, or take your chances.
+  if (state.threat) {
+    const threat = techById(state.threat.id), name = threat.name.toLowerCase()
+    state.threat = null
+    if (option.defend) {
+      if (Math.random() < 0.6 + masteryOf(t).level * 0.07 + p.you) {
+        entry.worked = true
+        say(`${t.name}: you shut down the ${name}.`)
+      } else if (Math.random() < p.finish) {
+        say(`${t.name} comes too late. They finish the ${name}. You tap.`)
+        tap(state, threat)
+      } else {
+        state.advThem++
+        say(`${t.name} only half works. You survive the ${name}, barely. Advantage to them.`)
+      }
+      return finishLater()
+    }
+    if (Math.random() < p.finish + 0.15) {
+      say(`You ignore the ${name} and they finish it. You tap.`)
+      tap(state, threat)
+      return finishLater()
+    }
+    state.advThem++
+    say(`You rip free of the ${name}. Advantage to them.`)
+  }
 
   if (option.decoy) {
-    entry.text = `${t.name} works from ${t.position.toLowerCase()}, not from here. ${counter(state, 0.25)}`
     state.momentum = false
-  } else {
-    const reactions = mappedReactions(t.id)
-    if (reactions.length && !option.answer && Math.random() < 0.45) {
-      const r = pick(reactions)
-      state.pending = r
-      entry.text = `You go for the ${t.name.toLowerCase()}. They react: ${r.label.toLowerCase()}. ${r.mine ? 'Your sequence' : 'The map'} has an answer.`
-    } else if (Math.random() < chance(t, state, option)) {
-      entry.worked = true
-      state.pending = null
-      if (t.type === 'Submission') {
-        state.over = { result: 'win', how: `Submission: ${t.name}` }
-        entry.text = `${t.name}. They tap.`
-      } else {
-        const to = destination(t, state)
-        if (to) {
-          state.pos = to.pos; state.role = to.role; state.me += to.pts; state.momentum = false
-          entry.text = `${t.name} works.${to.pts ? ` +${to.pts}.` : ''} ${describe(state)}.`
-        } else {
-          state.momentum = true
-          entry.text = `${t.name} works. You’re in control and your next attack is more likely to land.`
-        }
-      }
-    } else {
-      state.pending = null
-      state.momentum = false
-      entry.text = `${t.name} doesn’t land. ${counter(state)}`
-    }
+    state.pending = null
+    say(decoyText(t))
+    partnerMove(state, say, 0.3)
+    return finishLater()
   }
+
+  const m = menuFor(state).find(x => x.id === t.id) || { id: t.id, to: null, pts: 0 }
+  state.setups.push(t.id)
+  const reactions = option.answer ? [] : mappedReactions(t.id, state)
+  if (reactions.length && Math.random() < 0.45) {
+    const r = pick(reactions)
+    state.pending = r
+    say(`You go for the ${t.name.toLowerCase()}. They react: ${r.label.toLowerCase()}. ${r.mine ? 'Your sequence' : 'The map'} has an answer.`)
+    return finishLater()
+  }
+  state.pending = null
+  const odds = chance(m, t, state, option), roll = Math.random()
+  if (roll < odds) {
+    entry.worked = true
+    if (isFinish(m)) {
+      state.over = { result: 'win', how: `Submission: ${t.name}` }
+      say(`${t.name}. They tap.`)
+    } else if (m.to) {
+      state.momentum = false
+      land(state, true, m, t, say)
+    } else {
+      state.momentum = true
+      say(`${t.name}: you tighten your control, and your next attack is more likely to land.`)
+    }
+  } else {
+    state.momentum = false
+    say(`${t.name} doesn’t land: ${blockText(m, t)}.`)
+    if (isAttack(m) && roll < odds + 0.1) {
+      state.advMe++
+      say('It was close: advantage to you.')
+    } else partnerMove(state, say, isFinish(m) ? 0.1 : 0)
+  }
+  return finishLater()
+}
+
+function end(state, entry) {
   state.log.unshift(entry)
   state.turn++
   if (!state.over && state.turn > TURNS) {
-    const result = state.me > state.them ? 'win' : state.me < state.them ? 'loss' : 'draw'
-    state.over = { result, how: `Time. ${state.me}–${state.them} on points.` }
+    const diff = state.me - state.them || state.advMe - state.advThem
+    state.over = { result: diff > 0 ? 'win' : diff < 0 ? 'loss' : 'draw',
+      how: `Time. ${state.me}–${state.them} on points${state.me === state.them ? `, ${state.advMe}–${state.advThem} on advantages` : ''}.` }
   }
   if (!state.over) state.options = optionsFor(state)
   return state

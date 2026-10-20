@@ -22,8 +22,7 @@ const MOVES = {
     Sweep: ['Hip bump sweep', 'Scissor sweep', 'Flower sweep', 'Lumberjack sweep', 'Overhead sweep', 'Kimura sweep', 'Muscle sweep'],
     Submission: ['Armbar from guard', 'Triangle choke', 'Kimura', 'Omoplata', 'Guillotine', 'Cross collar choke', 'Single collar choke', 'Loop choke', 'Gogoplata', 'Wristlock from guard', 'Triangle armbar', 'Inverted armbar', 'Monoplata', 'Baratoplata', 'Tarikoplata', 'Biceps slicer'],
     Control: ['High guard', 'Overhook guard', 'Breaking posture', 'Williams guard', 'Shoulder clamp', 'Rubber guard', 'Two-on-one from guard'],
-    Transition: ['Arm drag to back', 'Kimura grip to back'],
-    Pass: ['Standing guard break', 'Kneeling guard break', 'Knee in the middle break'],
+    Transition: ['Arm drag to back', 'Kimura grip to back', 'Standing guard break', 'Kneeling guard break', 'Knee in the middle break'],
     Retention: ['Posture in closed guard'],
     Escape: ['Armbar defense (stack)', 'Triangle defense', 'Kimura defense', 'Guillotine defense'],
   },
@@ -74,10 +73,10 @@ const MOVES = {
     Pass: ['Lapel guard pass'],
   },
   'Open guard': {
-    Pass: ['Long step pass', 'Leg drag pass', 'Torreando pass', 'Over-under pass', 'Double under pass', 'Stack pass', 'X-pass', 'Leg weave pass', 'Smash pass', 'Headquarters', 'Float pass', 'Folding pass', 'Body lock pass', 'Cartwheel pass'],
+    Pass: ['Long step pass', 'Leg drag pass', 'Torreando pass', 'Over-under pass', 'Double under pass', 'Stack pass', 'X-pass', 'Leg weave pass', 'Smash pass', 'Float pass', 'Folding pass', 'Body lock pass', 'Cartwheel pass'],
     Sweep: ['Collar sleeve sweep', 'X-guard sweep from open guard', 'Shin-to-shin sweep', 'Double ankle sweep', 'Chair sweep', 'Hook sweep'],
     Retention: ['Guard retention (frames and hips)', 'Inversion', 'Granby roll recovery', 'Shoulder walk'],
-    Control: ['Collar sleeve guard', 'K guard', 'Seated guard'],
+    Control: ['Collar sleeve guard', 'K guard', 'Seated guard', 'Headquarters'],
     Transition: ['Technical stand-up from guard', 'Shin-to-shin entry', 'Wrestle up'],
   },
   'Leg entanglement': {
@@ -93,8 +92,8 @@ const MOVES = {
     Escape: ['Shrimp to guard recovery', 'Underhook escape to knees', 'Ghost escape', 'Kesa gatame escape', 'Running escape'],
   },
   'Mount': {
-    Submission: ['Armbar from mount', 'Arm triangle from mount', 'Ezekiel choke', 'Cross collar choke from mount', 'Americana from mount', 'Gift wrap', 'Mounted triangle', 'Armbar from S-mount', 'Mounted guillotine'],
-    Control: ['High mount', 'S-mount', 'Technical mount', 'Low mount', 'Grapevine mount'],
+    Submission: ['Armbar from mount', 'Arm triangle from mount', 'Ezekiel choke', 'Cross collar choke from mount', 'Americana from mount', 'Mounted triangle', 'Armbar from S-mount', 'Mounted guillotine'],
+    Control: ['High mount', 'S-mount', 'Technical mount', 'Low mount', 'Grapevine mount', 'Gift wrap'],
     Transition: ['Mount to back take'],
     Escape: ['Upa (bridge and roll)', 'Elbow-knee escape', 'Kipping escape', 'Heel drag escape'],
   },

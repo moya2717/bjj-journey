@@ -23,26 +23,30 @@ function setup() {
     <div class="choice-grid">${Object.entries(PARTNERS).map(([k, p]) => `<button class="choice ${choice.partner === k ? 'on' : ''}" data-act="sim-partner" data-k="${k}" aria-pressed="${choice.partner === k}">${p.label}</button>`).join('')}</div>
     <div class="row-actions" style="margin-top:16px"><button class="btn" data-act="sim-go">Slap hands and roll</button></div>
     <ul class="small muted fix-list" style="margin-top:14px">
-      <li>${TURNS} turns. Points follow IBJJF scoring; a submission ends it.</li>
-      <li>Some options are moves from a different position. Spot them, or pay for it.</li>
+      <li>${TURNS} turns. Points follow IBJJF scoring and count once you stabilize; near misses earn advantages. A submission ends it.</li>
+      <li>When they attack a submission, defend it or risk the tap.</li>
+      <li>Some options are moves for the other person, like a sweep when you’re on top. Spot them, or pay for it.</li>
       <li>Raise a move’s mastery in your journal and it lands more often here.</li>
     </ul>
     ${log.length ? `<p class="small muted">${plural(log.length, 'roll')} played · ${wins} won · ${log.filter(r => r.how?.startsWith('Submission')).length} by submission</p>` : ''}`
 }
 
+const adv = n => `<span class="lbl">${n || 0} adv</span>`
+
 function turn(g) {
   return `<div class="scoreboard" role="status">
-      <div><span class="lbl">You</span><span class="big">${g.me}</span></div>
+      <div><span class="lbl">You</span><span class="big">${g.me}</span>${adv(g.advMe)}</div>
       <div class="clock"><span class="lbl">Turn</span><span>${g.turn} / ${TURNS}</span></div>
-      <div><span class="lbl">Them</span><span class="big">${g.them}</span></div>
+      <div><span class="lbl">Them</span><span class="big">${g.them}</span>${adv(g.advThem)}</div>
     </div>
     <p class="sim-where"><span class="tag pos">${esc(g.pos)}</span> ${esc(describe(g))}.${g.momentum ? ' <span class="tag good">Momentum</span>' : ''}</p>
-    ${g.pending ? `<p class="sim-react">They ${esc(g.pending.label.toLowerCase())}.</p>` : ''}
+    ${g.threat ? `<p class="sim-react">They’re attacking with the ${esc(techById(g.threat.id).name.toLowerCase())}. Defend it or risk the tap.</p>` : ''}
+    ${g.pending ? `<p class="sim-react">They react: ${esc(g.pending.label.toLowerCase())}.</p>` : ''}
     <p class="field-label" style="margin:10px 0 6px">What do you do?</p>
     <div class="quiz-options">${g.options.map((o, i) => {
       const t = techById(o.id), m = masteryOf(t).level
       return `<button class="quiz-opt" data-act="sim-move" data-i="${i}">
-        <span>${esc(t.name)}${o.answer ? ' <span class="tag good">Your answer</span>' : ''}</span>
+        <span>${esc(t.name)}${o.answer ? ' <span class="tag good">Your answer</span>' : o.defend ? ' <span class="tag">Defend</span>' : ''}</span>
         <span class="small muted">${esc(t.type)} ${m ? masteryPips(m) : ''}</span></button>`
     }).join('')}</div>
     ${g.log.length ? `<ol class="sim-log">${g.log.slice(0, 4).map(e => `<li class="${e.worked ? 'worked' : ''}"><span class="small muted">Turn ${e.turn}</span> ${esc(e.text)}</li>`).join('')}</ol>` : ''}
@@ -53,9 +57,9 @@ function results(g) {
   const label = { win: 'You win', loss: 'You lose', draw: 'Draw' }[g.over.result]
   const failed = [...new Set(g.log.filter(e => !e.worked).map(e => e.id))].map(techById).filter(Boolean)
   const worked = [...new Set(g.log.filter(e => e.worked).map(e => e.id))].map(techById).filter(Boolean)
-  return `<div class="scoreboard final ${g.over.result}"><div><span class="lbl">You</span><span class="big">${g.me}</span></div>
+  return `<div class="scoreboard final ${g.over.result}"><div><span class="lbl">You</span><span class="big">${g.me}</span>${adv(g.advMe)}</div>
       <div class="clock"><span class="verdict ${g.over.result === 'win' ? 'up' : g.over.result === 'loss' ? 'down' : 'flat'}">${label}</span><span class="small">${esc(g.over.how)}</span></div>
-      <div><span class="lbl">Them</span><span class="big">${g.them}</span></div></div>
+      <div><span class="lbl">Them</span><span class="big">${g.them}</span>${adv(g.advThem)}</div></div>
     ${worked.length ? `<h3 style="margin-top:14px">What worked</h3><div class="tags">${worked.map(t => `<span class="tag good">${esc(t.name)}</span>`).join('')}</div>` : ''}
     ${failed.length ? `<h3 style="margin-top:14px">Worth studying</h3><ul class="list">${failed.map(t => `<li><p>${esc(t.name)} <span class="small muted">${esc(t.position)} · ${esc(t.type)}</span></p>
       <div class="row-actions"><a class="btn sm ghost" href="${esc(t.link || videoSearch(t.name))}" target="_blank" rel="noopener noreferrer">Find videos</a><button class="btn sm ghost" data-act="edit-tech" data-id="${esc(t.id)}">My notes</button></div></li>`).join('')}</ul>` : ''}
