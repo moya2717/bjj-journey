@@ -70,7 +70,7 @@ export function checkTable() {
 export function checkGames(games = 300) {
   const errors = [], results = {}
   for (const start of Object.keys(STARTS)) for (const partner of Object.keys(PARTNERS)) for (let n = 0; n < games; n++) {
-    const tally = results[partner] ||= { win: 0, loss: 0, draw: 0, subs: 0, tapped: 0, turns: 0 }
+    const tally = results[partner] ||= { win: 0, loss: 0, draw: 0, subs: 0, tapped: 0, turns: 0, chains: 0 }
     try {
       const g = newRoll(start, partner)
       while (!g.over) {
@@ -90,6 +90,13 @@ export function checkGames(games = 300) {
         for (const d of [g.me - before[0], g.them - before[1]]) if (![0, 2, 3, 4].includes(d)) errors.push(`${where}: scored ${d} in one turn`)
       }
       if (g.turn > TURNS + 1) errors.push(`${start}/${partner}: ran past time`)
+      ;(g.chains || []).forEach(c => {
+        if (!MENU[key(c.from.pos, c.from.role)]) errors.push(`${start}/${partner}: chain starts in ${key(c.from.pos, c.from.role)}`)
+        if (c.steps[0]?.who !== 'me') errors.push(`${start}/${partner}: chain doesn’t start with your move`)
+        c.steps.forEach(st => { if (st.who === 'me' ? !techById(st.techId) : !st.label) errors.push(`${start}/${partner}: chain step ${JSON.stringify(st)} is empty`) })
+        if (!menuFor({ ...c.from, setups: Object.values(MENU).flat().map(m => idOf(m[0])) }).some(m => m.id === c.steps[0].techId)) errors.push(`${start}/${partner}: chain opens with ${c.steps[0].techId}, not playable from ${key(c.from.pos, c.from.role)}`)
+      })
+      tally.chains = (tally.chains || 0) + (g.chains || []).length
       tally[g.over.result]++
       tally.turns += g.turn - 1
       if (g.over.how.startsWith('Submission')) tally.subs++

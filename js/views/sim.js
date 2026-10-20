@@ -1,7 +1,7 @@
 // Live roll: choose a start and a partner, then play twelve turns.
 import { S, save } from '../store.js'
 import { UI } from '../ui.js'
-import { esc, plural, toast, today } from '../util.js'
+import { cap, esc, newId, plural, posRole, toast, today } from '../util.js'
 import { masteryOf, masteryPips, techById } from '../model.js'
 import { videoSearch } from '../catalog.js'
 import { PARTNERS, STARTS, TURNS, describe, newRoll, play } from '../sim.js'
@@ -63,14 +63,60 @@ function results(g) {
     ${worked.length ? `<h3 style="margin-top:14px">What worked</h3><div class="tags">${worked.map(t => `<span class="tag good">${esc(t.name)}</span>`).join('')}</div>` : ''}
     ${failed.length ? `<h3 style="margin-top:14px">Worth studying</h3><ul class="list">${failed.map(t => `<li><p>${esc(t.name)} <span class="small muted">${esc(t.position)} · ${esc(t.type)}</span></p>
       <div class="row-actions"><a class="btn sm ghost" href="${esc(t.link || videoSearch(t.name))}" target="_blank" rel="noopener noreferrer">Find videos</a><button class="btn sm ghost" data-act="edit-tech" data-id="${esc(t.id)}">My notes</button></div></li>`).join('')}</ul>` : ''}
+    ${chains(g)}
     <h3 style="margin-top:14px">How it went</h3><ol class="sim-log">${[...g.log].reverse().map(e => `<li class="${e.worked ? 'worked' : ''}"><span class="small muted">Turn ${e.turn}</span> ${esc(e.text)}</li>`).join('')}</ol>
     <div class="row-actions" style="margin-top:14px"><button class="btn" data-act="sim-go">Roll again</button><button class="btn ghost" data-act="sim-quit">Change setup</button></div>`
 }
 
+// The chains that worked, offered as sequences to drill before your next session.
+const stepName = s => s.who === 'me' ? techById(s.techId).name : `“${cap(s.label)}”`
+const homeFor = c => S.seq.find(s => s.position === c.from.pos && s.role === c.from.role && s.nodes.some(n => !n.parentId && n.techId === c.steps[0].techId))
+
+function chains(g) {
+  if (!g.chains?.length) return ''
+  const saved = UI.simSaved ||= {}
+  return `<h3 style="margin-top:14px">Chains worth saving</h3><p class="small muted">These moves worked back to back. Save them as a sequence and drill them before your next session.</p>
+    <ul class="list">${g.chains.map((c, i) => {
+      const home = homeFor(c)
+      return `<li><p><strong>${posRole(c.from.pos, c.from.role)}:</strong> ${esc(c.steps.map(stepName).join(' → '))}${c.finish ? ' → tap' : ''}
+        <span class="small muted">${c.finish ? 'Ends in a submission' : `+${c.pts}`}</span></p>
+        <div class="row-actions">${saved[i] ? `<button class="btn sm ghost" data-act="open-seq" data-id="${esc(saved[i])}">Open in Sequences</button>`
+          : home ? `<button class="btn sm" data-act="sim-save-chain" data-i="${i}" data-into="${esc(home.id)}">Add to ${esc(home.name)}</button>`
+          : `<button class="btn sm" data-act="sim-save-chain" data-i="${i}">Save as sequence</button>`}</div></li>`
+    }).join('')}</ul>`
+}
+
+// Saves a chain as a new sequence, or as a branch of one that already starts with its first move.
+function saveChain(c, intoId) {
+  const note = `From live roll on ${today()}`
+  const nodes = c.steps.map(s => ({ id: newId('n'), parentId: null, who: s.who, label: s.who === 'me' ? techById(s.techId).name : cap(s.label), techId: s.techId || '', note: '' }))
+  const home = S.seq.find(s => s.id === intoId)
+  let parentId = null, i = 0
+  if (home) for (; i < nodes.length; i++) {
+    const same = home.nodes.find(n => n.parentId === parentId && n.who === nodes[i].who && (nodes[i].techId ? n.techId === nodes[i].techId : n.label.toLowerCase() === nodes[i].label.toLowerCase()))
+    if (!same) break
+    parentId = same.id
+  }
+  const fresh = nodes.slice(i)
+  fresh.forEach((n, k) => { n.parentId = k ? fresh[k - 1].id : parentId })
+  if (fresh[0]) fresh[0].note = note
+  if (home) {
+    if (fresh.length) save({ ...home, nodes: [...home.nodes, ...fresh] })
+    toast(fresh.length ? `Added to ${home.name}. Find it in Game → Sequences.` : `${home.name} already has this chain.`)
+    return home.id
+  }
+  const moves = c.steps.filter(s => s.who === 'me').map(s => techById(s.techId).name.toLowerCase())
+  const rec = { id: newId('seq'), kind: 'seq', name: `${c.from.pos}: ${moves[0]} to ${moves[moves.length - 1]}`, position: c.from.pos, role: c.from.role, notes: note, nodes }
+  save(rec)
+  toast('Saved. Find it in Game → Sequences.')
+  return rec.id
+}
+
 export const actions = {
+  'sim-save-chain': el => { (UI.simSaved ||= {})[el.dataset.i] = saveChain(UI.sim.chains[+el.dataset.i], el.dataset.into) },
   'sim-start': el => { UI.simSetup.start = el.dataset.k },
   'sim-partner': el => { UI.simSetup.partner = el.dataset.k },
-  'sim-go': () => { const c = UI.simSetup ||= { start: 'standing', partner: 'even' }; UI.sim = newRoll(c.start, c.partner); scrollTo(0, 0) },
+  'sim-go': () => { const c = UI.simSetup ||= { start: 'standing', partner: 'even' }; UI.sim = newRoll(c.start, c.partner); UI.simSaved = {}; scrollTo(0, 0) },
   'sim-quit': () => { UI.sim = null },
   'sim-move': el => {
     const g = play(UI.sim, +el.dataset.i)

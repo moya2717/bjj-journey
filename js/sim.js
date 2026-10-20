@@ -329,12 +329,14 @@ function land(state, mine, m, t, say) {
   const go = ({ pos, role }) => { state.pos = pos; state.role = mine ? role : flip(role); state.setups = []; state.pending = null }
   if (!m.pts) {
     go(m.to)
-    return say(mine ? `${t.name} works. ${describe(state)}.` : `They answer with the ${name}. ${describe(state)}.`)
+    say(mine ? `${t.name} works. ${describe(state)}.` : `They answer with the ${name}. ${describe(state)}.`)
+    return true
   }
   if (Math.random() >= (mine ? p.scramble : 1 - p.hold)) {
     go(m.to)
     if (mine) state.me += m.pts; else state.them += m.pts
-    return say(mine ? `${t.name} works and you stabilize: +${m.pts}. ${describe(state)}.` : `They hit the ${name} and settle it: +${m.pts} for them. ${describe(state)}.`)
+    say(mine ? `${t.name} works and you stabilize: +${m.pts}. ${describe(state)}.` : `They hit the ${name} and settle it: +${m.pts} for them. ${describe(state)}.`)
+    return true
   }
   go(slipTo(from, m.to))
   if (mine) state.advMe++; else state.advThem++
@@ -352,7 +354,7 @@ function partnerMove(state, say, extra = 0) {
     state.threat = { id: m.id, defenses: defensesFor(t, state) }
     return say(`They go for the ${t.name.toLowerCase()}!`)
   }
-  if (m.to) return land(state, false, m, t, say)
+  if (m.to) { land(state, false, m, t, say); return }
   say(`They work their ${t.name.toLowerCase()}.`)
 }
 
@@ -361,7 +363,8 @@ const tap = (state, t) => { state.over = { result: 'loss', how: `Submitted: ${t.
 export function play(state, index) {
   const option = state.options[index], t = option && techById(option.id)
   if (!t || state.over) return state
-  const p = PARTNERS[state.partner], entry = { turn: state.turn, move: t.name, id: t.id, worked: false, text: '' }
+  // Each turn records where it started and how it went, for finding the chains worth saving.
+  const p = PARTNERS[state.partner], entry = { turn: state.turn, move: t.name, id: t.id, from: { pos: state.pos, role: state.role }, worked: false, text: '' }
   const say = text => { entry.text += (entry.text ? ' ' : '') + text }
   state.used.push(t.id)
   const finishLater = () => end(state, entry)
@@ -370,6 +373,7 @@ export function play(state, index) {
   if (state.threat) {
     const threat = techById(state.threat.id), name = threat.name.toLowerCase()
     state.threat = null
+    entry.pressured = true
     if (option.defend) {
       if (Math.random() < 0.6 + masteryOf(t).level * 0.07 + p.you) {
         entry.worked = true
@@ -393,6 +397,7 @@ export function play(state, index) {
   }
 
   if (option.decoy) {
+    entry.decoy = true
     state.momentum = false
     state.pending = null
     say(decoyText(t))
@@ -406,6 +411,7 @@ export function play(state, index) {
   if (reactions.length && Math.random() < 0.45) {
     const r = pick(reactions)
     state.pending = r
+    entry.reaction = r.label
     say(`You go for the ${t.name.toLowerCase()}. They react: ${r.label.toLowerCase()}. ${r.mine ? 'Your sequence' : 'The map'} has an answer.`)
     return finishLater()
   }
@@ -415,10 +421,12 @@ export function play(state, index) {
     entry.worked = true
     if (isFinish(m)) {
       state.over = { result: 'win', how: `Submission: ${t.name}` }
+      entry.gain = entry.finish = true
       say(`${t.name}. They tap.`)
     } else if (m.to) {
       state.momentum = false
-      land(state, true, m, t, say)
+      if (land(state, true, m, t, say)) Object.assign(entry, { gain: true, pts: m.pts })
+      else entry.slipped = true
     } else {
       state.momentum = true
       say(`${t.name}: you tighten your control, and your next attack is more likely to land.`)
@@ -443,5 +451,29 @@ function end(state, entry) {
       how: `Time. ${state.me}–${state.them} on points${state.me === state.them ? `, ${state.advMe}–${state.advThem} on advantages` : ''}.` }
   }
   if (!state.over) state.options = optionsFor(state)
+  else state.chains = strongChains(state)
   return state
+}
+
+// Strong chains: unbroken runs of your moves (with the reactions you read) that landed at least
+// two gains (a new position, points or the tap) and scored or finished. A decoy, a scramble or
+// their attack breaks a run.
+export function strongChains(state) {
+  const chains = []
+  let run = []
+  const close = () => {
+    while (run.length && !run[run.length - 1].pts && !run[run.length - 1].finish) run.pop() // end on the score or the tap
+    const pts = run.reduce((n, e) => n + (e.pts || 0), 0), finish = !!run[run.length - 1]?.finish
+    if (run.filter(e => e.gain).length >= 2 && (pts || finish)) chains.push({
+      from: run[0].from, finish, pts,
+      steps: run.filter((e, i) => e.id !== run[i - 1]?.id || e.reaction).flatMap(e => [{ who: 'me', techId: e.id }, ...(e.reaction ? [{ who: 'them', label: e.reaction }] : [])]),
+    })
+    run = []
+  }
+  ;[...state.log].reverse().forEach(e => {
+    if (!e.decoy && !e.pressured && !e.slipped && (e.worked || e.reaction)) run.push(e)
+    else close()
+  })
+  close()
+  return chains.sort((a, b) => b.finish - a.finish || b.pts - a.pts).slice(0, 3)
 }
