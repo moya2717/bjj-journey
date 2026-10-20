@@ -1,12 +1,13 @@
 import { S, save, saveMany, remove } from '../store.js'
 import { UI } from '../ui.js'
-import { ACTIVITY_TYPES, AREAS, BELTS, FEELS, INTENSITIES, PLAN_HIT, POSITIONS, PROMPTS, REASONS, RESULTS, ROLES, SESSION_TYPES, SIZES, promptFor } from '../vocab.js'
-import { $, $$, byDateDesc, esc, fmtDateLong, fmtTime, hrs, isoDate, monthLabel, newId, parseD, plural, posRole, shiftMonth, sum, toast, today, weekStart, ym } from '../util.js'
+import { ACTIVITY_TYPES, AREAS, BELTS, ENERGY, FEELS, INTENSITIES, PLAN_HIT, POSITIONS, PROMPTS, REASONS, RESULTS, ROLES, SESSION_TYPES, SIZES, SLEEP, promptFor } from '../vocab.js'
+import { $, $$, byDateDesc, cap, esc, fmtDateLong, fmtTime, hrs, isoDate, monthLabel, newId, parseD, plural, posRole, shiftMonth, sum, toast, today, weekStart, ym } from '../util.js'
 import { field, selectEl, chipsEl, focusPicker, radioChips, techSelect, openSheet } from '../sheet.js'
 import { partnerProfile, seqById, techById } from '../model.js'
 import { heatLevel } from '../charts.js'
 import { addPhotos, removePhotos, hydratePhotos, photoURL } from '../photos.js'
 import { partnerDatalist, stepOptions } from './rolls.js'
+import { activeInjuries, activeOn, injuryName } from '../body.js'
 
 // ---------- Calendar ----------
 
@@ -99,6 +100,7 @@ function entryCard(s) {
       <div class="entry-top"><h3>${esc(s.type)}${s.time ? ` <span class="entry-time">${fmtTime(s.time)}</span>` : ''}</h3><span class="entry-meta">${s.minutes ? esc(s.minutes) + ' min' : ''}${s.rounds ? `, ${plural(+s.rounds, 'round')}` : ''}</span></div>
       ${(s.focus || []).length || drilled.length ? `<div class="tags">${(s.focus || []).map(p => `<span class="tag pos">${esc(p)}</span>`).join('')}${drilled.map(t => `<span class="tag">${esc(t.name)}</span>`).join('')}</div>` : ''}
       ${reps.length ? `<p class="small" style="margin-top:8px">Reps: ${reps.map(r => `${r.count} × ${esc(techById(r.techId).name.toLowerCase())}`).join(', ')}</p>` : ''}
+      ${bodyNote(s)}
       ${(s.wentWell || []).length || (s.trouble || []).length ? `<div class="tags">${(s.wentWell || []).map(a => `<span class="tag good">✓ ${esc(a)}</span>`).join('')}${(s.trouble || []).map(a => `<span class="tag bad">✗ ${esc(a)}</span>`).join('')}</div>` : ''}
       ${notes.length ? `<dl class="refl">${notes.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
       ${s.reflectA ? `<p class="prompt-q">${esc(s.reflectQ)}</p><p class="small" style="max-width:70ch">${esc(s.reflectA)}</p>` : ''}
@@ -114,6 +116,40 @@ function entryCard(s) {
 
 // ---------- Session form: the session, its drills, its rolls and photos on one screen ----------
 // Three numbered steps cover a typical log in under a minute. Everything else is folded away.
+
+// Energy, sleep and injuries: optional one-tap tags that the Stats insights compare roll results across.
+const sessionInjuries = s => (s.injuryIds || []).map(id => S.injury.find(i => i.id === id)).filter(Boolean)
+const bodyNote = s => {
+  const parts = [s.energy && `energy ${ENERGY[s.energy].toLowerCase()}`, s.sleep && `sleep ${SLEEP[s.sleep].toLowerCase()}`, ...sessionInjuries(s).map(i => 'around ' + injuryName(i).toLowerCase())].filter(Boolean)
+  return parts.length ? `<p class="small muted" style="margin-top:6px">${esc(cap(parts.join(' · ')))}</p>` : ''
+}
+const tagChips = (name, options, value) => `<div class="chips">${Object.entries(options).map(([v, l]) => `<label class="chip"><input type="radio" name="${name}" value="${v}" ${v === value ? 'checked' : ''} data-untoggle><span>${l}</span></label>`).join('')}</div>`
+
+function bodyCheck(s) {
+  const tagged = sessionInjuries(s)
+  const hurt = [...new Map([...tagged, ...activeOn(s.date), ...activeInjuries()].map(i => [i.id, i])).values()]
+  return `<div class="session-tags">
+    <fieldset><legend>Energy</legend>${tagChips('energy', ENERGY, s.energy || '')}</fieldset>
+    <fieldset><legend>Sleep</legend>${tagChips('sleep', SLEEP, s.sleep || '')}</fieldset>
+    ${hurt.length ? `<fieldset><legend>Injury</legend>
+      <div class="chips"><label class="chip"><input type="checkbox" name="aroundInjury" value="1" data-around ${tagged.length ? 'checked' : ''}><span>Training around an injury</span></label></div>
+      <div class="chips" data-injury-pick ${tagged.length ? '' : 'hidden'} style="margin-top:6px">${hurt.map(i => `<label class="chip"><input type="checkbox" name="injuryIds" value="${i.id}" ${!tagged.length || tagged.includes(i) ? 'checked' : ''}><span>${esc(injuryName(i))}</span></label>`).join('')}</div>
+    </fieldset>` : ''}
+  </div>`
+}
+
+// Tapping a picked energy or sleep chip again clears it, so the tags stay optional.
+function wireBodyCheck(form) {
+  const picked = {}
+  $$('[data-untoggle]:checked', form).forEach(i => picked[i.name] = i.value)
+  form.addEventListener('click', e => {
+    const input = e.target.closest('[data-untoggle]')
+    if (!input) return
+    if (picked[input.name] === input.value) { input.checked = false; picked[input.name] = '' }
+    else picked[input.name] = input.value
+  })
+  $('[data-around]', form)?.addEventListener('change', e => { $('[data-injury-pick]', form).hidden = !e.target.checked })
+}
 
 const step = (n, title, body) => `<section class="form-step"><h3 class="step-title"><span class="step-n" aria-hidden="true">${n}</span>${title}</h3>${body}</section>`
 
@@ -182,7 +218,8 @@ function sessionForm(id, date) {
       <div class="grid2">
         ${field('Minutes on the mat', `<input type="number" name="minutes" id="s-min" min="0" max="600" step="5" inputmode="numeric" value="${esc(s.minutes)}">`)}
         ${field('Rounds rolled', `<input type="number" name="rounds" id="s-rounds" min="0" max="40" inputmode="numeric" value="${esc(s.rounds)}">`)}
-      </div>`)}
+      </div>
+      ${bodyCheck(s)}`)}
     ${step(2, 'How it went', howItWent(s))}
     ${step(3, 'Key exchanges', `<p class="hint">One note per exchange that mattered. A roll without a result isn’t saved.</p>
       ${existingRolls.length ? `<div>${existingRolls.map(r => `<div class="roll-mini"><span>${posRole(r.position, r.role)} <span class="result ${esc(r.result)}">${esc(RESULTS[r.result]?.label || '')}</span></span></div>`).join('')}<p class="hint">Edit saved rolls from the journal.</p></div>` : ''}
@@ -210,6 +247,7 @@ function sessionForm(id, date) {
       const renumber = () => $$('[data-row-title]', rollBox).forEach((h, j) => h.textContent = 'Roll ' + (j + 1))
       const addRoll = preset => { rollBox.insertAdjacentHTML('beforeend', rollRow(rows++, preset)); renumber() }
       let reps = (s.reps || []).length
+      wireBodyCheck(form)
 
       $('#s-add-roll', form).addEventListener('click', () => {
         const prev = $$('[data-row]', rollBox).pop()
@@ -280,6 +318,7 @@ function sessionForm(id, date) {
         worked: (fd.get('worked') ?? s.worked ?? '').trim(), struggled: (fd.get('struggled') ?? s.struggled ?? '').trim(), lesson: fd.get('lesson').trim(),
         reflectQ: answer ? fd.get('reflectQ') : '', reflectA: answer, notes: fd.get('notes').trim(),
         coachQ, coachAsked: coachQ && coachQ === s.coachQ ? !!s.coachAsked : false,
+        energy: fd.get('energy') || '', sleep: fd.get('sleep') || '', injuryIds: fd.get('aroundInjury') ? fd.getAll('injuryIds') : [],
       }
       const rolls = rows.filter(row => fd.get(`r${row.dataset.row}_result`)).map((row, j) => {
         const g = name => fd.get(`r${row.dataset.row}_${name}`) || ''

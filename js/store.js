@@ -2,13 +2,13 @@
 // The whole journal is loaded into memory at launch; every change writes through.
 
 const DB_NAME = 'bjj-journey'
-const KINDS = ['session', 'roll', 'tech', 'seq', 'goal', 'link', 'activity', 'study']
+const KINDS = ['session', 'roll', 'tech', 'seq', 'goal', 'link', 'activity', 'study', 'injury']
 
 export const S = emptyState()
 
 export function emptyState() {
   return {
-    session: [], roll: [], tech: [], seq: [], goal: [], link: [], activity: [], study: [],
+    session: [], roll: [], tech: [], seq: [], goal: [], link: [], activity: [], study: [], injury: [],
     settings: { id: 'settings_main', kind: 'settings', weeklyTarget: 3 },
     profile: emptyProfile(),
   }

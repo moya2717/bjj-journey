@@ -661,3 +661,31 @@ legend .hint{font-weight:500;margin-left:4px}
   .fc-tiles > div:nth-child(3){border-left:0}
   .fc-tiles > div:nth-child(n+3){border-top:1px solid var(--line)}
 }
+
+/* Injuries: body map and log */
+.injury-layout{display:grid;gap:16px;align-items:start}
+@media (min-width:880px){.injury-layout{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}.body-panel{position:sticky;top:120px}}
+.body-map{display:block;width:100%;max-width:440px;margin:0 auto;touch-action:manipulation}
+.body-map .axis{fill:var(--muted);font-size:10px;font-family:var(--font)}
+.bm-body{fill:var(--surface-2);stroke:var(--line-strong);stroke-linecap:round;stroke-linejoin:round}
+.bm-body path:not(.bm-fill){fill:none;stroke:var(--line)}
+.bm-body circle,.bm-fill{stroke-width:1.5}
+.bm-spot{fill:var(--mat);fill-opacity:.14;stroke:var(--mat);stroke-opacity:.45;stroke-width:1;cursor:pointer;outline:none}
+.bm-spot:hover,.bm-spot:focus-visible{fill-opacity:.35;stroke-opacity:1;stroke-width:2}
+.bm-spot.past{fill:var(--broke);fill-opacity:.22;stroke:var(--broke);stroke-opacity:.35}
+.bm-spot.active{fill:var(--broke);fill-opacity:.7;stroke:var(--broke);stroke-opacity:1;stroke-width:2}
+.bm-spot.active.s1{fill-opacity:.5}.bm-spot.active.s3{fill-opacity:.92}
+.body-panel .legend{justify-content:center;margin:10px 0 0}
+.legend .key{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px;background:var(--mat-soft);border:1px solid var(--mat)}
+.legend .key.active{background:var(--broke);border-color:var(--broke)}
+.legend .key.past{background:var(--broke-soft);border-color:var(--broke);opacity:.6}
+.injury-card{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line-strong);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.injury-card.is-active{border-left-color:var(--broke)}
+.injury-card.is-past{opacity:.78}
+.injury-card .mods{display:flex;flex-direction:column;gap:4px}
+.chip .chip-hint{display:inline;padding:0;border:0;border-radius:0;background:none;color:inherit;opacity:.75;font-size:.82em}
+.session-tags{display:flex;flex-wrap:wrap;gap:12px 22px;align-items:flex-start}
+.session-tags .chip span{padding:4px 11px;font-size:.84rem}
+.home-insight{margin-bottom:14px}
+.insight{font-size:1rem;max-width:70ch}
+.nudge.hurt{border-color:var(--broke);background:var(--broke-soft)}

@@ -3,7 +3,7 @@ import { ACTIVITY_TYPES, BELT_LOOK, FEELS, PLACES, POSITIONS, RANKS } from '../v
 import { $, byDateAsc, dayPart, daysAgo, esc, fmtDate, fmtMonthY, hrs, monthLabel, newId, pct, plural, rate, span, sum, toast, today, trunc, ym } from '../util.js'
 import { field, selectEl, armDelete, openSheet, radioChips } from '../sheet.js'
 import { ageDivision, currentRank, rankName } from '../model.js'
-import { areaCounts, monthlySeries, problemTrends, weeklyStreak } from '../analysis.js'
+import { areaCounts, bodyInsights, monthlySeries, problemTrends, weeklyStreak } from '../analysis.js'
 import { heatmap, lineChart, spark } from '../charts.js'
 import { exportBackup, importBackup } from '../backup.js'
 import { exampleRecords } from '../examples.js'
@@ -41,6 +41,7 @@ export function view() {
     <h2 class="section-title wide">Your game</h2>
     ${areasPanel()}
     ${timeOfDayPanel()}
+    ${bodyPanel()}
     ${otherTrainingPanel()}
     ${trendsPanel()}
     <section class="panel wide"><h2>Month by month</h2><div class="table-scroll"><table>
@@ -266,6 +267,22 @@ function timeOfDayPanel() {
     <thead><tr><th scope="col">Class time</th><th scope="col">Sessions</th><th scope="col">Mat hours</th><th scope="col">Roll success</th><th scope="col">Felt</th></tr></thead>
     <tbody>${rows.map(r => `<tr><td>${r.part}</td><td>${r.n}</td><td>${hrs(r.minutes)}</td><td>${r.rolls ? pct(r.rate) : '—'}</td><td>${r.feel ? FEELS[Math.round(r.feel) - 1] : '—'}</td></tr>`).join('')}</tbody></table></div>
     <p class="small muted" style="margin-top:10px">Morning is before noon, evening from 5 PM. ${plural(S.session.length - timed.length, 'session')} without a time aren’t counted.</p></section>`
+}
+
+// ---------- Energy, sleep and injuries ----------
+
+function bodyPanel() {
+  const { dims, findings, min } = bodyInsights()
+  const used = dims.filter(d => d.tagged)
+  if (!used.length) return `<section class="panel"><h2>Energy, sleep and injuries</h2><p class="muted">Tap your energy and sleep when you log training, and tag sessions you train around an injury. Once there’s enough, this panel shows whether they change how your rolls go.</p></section>`
+  return `<section class="panel wide"><h2>Energy, sleep and injuries</h2>
+    ${findings.length ? findings.map(f => `<div class="callout"><p class="insight">${esc(f.text)}</p><p class="small muted">${esc(f.detail)}</p></div>`).join('')
+      : `<p class="muted">No clear pattern yet. A finding shows once a group has ${min.sessions}+ sessions and ${min.rolls}+ rolls on each side of the comparison, and the gap is bigger than chance would explain.</p>`}
+    <div class="trend-grid" style="margin-top:14px">${used.map(d => `<div><h3 style="margin-bottom:8px">${esc(d.title)}</h3><div class="table-scroll"><table>
+      <thead><tr><th scope="col">${esc(d.title)}</th><th scope="col">Sessions</th><th scope="col">Rolls</th><th scope="col">Broke down</th><th scope="col">Success</th></tr></thead>
+      <tbody>${d.rows.map(r => `<tr><td>${esc(r.label)}</td><td>${r.sessions}</td><td>${r.rolls}</td><td>${r.rolls ? pct(r.broke / r.rolls) : '—'}</td><td>${pct(r.rate)}</td></tr>`).join('')}</tbody></table></div></div>`).join('')}</div>
+    <p class="small muted" style="margin-top:10px">Only rolls logged with a session count. Injury-free means no injury was active in your log that day. A pattern here is a lead to test, not proof: tiredness, partners and what you were working on all move these numbers.</p>
+  </section>`
 }
 
 function otherTrainingPanel() {

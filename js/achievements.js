@@ -108,6 +108,16 @@ function buildAchievements() {
   out.push(...family('Journal habits', 'photos', count(sessions.filter(s => (s.photos || []).length)), [1, 10, 50],
     n => n === 1 ? 'First photo' : `${n} days in photos`, n => `Add photos to ${plural(n, 'session')}`))
 
+  // Injuries: only shown once you've logged one.
+  if (S.injury.length) {
+    const healed = S.injury.filter(i => i.endDate)
+    out.push(...family('Journal habits', 'healed', count(healed, i => i.endDate), [1],
+      () => 'Logged recovery', () => 'Log an injury through to the day it healed'))
+    const comebacks = healed.map(i => [...sessions].sort(byDateAsc).find(s => s.date > i.endDate)).filter(Boolean)
+    out.push(...family('Journal habits', 'comeback', count(comebacks), [1, 3],
+      n => n === 1 ? 'Back from injury' : `Back from ${n} injuries`, n => n === 1 ? 'Train again after a logged injury heals' : `Return to the mat after ${n} logged injuries`))
+  }
+
   // Cross-training
   out.push(...family('Cross-training', 'activity-hours', S.activity.map(a => ({ date: a.date, amount: (+a.minutes || 0) / 60 })), [5, 25, 50, 100, 250],
     n => `${big(n)} hours of cross-training`, n => `Spend ${big(n)} hours training outside BJJ`))

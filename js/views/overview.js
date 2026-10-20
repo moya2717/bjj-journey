@@ -2,10 +2,11 @@ import { S } from '../store.js'
 import { POSITIONS, RESULTS } from '../vocab.js'
 import { byDateAsc, byDateDesc, daysAgo, parseD, esc, fmtDate, hrs, plural, pct, posRole, rate, span, sum, toast, today, topKeys, trunc } from '../util.js'
 import { allTechs, currentRank, nodePath, rankName, rollTechId, seqById, techById } from '../model.js'
-import { areaCounts, badSpots, hardestMatchup, monthlySeries, problemTrends, techStats, unpromoted, weakestStep } from '../analysis.js'
+import { areaCounts, badSpots, bodyInsights, hardestMatchup, monthlySeries, problemTrends, techStats, unpromoted, weakestStep } from '../analysis.js'
 import { lineChart } from '../charts.js'
 import { dueCards } from '../srs.js'
 import { computeAchievements, goalStatus, progressOf } from '../achievements.js'
+import { activeInjuries, duration, injuryName } from '../body.js'
 
 export function view() {
   if (!S.session.length && !S.roll.length) return `
@@ -14,8 +15,10 @@ export function view() {
       <p>Log what you trained and how your rolls went. After a few weeks, this page answers three questions: what keeps going wrong, what to work on next, and whether your game is improving.</p>
       <div class="head-actions"><button class="btn" data-act="new-session">Log training</button><button class="btn ghost" data-act="load-examples">Load example entries</button></div>
     </div>`
+  const insight = bodyInsights().findings[0]
   return `
     ${nudges()}
+    ${insight ? `<div class="callout home-insight"><p class="small muted">Energy, sleep and injuries</p><p class="insight">${esc(insight.text)}</p><div><button class="link" data-act="tab" data-view="stats">See the numbers</button></div></div>` : ''}
     <div class="overview-bar"><p class="muted">From your last 60 days of training</p>
       <div class="head-actions"><button class="btn" data-act="new-session">Log training</button><button class="btn ghost" data-act="new-roll">Log a roll</button></div></div>
     <div class="questions">
@@ -32,7 +35,9 @@ function nudges() {
   const due = dueCards().length
   const next = [...S.profile.tournaments].sort(byDateAsc).find(t => t.date >= today())
   const days = next && Math.round((parseD(next.date) - parseD(today())) / 864e5)
+  const hurt = activeInjuries()
   const items = [
+    hurt.length && `<button class="nudge hurt" data-act="tab" data-view="injuries"><strong>${hurt.length === 1 ? 'Active injury' : hurt.length + ' active injuries'}</strong> ${esc(hurt.slice(0, 2).map(i => `${injuryName(i)}, ${duration(i).toLowerCase()}`).join('; '))}${hurt.length > 2 ? '…' : ''}</button>`,
     due && `<button class="nudge" data-act="tab" data-view="study"><strong>${due}</strong> ${due === 1 ? 'card' : 'cards'} to review today</button>`,
     next && days <= 90 && `<button class="nudge" data-act="tab" data-view="compete"><strong>${days === 0 ? 'Today' : days + (days === 1 ? ' day' : ' days')}</strong> until ${esc(next.name)}</button>`,
   ].filter(Boolean)
@@ -148,7 +153,8 @@ function reviewData() {
   return {
     today: today(),
     fighter: { rank: rankName(rank), timeAtRank: rank.since ? span(rank.since) : '', trainingFor: S.profile.startDate ? span(S.profile.startDate) : '', tournamentsLastYear: S.profile.tournaments.filter(t => t.date >= daysAgo(365)).map(t => ({ date: t.date, division: t.division, place: t.place, wins: t.wins, losses: t.losses, notes: trunc(t.notes, 200) })) },
-    sessions: S.session.filter(s => s.date >= from).sort(byDateDesc).map(s => ({ date: s.date, time: s.time || '', type: s.type, wentWell: s.wentWell || [], trouble: s.trouble || [], minutes: s.minutes, plan: s.plan || '', stuckToPlan: s.planHit || '', felt: s.feel || '', drilled: (s.drilled || []).map(name).filter(Boolean), reps: (s.reps || []).map(r => `${r.count} ${name(r.techId)}`), worked: trunc(s.worked, 300), wentWrong: trunc(s.struggled, 300), lesson: trunc(s.lesson, 200), reflection: s.reflectA ? `${s.reflectQ} ${trunc(s.reflectA, 300)}` : '', coachQuestion: s.coachQ || '', notes: trunc(s.notes, 300) })),
+    sessions: S.session.filter(s => s.date >= from).sort(byDateDesc).map(s => ({ date: s.date, time: s.time || '', type: s.type, wentWell: s.wentWell || [], trouble: s.trouble || [], minutes: s.minutes, plan: s.plan || '', stuckToPlan: s.planHit || '', felt: s.feel || '', drilled: (s.drilled || []).map(name).filter(Boolean), reps: (s.reps || []).map(r => `${r.count} ${name(r.techId)}`), worked: trunc(s.worked, 300), wentWrong: trunc(s.struggled, 300), lesson: trunc(s.lesson, 200), reflection: s.reflectA ? `${s.reflectQ} ${trunc(s.reflectA, 300)}` : '', coachQuestion: s.coachQ || '', notes: trunc(s.notes, 300), energy: s.energy || '', sleep: s.sleep || '', trainingAroundInjury: (s.injuryIds || []).map(id => S.injury.find(i => i.id === id)).filter(Boolean).map(injuryName) })),
+    injuries: S.injury.filter(i => !i.endDate || i.endDate >= from).map(i => ({ where: injuryName(i), severity: ['', 'mild', 'moderate', 'severe'][i.severity || 1], started: i.startDate, healed: i.endDate || 'still active', what: trunc(i.description, 200), trainingChanges: [...(i.mods || []), i.modNotes].filter(Boolean) })),
     rolls: S.roll.filter(r => r.date >= from).sort(byDateDesc).map(r => { const seq = seqById(r.seqId); return { date: r.date, partnerBelt: r.level, partnerSize: r.size || '', partnerStyle: r.styles || [], position: r.position, role: r.role, move: name(rollTechId(r)), sequence: seq ? seq.name + ': ' + nodePath(seq, r.nodeId).join(' > ') : '', result: RESULTS[r.result]?.label || r.result, causes: r.reasons || [], whatHappened: trunc(r.what, 300), tryNext: r.tryNext || '', tryNextStatus: r.tryNext ? (r.tryStatus || 'open') : '' } }),
     otherTraining: S.activity.filter(a => a.date >= from).map(a => ({ date: a.date, type: a.type, minutes: a.minutes, intensity: a.intensity, notes: trunc(a.notes, 200) })),
     challenges: S.goal.map(g => ({ title: g.title, target: g.target, progress: goalStatus(g).value, status: goalStatus(g).label })),

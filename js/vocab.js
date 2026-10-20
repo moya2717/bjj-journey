@@ -19,6 +19,8 @@ export const ACTIVITY_TYPES = ['Running', 'Strength training', 'Yoga', 'Mobility
 export const INTENSITIES = ['Easy', 'Moderate', 'Hard']
 export const PLACES = ['Gold', 'Silver', 'Bronze', 'No medal']
 export const FEELS = ['Drained', 'Flat', 'Okay', 'Good', 'Sharp']
+export const ENERGY = { low: 'Low', ok: 'OK', high: 'High' }
+export const SLEEP = { poor: 'Poor', ok: 'OK', good: 'Good' }
 // Areas of the game, for the quick "what went well / what gave you trouble" questions.
 export const AREAS = ['Takedowns', 'Guard retention', 'Sweeps', 'Passing', 'Escapes', 'Top control', 'Back takes', 'Submissions', 'Submission defense', 'Scrambles', 'Cardio and pace', 'Staying calm', 'Learning the technique']
 export const PLAN_HIT = ['Stuck to it', 'Partly', 'Went another way']

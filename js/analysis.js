@@ -1,7 +1,8 @@
-import { S } from './store.js'
-import { BELTS, REASONS, SIZES, STYLES } from './vocab.js'
+import { S, cached } from './store.js'
+import { BELTS, ENERGY, REASONS, SIZES, SLEEP, STYLES } from './vocab.js'
 import { byDateDesc, daysAgo, isoDate, posRole, rate, score, sum, topKeys, weekStart, ym } from './util.js'
 import { rollTechId, seqById, sizeLabel } from './model.js'
+import { activeOn } from './body.js'
 
 const notWorked = r => r.result !== 'worked'
 
@@ -162,3 +163,56 @@ export function areaCounts(field, from) {
 
 // "Try next" ideas that worked but aren't in a sequence yet.
 export const unpromoted = () => S.roll.filter(r => r.tryNext && r.tryStatus === 'worked' && !r.promoted && !r.promoteSkip).sort(byDateDesc)
+
+// ---------- Energy, sleep and injuries vs how rolls go ----------
+// Each tag splits sessions into groups, and each group is compared with the other tagged sessions.
+// A finding needs 5+ sessions with rolls and 10+ rolls on both sides, a gap of 10+ points in how
+// often rolls broke down, and a gap a simple two-proportion test calls unlikely to be chance.
+// Rolls from one session aren't independent, so even then the wording stays modest.
+const MIN_SESSIONS = 5, MIN_ROLLS = 10, MIN_GAP = 0.1, MIN_Z = 1.65
+
+// Untagged sessions count as injury-free only when the log shows nothing active that day,
+// and only from the first logged injury on, since before that nobody was keeping track.
+const injuryState = s => {
+  if ((s.injuryIds || []).length) return 'hurt'
+  const first = S.injury.reduce((m, i) => !m || i.startDate < m ? i.startDate : m, '')
+  return first && s.date >= first && !activeOn(s.date).length ? 'healthy' : ''
+}
+
+const BODY_DIMS = [
+  { key: 'sleep', title: 'Sleep', groups: SLEEP, of: s => s.sleep, days: { poor: 'poor-sleep days', ok: 'OK-sleep days', good: 'good-sleep days' }, others: 'other days you noted sleep' },
+  { key: 'energy', title: 'Energy', groups: ENERGY, of: s => s.energy, days: { low: 'low-energy days', ok: 'OK-energy days', high: 'high-energy days' }, others: 'other days you noted energy' },
+  { key: 'injury', title: 'Injuries', groups: { hurt: 'Around an injury', healthy: 'Injury-free' }, of: injuryState, days: { hurt: 'days you train around an injury', healthy: 'injury-free days' }, others: 'the rest' },
+]
+
+const tally = (sessions, bySession) => {
+  const rolls = sessions.flatMap(s => bySession[s.id] || [])
+  return { sessions: sessions.length, withRolls: sessions.filter(s => bySession[s.id]).length, rolls: rolls.length, broke: rolls.filter(r => r.result === 'broke').length, rate: rate(rolls) }
+}
+
+function finding(dim, key, g, rest) {
+  if (g.withRolls < MIN_SESSIONS || rest.withRolls < MIN_SESSIONS || g.rolls < MIN_ROLLS || rest.rolls < MIN_ROLLS) return null
+  const p1 = g.broke / g.rolls, p2 = rest.broke / rest.rolls, pooled = (g.broke + rest.broke) / (g.rolls + rest.rolls)
+  const z = pooled > 0 && pooled < 1 ? (p1 - p2) / Math.sqrt(pooled * (1 - pooled) * (1 / g.rolls + 1 / rest.rolls)) : 0
+  if (Math.abs(p1 - p2) < MIN_GAP || Math.abs(z) < MIN_Z) return null
+  const days = dim.days[key]
+  const text = p2 === 0 ? `Your rolls broke down ${Math.round(p1 * 100)}% of the time on ${days}, and not once on ${dim.others}.`
+    : p1 === 0 ? `None of your rolls broke down on ${days}, against ${Math.round(p2 * 100)}% on ${dim.others}.`
+    : p1 / p2 >= 2 ? `Your rolls break down about ${Math.round(p1 / p2 * 10) / 10}× as often on ${days}.`
+    : `Your rolls break down ${Math.round(Math.abs(p1 - p2) / p2 * 100)}% ${p1 > p2 ? 'more' : 'less'} often on ${days}.`
+  const detail = `${Math.round(p1 * 100)}% of ${g.rolls} rolls over ${g.withRolls} sessions, against ${Math.round(p2 * 100)}% of ${rest.rolls} rolls on ${dim.others}.`
+  return { dim: dim.key, key, text, detail, z: Math.abs(z), worse: p1 > p2 }
+}
+
+// Every dimension's groups, plus at most one finding per dimension, strongest first.
+export const bodyInsights = () => cached('bodyInsights', () => {
+  const bySession = {}
+  S.roll.forEach(r => r.sessionId && (bySession[r.sessionId] ||= []).push(r))
+  const dims = BODY_DIMS.map(dim => {
+    const tagged = S.session.filter(s => dim.of(s))
+    const rows = Object.entries(dim.groups).map(([key, label]) => ({ key, label, ...tally(tagged.filter(s => dim.of(s) === key), bySession) }))
+    const best = rows.map(row => finding(dim, row.key, row, tally(tagged.filter(s => dim.of(s) !== row.key), bySession))).filter(Boolean).sort((a, b) => b.z - a.z)[0]
+    return { key: dim.key, title: dim.title, tagged: tagged.length, rows, finding: best || null }
+  })
+  return { dims, findings: dims.map(d => d.finding).filter(Boolean).sort((a, b) => b.z - a.z), min: { sessions: MIN_SESSIONS, rolls: MIN_ROLLS } }
+})
