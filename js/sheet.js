@@ -126,11 +126,69 @@ export function armDelete(button, onConfirm) {
 }
 
 const dialog = () => $('#sheet')
+const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches
+
+// The sheet slides away before it closes. Every way out goes through here.
+// `shown` counts sheets, so a late close never shuts a sheet opened after it.
+let shown = 0, closing
+function dismiss() {
+  const dlg = dialog()
+  if (!dlg.open || dlg.classList.contains('closing')) return
+  const done = () => { dlg.classList.remove('closing'); dlg.style.transform = ''; dlg.close() }
+  if (calm()) return done()
+  dlg.classList.add('closing')
+  closing = setTimeout(done, 260)
+}
+
+// Drag the sheet down by its handle, or from the top of the form, to close it.
+function wireSwipe(dlg) {
+  let y0 = null, dy = 0, t0 = 0
+  dlg.addEventListener('touchstart', e => {
+    const body = $('.sheet-body', dlg)
+    const top = e.target.closest('.sheet-head') || (body && body.scrollTop <= 0 && !e.target.closest('input,select,textarea'))
+    y0 = top ? e.touches[0].clientY : null
+    dy = 0; t0 = e.timeStamp
+  }, { passive: true })
+  dlg.addEventListener('touchmove', e => {
+    if (y0 == null) return
+    dy = e.touches[0].clientY - y0
+    if (dy < 0) { y0 = null; dlg.style.transform = ''; return }
+    if (dy < 8) return
+    e.preventDefault()
+    dlg.style.transition = 'none'
+    dlg.style.transform = `translateY(${dy}px)`
+  }, { passive: false })
+  dlg.addEventListener('touchend', e => {
+    if (y0 == null || dy < 8) { y0 = null; return }
+    y0 = null
+    dlg.style.transition = ''
+    if (dy > 140 || (dy > 40 && dy / (e.timeStamp - t0) > .5)) dismiss()
+    else dlg.style.transform = ''
+  })
+  dlg.addEventListener('cancel', e => { e.preventDefault(); dismiss() })
+}
+
+// Forms in numbered steps get a progress bar, and a step's number turns into a tick once it has an answer.
+function wireSteps(form) {
+  const steps = $$('.form-step', form), bar = $('.sheet-progress i', form)
+  if (!steps.length || !bar) return
+  const answered = step => $$('input,textarea', step).some(i => ['radio', 'checkbox'].includes(i.type) ? i.checked : !['search', 'hidden', 'file'].includes(i.type) && i.value.trim())
+  const update = () => { bar.style.width = steps.filter(s => s.classList.toggle('done', answered(s))).length / steps.length * 100 + '%' }
+  form.addEventListener('input', update)
+  form.addEventListener('change', update)
+  form.addEventListener('click', () => setTimeout(update))
+  update()
+}
 
 export function openSheet(title, body, { submitLabel = 'Save', onSubmit, onMount, onDelete, deleteLabel = 'Delete' } = {}) {
-  const dlg = dialog()
+  const dlg = dialog(), mine = ++shown
+  clearTimeout(closing)
+  dlg.classList.remove('closing')
+  dlg.style.transform = ''
+  if (!dlg.dataset.wired) { wireSwipe(dlg); dlg.dataset.wired = '1' }
   dlg.innerHTML = `<form class="sheet-form" novalidate>
     <div class="sheet-head"><h2>${esc(title)}</h2><button type="button" class="icon-btn" data-close aria-label="Close">×</button></div>
+    ${body.includes('form-step') ? '<div class="sheet-progress" aria-hidden="true"><i></i></div>' : ''}
     <div class="sheet-body">${body}${body.includes('data-tech-add') ? techDatalist() : ''}</div>
     <div class="sheet-foot">
       ${onDelete ? `<button type="button" class="btn danger sm" data-delete>${esc(deleteLabel)}</button>` : ''}
@@ -141,19 +199,29 @@ export function openSheet(title, body, { submitLabel = 'Save', onSubmit, onMount
   const form = $('form', dlg)
   form.addEventListener('submit', async e => {
     e.preventDefault()
-    if (!onSubmit) return
-    if (await onSubmit(new FormData(form), form) !== false) dlg.close()
+    const save = $('[type=submit]', form)
+    if (!onSubmit || save.disabled) return
+    if (await onSubmit(new FormData(form), form) === false) return
+    // A saved sheet flashes its button green and the toast gets a tick before the sheet slides away.
+    save.disabled = true
+    save.classList.add('done')
+    save.textContent = 'Saved'
+    $('#toast').classList.add('ok')
+    navigator.vibrate?.(10)
+    setTimeout(() => mine === shown && dismiss(), calm() ? 0 : 280)
   })
-  $$('[data-close]', dlg).forEach(b => b.addEventListener('click', () => dlg.close()))
+  $$('[data-close]', dlg).forEach(b => b.addEventListener('click', dismiss))
   const del = $('[data-delete]', dlg)
-  if (del) del.addEventListener('click', () => { if (armDelete(del, onDelete)) { dlg.close(); toast('Deleted') } })
+  if (del) del.addEventListener('click', () => { if (armDelete(del, onDelete)) { dismiss(); toast('Deleted') } })
   wireTechPickers(form)
   wireFocusPickers(form)
   wireMovePickers(form)
   onMount?.(form)
-  dlg.showModal()
+  wireSteps(form)
+  if (!dlg.open) dlg.showModal()
+  // Only focus on a mouse or trackpad: on a phone it would pop the keyboard over the form.
   const first = $('.sheet-body input:not([type=checkbox]):not([type=radio]):not([type=file]),.sheet-body select,.sheet-body textarea', form)
-  if (first && matchMedia('(pointer:fine)').matches) first.focus()
+  if (first && matchMedia('(pointer:fine)').matches) first.focus({ preventScroll: true })
 }
 
-export const closeSheet = () => dialog().close()
+export const closeSheet = dismiss

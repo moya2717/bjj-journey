@@ -363,7 +363,7 @@ const DISTANCE_TYPES = ['Running', 'Cycling', 'Swimming']
 
 function activityForm(id, date) {
   const last = [...S.activity].sort(byDateDesc)[0]
-  const a = id ? S.activity.find(x => x.id === id) : { date: date || today(), time: '', type: last?.type || 'Running', minutes: 30, distance: '', unit: last?.unit || 'mi', intensity: 'Moderate', notes: '' }
+  const a = id ? S.activity.find(x => x.id === id) : { date: date || today(), time: '', type: last?.type || 'Running', minutes: last?.minutes || 30, distance: '', unit: last?.unit || 'mi', intensity: last?.intensity || 'Moderate', notes: '' }
   if (!a) return
   openSheet(id ? 'Edit activity' : 'Log other activity', `
     <p class="hint">Training outside BJJ. It shows on your calendar and in your stats, but doesn’t count toward mat hours.</p>

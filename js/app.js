@@ -61,12 +61,17 @@ const actions = Object.assign(
   ...Object.values(VIEWS).map(([, view]) => view.actions),
 )
 
+let shownView
 function render() {
   renderHeader()
   const [, view] = VIEWS[UI.view]
   const app = $('#app')
   app.innerHTML = view.view()
   view.mount?.(app)
+  // A new screen eases in; re-renders of the same screen (after a save or a tap) don't.
+  if (shownView && shownView !== UI.view && !matchMedia('(prefers-reduced-motion: reduce)').matches)
+    app.animate?.([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'cubic-bezier(.32,.72,0,1)' })
+  shownView = UI.view
   // The log button would cover the answer buttons while you're quizzing or reviewing.
   $('.fab').hidden = (UI.view === 'sequences' && !!UI.quiz) || (UI.view === 'study' && !!UI.review) || (UI.view === 'sim' && !!UI.sim)
 }

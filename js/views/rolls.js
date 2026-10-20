@@ -74,9 +74,11 @@ const seqOptions = () => [{ value: '', label: 'None' }, ...S.seq.map(s => ({ val
 
 function rollForm(id, preset = {}) {
   const session = preset.sessionId ? S.session.find(s => s.id === preset.sessionId) : null
+  // A new roll starts where your last one did: most notes in a sitting are about the same position.
+  const last = [...S.roll].sort(byDateDesc)[0]
   const r = id ? S.roll.find(x => x.id === id) : {
     date: session?.date || today(), sessionId: session?.id || '', partner: '', level: 'Blue', size: '', styles: [],
-    position: 'Half guard', role: 'Top', seqId: preset.seqId || '', nodeId: preset.nodeId || '', techId: '',
+    position: last?.position || 'Half guard', role: last?.role || 'Top', seqId: preset.seqId || '', nodeId: preset.nodeId || '', techId: '',
     result: 'broke', reasons: [], what: '', tryNext: '', tryStatus: 'open',
   }
   if (!r) return
@@ -84,22 +86,27 @@ function rollForm(id, preset = {}) {
   if (presetSeq) { r.position = presetSeq.position; r.role = presetSeq.role || r.role }
   const sessionOptions = [{ value: '', label: 'Not linked' }, ...[...S.session].sort(byDateDesc).slice(0, 60).map(s => ({ value: s.id, label: fmtDateLong(s.date) + ', ' + s.type }))]
 
+  // The common case comes first (where, how it went, what next). Partner and sequence details fold away.
   openSheet(id ? 'Edit roll note' : 'Log a roll', `
     <div class="grid2">${field('Date', `<input type="date" name="date" id="r-date" value="${esc(r.date)}" required>`)}${field('Session', selectEl('sessionId', sessionOptions, r.sessionId, 'id="r-session"'))}</div>
-    <div class="grid3">
-      ${field('Partner (optional)', `<input type="text" name="partner" id="r-partner" list="partner-list" autocomplete="off" value="${esc(r.partner)}" placeholder="Name or nickname">`)}
-      ${field('Partner’s belt', selectEl('level', BELTS, r.level, 'id="r-level"'))}
-      ${field('Their size', selectEl('size', [{ value: '', label: 'Not noted' }, ...SIZES], r.size || '', 'id="r-size"'))}
-    </div>${partnerDatalist()}
-    <fieldset><legend>Their style</legend>${chipsEl('styles', STYLES, r.styles || [])}</fieldset>
     <div class="grid2">${field('Position', selectEl('position', POSITIONS, r.position, 'id="r-pos"'))}${field('Your role', selectEl('role', ROLES, r.role, 'id="r-role"'))}</div>
-    <div class="grid2">${field('Sequence you ran', selectEl('seqId', seqOptions(), r.seqId, 'id="r-seq"'))}${field('Step it reached', `<select name="nodeId" id="r-node">${stepOptions(r.seqId, r.nodeId)}</select>`)}</div>
-    ${field('Main move (if not in a sequence)', techSelect('techId', r.techId, { extra: 'id="r-tech"' }))}
-    ${movesPicker(r.moves || [])}
     <fieldset><legend>Result</legend><div class="chips">${Object.entries(RESULTS).map(([k, v]) => `<label class="chip r-${k}"><input type="radio" name="result" value="${k}" ${r.result === k ? 'checked' : ''}><span>${v.label}</span></label>`).join('')}</div></fieldset>
-    <fieldset><legend>Why it went wrong</legend>${chipsEl('reasons', REASONS, r.reasons || [])}</fieldset>
+    <fieldset data-why ${r.result === 'worked' ? 'hidden' : ''}><legend>Why it went wrong</legend>${chipsEl('reasons', REASONS, r.reasons || [])}</fieldset>
+    ${movesPicker(r.moves || [])}
     ${field('What happened', `<textarea name="what" id="r-what" rows="3" placeholder="He got the underhook as soon as I cut, came up, and I ended up on bottom">${esc(r.what)}</textarea>`)}
     ${field('What you’ll try next time', `<input type="text" name="tryNext" id="r-next" value="${esc(r.tryNext)}" placeholder="Crossface first, then cut">`)}
+    <details class="more" ${r.partner || (r.styles || []).length ? 'open' : ''}><summary>Partner: name, belt, size, style</summary><div>
+      <div class="grid3">
+        ${field('Partner (optional)', `<input type="text" name="partner" id="r-partner" list="partner-list" autocomplete="off" value="${esc(r.partner)}" placeholder="Name or nickname">`)}
+        ${field('Partner’s belt', selectEl('level', BELTS, r.level, 'id="r-level"'))}
+        ${field('Their size', selectEl('size', [{ value: '', label: 'Not noted' }, ...SIZES], r.size || '', 'id="r-size"'))}
+      </div>${partnerDatalist()}
+      <fieldset><legend>Their style</legend>${chipsEl('styles', STYLES, r.styles || [])}</fieldset>
+    </div></details>
+    <details class="more" ${r.seqId || r.techId ? 'open' : ''}><summary>Sequence or main move</summary><div>
+      <div class="grid2">${field('Sequence you ran', selectEl('seqId', seqOptions(), r.seqId, 'id="r-seq"'))}${field('Step it reached', `<select name="nodeId" id="r-node">${stepOptions(r.seqId, r.nodeId)}</select>`)}</div>
+      ${field('Main move (if not in a sequence)', techSelect('techId', r.techId, { extra: 'id="r-tech"' }))}
+    </div></details>
     <p class="form-error" id="form-error"></p>`, {
     submitLabel: id ? 'Save changes' : 'Save roll',
     onDelete: id ? () => remove(r) : null,
@@ -111,6 +118,7 @@ function rollForm(id, preset = {}) {
       })
       $('#r-session', form).addEventListener('change', e => { const s = S.session.find(x => x.id === e.target.value); if (s) form.elements.date.value = s.date })
       $('#r-partner', form).addEventListener('change', e => fillFromPartner(form, e.target.value, id))
+      form.addEventListener('change', e => { if (e.target.name === 'result') $('[data-why]', form).hidden = e.target.value === 'worked' })
     },
     onSubmit: (fd, form) => {
       const date = fd.get('date')
@@ -121,7 +129,7 @@ function rollForm(id, preset = {}) {
         ...(id ? r : {}), id: id || newId('roll'), kind: 'roll', date, sessionId: fd.get('sessionId'),
         partner: fd.get('partner').trim(), level: fd.get('level'), size: fd.get('size') || '', styles: fd.getAll('styles'),
         position: fd.get('position'), role: fd.get('role'), seqId: fd.get('seqId'), nodeId: fd.get('seqId') ? fd.get('nodeId') : '',
-        techId: fd.get('techId'), moves, result: fd.get('result') || 'broke', reasons: fd.getAll('reasons'), what: fd.get('what').trim(),
+        techId: fd.get('techId'), moves, result: fd.get('result') || 'broke', reasons: fd.get('result') === 'worked' ? [] : fd.getAll('reasons'), what: fd.get('what').trim(),
         tryNext, tryStatus: tryNext ? (id && r.tryNext === tryNext ? (r.tryStatus || 'open') : 'open') : '',
       }
       if (id && r.tryNext !== tryNext) { delete rec.promoted; delete rec.promoteSkip }

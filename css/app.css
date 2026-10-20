@@ -8,10 +8,13 @@
   --g-off:#1E5A76; --g-ctl:#B07A12; --g-def:#7B4FA6;
   --font:'Archivo','Helvetica Neue',Arial,system-ui,sans-serif;
   --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --r-sm:10px; --r:16px; --r-lg:22px;
+  --edge:rgba(21,32,42,.07);
+  --shadow-1:0 1px 2px rgba(21,32,42,.05),0 4px 14px rgba(21,32,42,.06);
+  --shadow-2:0 2px 6px rgba(21,32,42,.08),0 14px 36px rgba(21,32,42,.16);
+  --glass:color-mix(in srgb,var(--surface) 78%,transparent);
+  --spring:cubic-bezier(.32,.72,0,1);
   color-scheme:light;
-  box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px);
-  padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -22,6 +25,7 @@
     --worked-soft:#173A2B; --partial-soft:#3A2F17; --broke-soft:#3E1D20;
     --heat0:#1D2A35; --heat1:#1F4458; --heat2:#2C6582; --heat3:#4A8DAE; --heat4:#86C2DE;
     --g-off:#71AFCF; --g-ctl:#DFA53A; --g-def:#B793DD;
+    --edge:rgba(255,255,255,.06); --shadow-1:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.22); --shadow-2:0 4px 10px rgba(0,0,0,.35),0 18px 44px rgba(0,0,0,.45);
     color-scheme:dark;
   }
 }
@@ -32,21 +36,24 @@
   --worked:#4DB585; --partial:#DFA53A; --broke:#EA5A60;
   --worked-soft:#173A2B; --partial-soft:#3A2F17; --broke-soft:#3E1D20;
   --heat0:#1D2A35; --heat1:#1F4458; --heat2:#2C6582; --heat3:#4A8DAE; --heat4:#86C2DE;
-    --g-off:#71AFCF; --g-ctl:#DFA53A; --g-def:#B793DD;
+  --g-off:#71AFCF; --g-ctl:#DFA53A; --g-def:#B793DD;
+  --edge:rgba(255,255,255,.06); --shadow-1:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.22); --shadow-2:0 4px 10px rgba(0,0,0,.35),0 18px 44px rgba(0,0,0,.45);
   color-scheme:dark;
 }
-*,*::before,*::after{box-sizing:inherit}
-html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 120px)}
-body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
-body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--belt)}
+/* border-box is set on every element, not inherited: <details> content sits in a slot that doesn't pass it on. */
+*,*::before,*::after{box-sizing:border-box}
+/* touch-action stops double-tap zoom but keeps pinch zoom. overflow-x is only a safety net. */
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 120px);-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:manipulation;-webkit-tap-highlight-color:transparent;overflow-x:clip}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;touch-action:manipulation}
 img,svg{max-width:100%}
 button,input,select,textarea{font:inherit;color:inherit}
+a,button,label,summary,input,select,textarea,[data-act]{touch-action:manipulation}
 :focus-visible{outline:2px solid var(--mat);outline-offset:2px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* Header: the belt */
-.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20}
-.belt{background:var(--belt);color:var(--belt-ink)}
+.top{position:sticky;top:0;z-index:20}
+.belt{background:var(--belt);color:var(--belt-ink);padding-top:env(safe-area-inset-top,0px)}
 .belt-inner{max-width:1180px;margin:0 auto;display:flex;align-items:stretch;min-height:58px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:env(safe-area-inset-right,0px)}
 .brand{display:flex;align-items:center;font-stretch:125%;font-weight:820;font-size:1.3rem;letter-spacing:-.015em;margin:0}
 .rank{margin-left:auto;display:flex;align-items:center;gap:14px}
@@ -286,9 +293,14 @@ dialog::backdrop{background:rgba(5,12,18,.55)}
 .grow{flex:1}
 .field{display:flex;flex-direction:column;gap:5px;min-width:0}
 .field-label,legend{font-size:.88rem;font-weight:650;color:var(--muted)}
-input[type=text],input[type=number],input[type=date],input[type=month],input[type=url],input[type=search],select,textarea{width:100%;border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;padding:9px 11px;min-height:42px}
+input[type=text],input[type=number],input[type=date],input[type=time],input[type=month],input[type=url],input[type=email],input[type=tel],input[type=search],select,textarea{width:100%;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;min-height:46px;font-size:16px;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--mat);box-shadow:0 0 0 4px var(--mat-soft)}
+/* iOS gives date and time inputs a fixed intrinsic width that can poke out of narrow grids. */
+input[type=date],input[type=time],input[type=month]{-webkit-appearance:none;appearance:none;display:block}
+::-webkit-date-and-time-value{text-align:left}
+select{-webkit-appearance:none;appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238A97A3' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;background-size:12px 8px}
 textarea{resize:vertical;min-height:64px;line-height:1.45}
-textarea.mono{font-family:var(--mono);font-size:.8rem}
+textarea.mono{font-family:var(--mono);font-size:16px}
 fieldset{border:0;margin:0;padding:0;min-width:0}
 legend{padding:0;margin-bottom:6px}
 .grid2,.grid3{display:grid;gap:12px;grid-template-columns:1fr}
@@ -335,7 +347,7 @@ legend{padding:0;margin-bottom:6px}
 .ql-rolls{display:flex;flex-direction:column;gap:12px}
 .ql-roll{border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px;background:var(--surface-2)}
 .ql-roll-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.ql-roll input[type=text],.ql-roll select,.ql-roll textarea{background:var(--surface)}
+.ql-roll input[type=text],.ql-roll select,.ql-roll textarea{background-color:var(--surface)}
 details.more{border-top:1px solid var(--line);padding-top:12px}
 details.more summary{cursor:pointer;font-weight:650;color:var(--muted);font-size:.92rem}
 details.more[open] summary{margin-bottom:12px}
@@ -600,7 +612,7 @@ main{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
 
 /* ---------- Log form steps ---------- */
 .form-step{display:flex;flex-direction:column;gap:14px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}
-.form-step input[type=text],.form-step input[type=number],.form-step input[type=date],.form-step input[type=time],.form-step select,.form-step textarea{background:var(--surface)}
+.form-step input[type=text],.form-step input[type=number],.form-step input[type=date],.form-step input[type=time],.form-step select,.form-step textarea{background-color:var(--surface)}
 .step-title{display:flex;align-items:center;gap:10px;font-size:1.05rem;font-stretch:108%}
 .step-n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--mat);color:var(--mat-ink);font-size:.85rem;font-weight:800;flex:none}
 legend .hint{font-weight:500;margin-left:4px}
@@ -708,3 +720,117 @@ legend .hint{font-weight:500;margin-left:4px}
 .home-insight{margin-bottom:14px}
 .insight{font-size:1rem;max-width:70ch}
 .nudge.hurt{border-color:var(--broke);background:var(--broke-soft)}
+
+/* ---------- Modern refresh: layered surfaces, glass bars, bigger targets, motion ---------- */
+/* Type and spacing */
+h1{font-size:clamp(1.9rem,7.4vw,2.5rem);letter-spacing:-.025em;line-height:1.08}
+h2{font-size:1.25rem;letter-spacing:-.015em}
+.lede{font-size:.98rem;line-height:1.45}
+.page-head{margin-bottom:24px}
+.stack{gap:14px}
+main{padding-top:22px}
+
+/* Cards: soft shadows on layered surfaces instead of borders everywhere */
+.q,.review,.entry,.roll,.seq-pick,.seq-main,.tech,.goal,.panel,.map-card,.res-item,.ach,.injury-card,.fighter-card,.empty-state,.quiz-opt,.choice,.grade{border-color:var(--edge);border-radius:var(--r);box-shadow:var(--shadow-1)}
+.roll,.injury-card{border-left-color:var(--line-strong)}
+.roll.worked{border-left-color:var(--worked)}.roll.partial{border-left-color:var(--partial)}.roll.broke,.injury-card.is-active{border-left-color:var(--broke)}
+.entry.activity,.ach:not(.won){border:1px dashed var(--line-strong);box-shadow:none}
+.tech.mine,.map-card[open],.seq-pick[aria-current="true"],.choice.on{border-color:var(--mat)}
+.quiz-opt.right{border-color:var(--worked)}.quiz-opt.wrong{border-color:var(--broke)}
+.grade.again{border-color:var(--broke)}.grade.hard{border-color:var(--partial)}.grade.good{border-color:var(--worked)}.grade.easy{border-color:var(--mat)}
+.panel,.q,.review,.seq-main{padding:20px 18px}
+.callout,.trynext,.prompt-box,.sim-react,.quiz-explain{border-radius:var(--r-sm)}
+.ql-roll,.form-step{border-color:var(--edge);border-radius:var(--r)}
+.tag{border-color:transparent;padding:3px 10px}
+.list>li,.roll-mini,.hist-row,.trend-row,.plan-slot,.checklist li,.rank-line li,.move-row{border-color:color-mix(in srgb,var(--line) 70%,transparent)}
+
+/* Glass header and bottom bar */
+@supports ((-webkit-backdrop-filter:blur(1px)) or (backdrop-filter:blur(1px))){
+  .belt{background:color-mix(in srgb,var(--belt) 84%,transparent);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
+  .subnav,.bottombar{background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
+}
+.subnav{border-bottom:1px solid var(--edge)}
+.subnav button{min-height:36px;padding:7px 15px;transition:background-color .2s,color .2s,transform .15s}
+.bottombar{border-top:1px solid var(--edge);padding-left:max(6px,env(safe-area-inset-left,0px));padding-right:max(6px,env(safe-area-inset-right,0px))}
+.bottombar button{min-height:56px;padding:6px 2px 5px;gap:2px;transition:color .2s,transform .15s}
+.bottombar svg{box-sizing:content-box;padding:3px 16px;border-radius:999px;transition:background-color .25s}
+.bottombar button[aria-current="page"] svg{background:var(--mat-soft)}
+
+/* Buttons and chips: 44px targets, pressed states */
+.btn{min-height:44px;padding:10px 20px;transition:transform .15s var(--spring),filter .15s,background-color .2s,border-color .2s,box-shadow .2s}
+.btn:not(.ghost):not(.danger){box-shadow:0 1px 2px rgba(0,0,0,.12),0 4px 12px color-mix(in srgb,var(--mat) 26%,transparent)}
+.btn.ghost{background:color-mix(in srgb,var(--ink) 6%,transparent);border-color:transparent}
+.btn.ghost:hover{background:color-mix(in srgb,var(--ink) 10%,transparent)}
+.btn.danger{background:var(--broke-soft);border-color:transparent}
+.btn.sm{min-height:38px;padding:8px 14px}
+.icon-btn{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;transition:background-color .15s,transform .15s}
+.mini{min-height:32px;padding:5px 10px;border-radius:8px}
+.chips{gap:8px}
+.chip span{display:inline-flex;align-items:center;min-height:40px;padding:8px 14px;border-color:transparent;background:color-mix(in srgb,var(--ink) 6%,transparent);font-weight:550;transition:background-color .18s,color .18s,transform .15s var(--spring),box-shadow .18s}
+.form-step .chip span,.ql-roll .chip span{background:var(--surface);box-shadow:inset 0 0 0 1px var(--line)}
+.chip input:checked+span{box-shadow:0 2px 8px color-mix(in srgb,var(--ink) 18%,transparent)}
+.move-row .chip span,.session-tags .chip span{min-height:36px;padding:6px 12px}
+.pill,.jump button,.nudge,.seg button{min-height:38px;transition:background-color .18s,transform .15s}
+.cal-day{border-color:transparent;background:var(--surface-2);border-radius:10px;transition:transform .15s}
+.cal-day.today{box-shadow:inset 0 0 0 2px var(--mat)}
+.cal-day.out{background:transparent}
+@media (hover:none){.btn:hover{filter:none}}
+@media (prefers-reduced-motion:no-preference){
+  .btn:active,.chip:active span,.subnav button:active,.bottombar button:active,.icon-btn:active,.cal-day:active,.pill:active,.nudge:active,.jump button:active,.seq-pick:active,.quiz-opt:active:not(:disabled),.choice:active,.grade:active{transform:scale(.96)}
+}
+.btn:active{filter:brightness(.94)}
+.icon-btn:active,.mini:active{background:var(--surface-2)}
+
+/* Floating log button */
+.fab{right:max(16px,calc(env(safe-area-inset-right,0px) + 12px));box-shadow:0 2px 6px rgba(0,0,0,.18),0 10px 28px color-mix(in srgb,var(--mat) 45%,transparent)}
+
+/* Empty states: centered, with an icon */
+.empty-state{position:relative;border:0;text-align:center;margin-inline:auto;padding:30px 22px 26px;display:flex;flex-direction:column;align-items:center;border-radius:var(--r-lg);--empty-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8'/%3E%3C/svg%3E")}
+.empty-state::before{content:"";width:60px;height:60px;border-radius:50%;background:var(--mat-soft);margin-bottom:14px;flex:none}
+.empty-state::after{content:"";position:absolute;top:46px;left:50%;width:28px;height:28px;margin-left:-14px;background:var(--mat);-webkit-mask:var(--empty-icon) center/contain no-repeat;mask:var(--empty-icon) center/contain no-repeat}
+.empty-state p{max-width:42ch}
+
+/* Bottom sheet: slides up on phones; drag the handle (or the top of the form) down to close */
+dialog{border-radius:var(--r-lg);box-shadow:var(--shadow-2);transition:transform .4s var(--spring)}
+dialog::backdrop{background:rgba(5,12,18,.45)}
+.sheet-head{position:relative;padding:22px 18px 12px;border-bottom-color:var(--edge);touch-action:none}
+.sheet-head::before{content:"";position:absolute;top:8px;left:50%;width:38px;height:5px;margin-left:-19px;border-radius:3px;background:var(--line-strong)}
+.sheet-body{overscroll-behavior:contain;padding:16px 18px 22px}
+.sheet-foot{border-top-color:var(--edge);background:var(--glass);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+.sheet-foot .btn[type=submit]{min-width:112px}
+.sheet-foot .btn.done{background:var(--worked);border-color:var(--worked);color:#fff}
+.sheet-progress{height:3px;background:var(--surface-2);overflow:hidden}
+.sheet-progress i{display:block;height:100%;width:0;background:var(--mat);border-radius:0 3px 3px 0;transition:width .45s var(--spring)}
+.step-n{transition:background-color .25s}
+.form-step.done .step-n{background:var(--worked);color:#fff;font-size:0}
+.form-step.done .step-n::after{content:"✓";font-size:.85rem}
+@media (max-width:640px){
+  dialog{width:100%;max-width:100%;margin:auto 0 0;border-radius:var(--r-lg) var(--r-lg) 0 0;max-height:calc(100% - env(safe-area-inset-top,0px) - 10px);box-shadow:0 -8px 30px rgba(0,0,0,.18),0 120px 0 0 var(--surface)}
+  .sheet-form{max-height:calc(100vh - env(safe-area-inset-top,0px) - 10px);max-height:calc(100dvh - env(safe-area-inset-top,0px) - 10px)}
+  .sheet-foot{padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+}
+@media (prefers-reduced-motion:no-preference){
+  dialog[open]{animation:sheet-in .4s var(--spring)}
+  dialog[open]::backdrop{animation:fade-in .3s ease}
+  dialog.closing{animation:sheet-out .26s cubic-bezier(.4,0,1,1) forwards}
+  dialog.closing::backdrop{animation:fade-out .26s ease forwards}
+  @media (max-width:640px){
+    dialog[open]{animation:sheet-up .5s cubic-bezier(.2,.9,.3,1)}
+    dialog.closing{animation:sheet-down .26s cubic-bezier(.4,0,1,1) forwards}
+  }
+}
+@keyframes sheet-in{from{opacity:0;transform:translateY(24px) scale(.97)}}
+@keyframes sheet-out{to{opacity:0;transform:translateY(24px) scale(.97)}}
+@keyframes sheet-up{from{transform:translateY(100%)}70%{transform:translateY(-6px)}to{transform:none}}
+@keyframes sheet-down{to{transform:translateY(100%)}}
+@keyframes fade-in{from{opacity:0}}
+@keyframes fade-out{to{opacity:0}}
+
+/* Toast: pops up, with a tick when something saved */
+#toast{display:flex;align-items:center;gap:8px;font-weight:600;padding:11px 18px;box-shadow:var(--shadow-2);transform:translate(-50%,14px) scale(.94);transition:opacity .2s,transform .4s var(--spring)}
+#toast.show{transform:translate(-50%,0)}
+#toast.ok::before{content:"";flex:none;width:22px;height:22px;border-radius:50%;background:var(--worked) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/13px no-repeat}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
