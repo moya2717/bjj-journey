@@ -61,3 +61,44 @@ export function beltArt(rank) {
   return `<div class="belt-art" style="background:${look.belt}" role="img" aria-label="${esc(rankName(rank))}">
     <div class="bar" style="background:${look.bar}">${'<i></i>'.repeat(Math.min(4, +rank.stripes || 0))}</div></div>`
 }
+
+// Monthly stacked bars. Each series gets a class (g0, g1…) so CSS colors it for both themes.
+export function stackedBars(months, names, { w = 340, h = 150, what = 'Moves landed' } = {}) {
+  const pL = 26, pR = 6, pT = 10, pB = 22, iw = w - pL - pR, ih = h - pT - pB
+  const total = m => m.counts.reduce((a, b) => a + b, 0)
+  const max = Math.max(1, ...months.map(total)), top = max <= 4 ? max : Math.ceil(max / 4) * 4
+  const slot = iw / months.length, bw = Math.min(28, slot * 0.64), y = v => pT + ih - v / top * ih
+  const label = what + ' by month: ' + months.map(m => `${m.label} ${names.map((g, i) => `${g} ${m.counts[i]}`).join(', ')}`).join('; ')
+  return `<svg class="chart stack" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}">
+    ${[0, top / 2, top].map(v => `<line class="grid" x1="${pL}" x2="${w - pR}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${pL - 6}" y="${y(v) + 3}" text-anchor="end">${+v.toFixed(1)}</text>`).join('')}
+    ${months.map((m, i) => {
+      const x = pL + i * slot + (slot - bw) / 2
+      let base = 0
+      return `<g>${m.counts.map((c, j) => {
+        if (!c) return ''
+        const r = `<rect class="g${j}" x="${x.toFixed(1)}" y="${y(base + c).toFixed(1)}" width="${bw.toFixed(1)}" height="${(c / top * ih).toFixed(1)}"><title>${esc(m.label)}: ${c} ${esc(names[j].toLowerCase())}</title></rect>`
+        base += c
+        return r
+      }).join('')}<text class="axis" x="${(x + bw / 2).toFixed(1)}" y="${h - 6}" text-anchor="middle">${esc(m.label)}</text></g>`
+    }).join('')}
+  </svg>`
+}
+
+// Two-sided bars from a center line: landed to the right, caught by to the left.
+export function butterfly(rows, { w = 320, row = 22 } = {}) {
+  const pL = 70, mid = pL + (w - pL) / 2, half = (w - pL) / 2 - 22, h = rows.length * row + 22
+  const max = Math.max(1, ...rows.flatMap(r => [r.landed, r.caught]))
+  const label = 'Landed versus caught by, per move type: ' + rows.map(r => `${r.type} landed ${r.landed}, caught by ${r.caught}`).join('; ')
+  return `<svg class="chart fly" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}">
+    <text class="axis" x="${mid - 6}" y="10" text-anchor="end">← Caught by</text><text class="axis" x="${mid + 6}" y="10">Landed →</text>
+    ${rows.map((r, i) => {
+      const cy = 18 + i * row, bh = row - 8, lw = r.landed / max * half, cw = r.caught / max * half
+      return `<text class="axis type" x="0" y="${cy + bh / 2 + 4}">${esc(r.type)}</text>
+        ${cw ? `<rect class="caught" x="${(mid - cw).toFixed(1)}" y="${cy}" width="${cw.toFixed(1)}" height="${bh}" rx="2"><title>${esc(r.type)}: caught by ${r.caught}</title></rect>` : ''}
+        ${lw ? `<rect class="landed" x="${mid}" y="${cy}" width="${lw.toFixed(1)}" height="${bh}" rx="2"><title>${esc(r.type)}: landed ${r.landed}</title></rect>` : ''}
+        ${r.caught ? `<text class="axis" x="${(mid - cw - 4).toFixed(1)}" y="${cy + bh / 2 + 4}" text-anchor="end">${r.caught}</text>` : ''}
+        ${r.landed ? `<text class="axis" x="${(mid + lw + 4).toFixed(1)}" y="${cy + bh / 2 + 4}">${r.landed}</text>` : ''}`
+    }).join('')}
+    <line class="grid" x1="${mid}" x2="${mid}" y1="14" y2="${h - 2}"/>
+  </svg>`
+}

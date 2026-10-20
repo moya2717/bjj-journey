@@ -1,7 +1,8 @@
 import { S } from './store.js'
 import { BELTS, REASONS, SIZES, STYLES } from './vocab.js'
 import { byDateDesc, daysAgo, isoDate, posRole, rate, score, sum, topKeys, weekStart, ym } from './util.js'
-import { rollTechId, seqById, sizeLabel } from './model.js'
+import { MOVE_GROUPS, groupOf } from './catalog.js'
+import { rollMoves, seqById, sizeLabel, techById } from './model.js'
 
 const notWorked = r => r.result !== 'worked'
 
@@ -43,7 +44,7 @@ export function weakestStep(from) {
 }
 
 export function techStats(id) {
-  const rolls = S.roll.filter(r => rollTechId(r) === id)
+  const rolls = S.roll.filter(r => rollMoves(r).some(m => m.techId === id && m.outcome !== 'caughtBy'))
   return {
     n: rolls.length,
     rate: rate(rolls),
@@ -60,6 +61,24 @@ export function monthlySeries(n) {
     out.push({ m, label: first.toLocaleDateString(undefined, { month: 'short' }), rate: rate(rolls), n: rolls.length, sessions: sessions.length, minutes: sum(sessions, 'minutes'), broke: rolls.filter(r => r.result === 'broke').length })
   }
   return out
+}
+
+// Moves logged in rolls: what you landed each month by group, landed vs caught by per type,
+// and your most-landed and most-caught-by moves.
+export function moveTrends(n) {
+  const all = S.roll.flatMap(r => rollMoves(r).map(m => ({ ...m, date: r.date, tech: techById(m.techId) }))).filter(m => m.tech)
+  const landed = all.filter(m => m.outcome === 'landed'), caught = all.filter(m => m.outcome === 'caughtBy')
+  const now = new Date(), groups = Object.keys(MOVE_GROUPS)
+  const months = []
+  for (let i = n - 1; i >= 0; i--) {
+    const first = new Date(now.getFullYear(), now.getMonth() - i, 1), m = ym(first), inMonth = landed.filter(x => x.date.startsWith(m))
+    months.push({ m, label: first.toLocaleDateString(undefined, { month: 'short' }), counts: groups.map(g => inMonth.filter(x => groupOf(x.tech.type) === g).length) })
+  }
+  const types = Object.values(MOVE_GROUPS).flat().map(type => ({
+    type, group: groupOf(type), landed: landed.filter(x => x.tech.type === type).length, caught: caught.filter(x => x.tech.type === type).length,
+  })).filter(t => t.landed || t.caught)
+  const top = list => { const c = {}; list.forEach(x => c[x.techId] = (c[x.techId] || 0) + 1); return topKeys(c, 5).map(id => ({ tech: techById(id), n: c[id] })) }
+  return { months, groups, types, topLanded: top(landed), topCaught: top(caught), landed: landed.length, caught: caught.length }
 }
 
 const sessionsInWeek = start => {

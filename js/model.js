@@ -22,7 +22,7 @@ export const techUsage = () => cached('techUsage', () => {
   const uses = {}
   const bump = (id, n = 1) => { if (id) uses[id] = (uses[id] || 0) + n }
   S.session.forEach(s => { (s.drilled || []).forEach(id => bump(id)); (s.reps || []).forEach(r => bump(r.techId)) })
-  S.roll.forEach(r => bump(rollTechId(r)))
+  S.roll.forEach(r => rollMoves(r).forEach(m => m.outcome !== 'caughtBy' && bump(m.techId)))
   S.seq.forEach(s => s.nodes.forEach(n => bump(n.techId)))
   S.study.forEach(v => (v.notes || []).forEach(n => bump(n.techId)))
   return uses
@@ -49,10 +49,9 @@ const masteryEvidence = () => cached('masteryEvidence', () => {
   S.session.forEach(s => { (s.drilled || []).forEach(id => raise(id, 2)); (s.reps || []).forEach(r => raise(r.techId, 2)) })
   const myRank = BELTS.indexOf(currentRank().belt)
   const since = {}
-  S.roll.filter(r => r.result === 'worked').sort(byDateAsc).forEach(r => {
-    const id = rollTechId(r), higher = BELTS.indexOf(r.level) > myRank && r.level !== 'Unknown'
-    raise(id, higher ? 4 : 3)
-    if (id) since[id] ||= r.date
+  ;[...S.roll].sort(byDateAsc).forEach(r => {
+    const higher = BELTS.indexOf(r.level) > myRank && r.level !== 'Unknown'
+    landedIds(r).forEach(id => { raise(id, higher ? 4 : 3); since[id] ||= r.date })
   })
   S.profile.tournaments.forEach(t => (t.matches || []).filter(m => m.result === 'Win' && m.method === 'Submission').forEach(m => {
     raise(m.techId, 3)
@@ -99,6 +98,18 @@ export function rollTechId(roll) {
   if (roll.techId) return roll.techId
   return seqById(roll.seqId)?.nodes.find(n => n.id === roll.nodeId)?.techId || ''
 }
+
+// Every move in a roll: the single move (or sequence step) a note has always had, plus its
+// "moves used" list. The single move counts as landed when the roll worked, tried otherwise.
+// 'caughtBy' is a move your partner got on you: it never raises your mastery.
+export const MOVE_OUTCOMES = { landed: 'Landed', tried: 'Tried', caughtBy: 'Caught by' }
+
+export function rollMoves(roll) {
+  const moves = (roll.moves || []).filter(m => m.techId && MOVE_OUTCOMES[m.outcome]), id = rollTechId(roll)
+  return id && !moves.some(m => m.techId === id) ? [{ techId: id, outcome: roll.result === 'worked' ? 'landed' : 'tried' }, ...moves] : moves
+}
+
+export const landedIds = roll => [...new Set(rollMoves(roll).filter(m => m.outcome === 'landed').map(m => m.techId))]
 
 // Partners are free text. Their belt, size and style come from your latest roll with them.
 export function partnerNames() {

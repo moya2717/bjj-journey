@@ -2,7 +2,7 @@ import { S, cached } from './store.js'
 import { SOLO_DRILLS } from './catalog.js'
 import { RANKS } from './vocab.js'
 import { byDateAsc, isoDate, monthRange, parseD, plural, sum, today, weekStart } from './util.js'
-import { allTechs, firstLiveSuccess, masteryOf, rollTechId, techById } from './model.js'
+import { allTechs, firstLiveSuccess, landedIds, masteryOf, techById } from './model.js'
 
 // An achievement family is a list of dated events and a ladder of targets.
 // Each rung unlocks on the day the running total first reaches it.
@@ -62,6 +62,13 @@ function buildAchievements() {
     n => `${big(n)} rolls that worked`, n => `${big(n)} exchanges where your plan worked`))
   out.push(...family('Rolling', 'proven', count(rolls.filter(r => r.tryNext && r.tryStatus === 'worked')), [1, 5, 10, 25],
     n => n === 1 ? 'First experiment proven' : `${n} experiments proven`, n => `${plural(n, '“try next” idea')} that worked live`))
+  const landings = rolls.flatMap(r => landedIds(r).map(id => ({ id, date: r.date }))).sort(byDateAsc)
+  out.push(...family('Rolling', 'moves-landed', count(landings), [10, 50, 100, 250, 500],
+    n => `${big(n)} moves landed`, n => `Land ${plural(n, 'move')} in live rolls`))
+  const firstLanded = {}
+  landings.forEach(l => firstLanded[l.id] ||= l.date)
+  out.push(...family('Rolling', 'distinct-landed', count(Object.values(firstLanded), d => d), [3, 10, 25, 50, 100],
+    n => `${n} different moves landed`, n => `Land ${plural(n, 'different move')} in live rolls`))
   out.push(...family('Rolling', 'sequences', count(S.seq, createdDate), [1, 3, 5, 10],
     n => n === 1 ? 'First sequence mapped' : `${n} sequences mapped`, n => `Build ${plural(n, 'decision tree')}`))
 
@@ -78,7 +85,7 @@ function buildAchievements() {
   // Techniques you actually use
   allTechs().forEach(t => {
     const drilled = sessions.filter(s => (s.drilled || []).includes(t.id))
-    const landed = rolls.filter(r => r.result === 'worked' && rollTechId(r) === t.id)
+    const landed = rolls.filter(r => landedIds(r).includes(t.id))
     if (drilled.length) out.push(...family('Techniques', 'drill-' + t.id, count(drilled), [5, 25, 50, 100],
       n => `${t.name}: drilled ${n}×`, n => `Drill it in ${n} sessions`))
     if (landed.length) out.push(...family('Techniques', 'land-' + t.id, count(landed), [1, 10, 25, 50],
@@ -179,7 +186,7 @@ export function goalValue(g) {
     case 'reps': return sum(sessions.flatMap(s => (s.reps || []).filter(r => r.techId === g.techId)), 'count')
     case 'sessions': return sessions.length
     case 'hours': return Math.round(sum(sessions, 'minutes') / 6) / 10
-    case 'rollsWorked': return S.roll.filter(r => inWindow(r) && r.result === 'worked' && (!g.position || r.position === g.position) && (!g.role || r.role === g.role) && (!g.techId || rollTechId(r) === g.techId)).length
+    case 'rollsWorked': return S.roll.filter(r => inWindow(r) && r.result === 'worked' && (!g.position || r.position === g.position) && (!g.role || r.role === g.role) && (!g.techId || landedIds(r).includes(g.techId))).length
     case 'drilled': return sessions.filter(s => (s.drilled || []).includes(g.techId)).length
     default: return +g.manual || 0
   }
