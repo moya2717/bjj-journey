@@ -104,12 +104,32 @@ function dismiss() {
   closing = setTimeout(done, 260)
 }
 
+// On a phone the keyboard covers the bottom of the screen without shrinking the page, so a short
+// form like Log a run had fields hidden under it and nothing to scroll. The sheet sizes itself to
+// the part of the screen you can see, and a field you tap scrolls into view.
+function wireKeyboard(dlg) {
+  const vv = window.visualViewport
+  if (!vv) return
+  const fit = () => {
+    dlg.style.setProperty('--vv-h', vv.height + 'px')
+    dlg.style.setProperty('--kb', Math.max(0, innerHeight - vv.height - vv.offsetTop) + 'px')
+  }
+  vv.addEventListener('resize', fit)
+  vv.addEventListener('scroll', fit)
+  fit()
+  dlg.addEventListener('focusin', e => {
+    if (e.target.matches('input,select,textarea')) setTimeout(() => e.target.scrollIntoView({ block: 'nearest' }), 300)
+  })
+}
+
 // Drag the sheet down by its handle, or from the top of the form, to close it.
+// Not while you're typing: then a drag scrolls the form instead.
 function wireSwipe(dlg) {
   let y0 = null, dy = 0, t0 = 0
   dlg.addEventListener('touchstart', e => {
     const body = $('.sheet-body', dlg)
-    const top = e.target.closest('.sheet-head') || (body && body.scrollTop <= 0 && !e.target.closest('input,select,textarea'))
+    const typing = dlg.contains(document.activeElement) && document.activeElement.matches('input:not([type=radio]):not([type=checkbox]),select,textarea')
+    const top = e.target.closest('.sheet-head') || (!typing && body && body.scrollTop <= 0 && !e.target.closest('input,select,textarea'))
     y0 = top ? e.touches[0].clientY : null
     dy = 0; t0 = e.timeStamp
   }, { passive: true })
@@ -149,7 +169,7 @@ export function openSheet(title, body, { submitLabel = 'Save', onSubmit, onMount
   clearTimeout(closing)
   dlg.classList.remove('closing')
   dlg.style.transform = ''
-  if (!dlg.dataset.wired) { wireSwipe(dlg); dlg.dataset.wired = '1' }
+  if (!dlg.dataset.wired) { wireSwipe(dlg); wireKeyboard(dlg); dlg.dataset.wired = '1' }
   dlg.innerHTML = `<form class="sheet-form" novalidate>
     <div class="sheet-head"><h2>${esc(title)}</h2><button type="button" class="icon-btn" data-close aria-label="Close">×</button></div>
     ${body.includes('form-step') ? '<div class="sheet-progress" aria-hidden="true"><i></i></div>' : ''}
