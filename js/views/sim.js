@@ -70,7 +70,7 @@ function results(g) {
 
 // The chains that worked, offered as sequences to drill before your next session.
 const stepName = s => s.who === 'me' ? techById(s.techId).name : `“${cap(s.label)}”`
-const homeFor = c => S.seq.find(s => s.position === c.from.pos && s.role === c.from.role && s.nodes.some(n => !n.parentId && n.techId === c.steps[0].techId))
+export const homeFor = c => S.seq.find(s => s.position === c.from.pos && s.role === c.from.role && s.nodes.some(n => !n.parentId && n.techId === c.steps[0].techId))
 
 function chains(g) {
   if (!g.chains?.length) return ''
@@ -87,8 +87,8 @@ function chains(g) {
 }
 
 // Saves a chain as a new sequence, or as a branch of one that already starts with its first move.
-function saveChain(c, intoId) {
-  const note = `From live roll on ${today()}`
+// The roll log's chain builder saves its chains through here too.
+export function saveChain(c, intoId, note = `From live roll on ${today()}`) {
   const nodes = c.steps.map(s => ({ id: newId('n'), parentId: null, who: s.who, label: s.who === 'me' ? techById(s.techId).name : cap(s.label), techId: s.techId || '', note: '' }))
   const home = S.seq.find(s => s.id === intoId)
   let parentId = null, i = 0

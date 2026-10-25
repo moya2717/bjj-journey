@@ -1,7 +1,7 @@
-import { cached } from './store.js'
-import { LIBRARY_GROUPS, POSITIONS } from './vocab.js'
+import { POSITIONS } from './vocab.js'
 import { $, $$, esc, toast } from './util.js'
-import { MOVE_OUTCOMES, allTechs, myTechs, techById } from './model.js'
+import { allTechs, myTechs, techById } from './model.js'
+import { findMove, wireChains, wireTechFields } from './picker.js'
 
 // Form building blocks. Every form in the app is a sheet: a dialog with a form inside.
 
@@ -25,44 +25,8 @@ export function radioChips(name, options, value) {
     `<label class="chip"><input type="radio" name="${name}" value="${esc(o)}" ${o === value ? 'checked' : ''}><span>${esc(o)}</span></label>`).join('')}</div>`
 }
 
-// A select of every move, your moves first, the rest grouped by position.
-// The ~350 options are built once per change to the journal and reused by every select.
-const techOptions = () => cached('techOptions', () => {
-  const option = t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`
-  const mine = myTechs(), all = allTechs()
-  const groups = LIBRARY_GROUPS.map(g => [g, all.filter(t => t.position === g)]).filter(([, list]) => list.length)
-  return (mine.length ? `<optgroup label="My moves">${mine.map(option).join('')}</optgroup>` : '')
-    + groups.map(([g, list]) => `<optgroup label="${esc(g)}">${list.sort((a, b) => a.name.localeCompare(b.name)).map(option).join('')}</optgroup>`).join('')
-})
-
-export function techSelect(name, value, { empty = 'None', extra = '' } = {}) {
-  const options = value ? techOptions().replace(`value="${esc(value)}"`, `value="${esc(value)}" selected`) : techOptions()
-  return `<select name="${name}" ${extra}><option value="">${esc(empty)}</option>${options}</select>`
-}
-
-// "Moves used" in a roll: add moves from the list, then mark each landed, tried or caught by.
-let moveRows = 0
-const moveRow = m => {
-  const t = techById(m.techId), n = moveRows++
-  return t ? `<div class="move-row" data-move="${esc(t.id)}"><b>${esc(t.name)}</b>
-    <div class="chips">${Object.entries(MOVE_OUTCOMES).map(([k, label]) => `<label class="chip o-${k}"><input type="radio" name="mv${n}" value="${k}" ${m.outcome === k ? 'checked' : ''}><span>${label}</span></label>`).join('')}</div>
-    <button type="button" class="mini" data-move-drop aria-label="Remove ${esc(t.name)}">×</button></div>` : ''
-}
-
-export const movesPicker = (moves = []) => `<fieldset><legend>Moves used</legend><div class="moves-pick" data-moves>${moves.map(moveRow).join('')}
-  ${techSelect('', '', { empty: '+ Add a move', extra: 'data-move-add aria-label="Add a move you used or got caught by"' })}</div></fieldset>`
-
-export const readMoves = box => $$('[data-move]', box).map(row => ({ techId: row.dataset.move, outcome: $('input:checked', row)?.value || 'tried' }))
-
-function wireMovePickers(form) {
-  form.addEventListener('change', e => {
-    const pick = e.target.closest('[data-move-add]')
-    if (!pick?.value) return
-    if (!$(`[data-move="${CSS.escape(pick.value)}"]`, pick.parentElement)) pick.insertAdjacentHTML('beforebegin', moveRow({ techId: pick.value, outcome: 'landed' }))
-    pick.value = ''
-  })
-  form.addEventListener('click', e => e.target.closest('[data-move-drop]')?.closest('[data-move]').remove())
-}
+// Single-move fields and the roll chain builder live in picker.js.
+export { techSelect } from './picker.js'
 
 // What class covered: pick positions first, and that position's moves appear to tap.
 // With no position picked, your usual moves show instead. Search adds anything else.
@@ -72,7 +36,7 @@ export function focusPicker(focus = [], drilled = []) {
     <div class="chips">${POSITIONS.map(p => `<label class="chip"><input type="checkbox" name="focus" value="${esc(p)}" ${focus.includes(p) ? 'checked' : ''}><span>${esc(p)}</span></label>`).join('')}</div>
     <p class="pick-step"><span class="step-n small-n">2</span>Which moves did you drill?</p>
     <div data-focus-moves>${focusMoves(focus, drilled)}</div>
-    <input type="search" list="dl-techs" data-tech-add="drilled" placeholder="Something else? Search all moves" autocomplete="off" aria-label="Add another move">
+    <div><button type="button" class="btn sm ghost" data-find-add="drilled">+ Something else? Search all moves</button></div>
   </div>`
 }
 
@@ -99,20 +63,20 @@ function wireFocusPickers(form) {
 const techChip = (name, t, checked) =>
   `<label class="chip"><input type="checkbox" name="${name}" value="${esc(t.id)}" ${checked ? 'checked' : ''}><span>${esc(t.name)}</span></label>`
 
-const techDatalist = () => cached('techDatalist', () => `<datalist id="dl-techs">${allTechs().map(t => `<option value="${esc(t.name)}"></option>`).join('')}</datalist>`)
-
-function wireTechPickers(form) {
-  $$('[data-tech-add]', form).forEach(input => input.addEventListener('change', () => {
-    const wanted = input.value.trim().toLowerCase()
-    if (!wanted) return
-    const tech = allTechs().find(t => t.name.toLowerCase() === wanted)
-    if (!tech) { toast('No move by that name. Add it under Game → Moves first.'); return }
-    const name = input.dataset.techAdd, chips = $(`[data-chips="${name}"]`, form)
-    const existing = $$(`input[value="${CSS.escape(tech.id)}"]`, chips)[0]
-    if (existing) existing.checked = true
-    else chips.insertAdjacentHTML('beforeend', techChip(name, tech, true))
-    input.value = ''
-  }))
+// "Search all moves" opens the move finder and adds what you pick as a ticked chip.
+function wireFindAdd(form) {
+  form.addEventListener('click', e => {
+    const btn = e.target.closest('[data-find-add]')
+    if (!btn) return
+    const name = btn.dataset.findAdd, chips = $(`[data-chips="${name}"]`, form)
+    findMove({ title: 'Add a move', onPick: id => {
+      const tech = techById(id)
+      if (!tech) return
+      const existing = $(`input[name="${name}"][value="${CSS.escape(tech.id)}"]`, form)
+      if (existing) existing.checked = true
+      else chips.insertAdjacentHTML('beforeend', techChip(name, tech, true))
+    } })
+  })
 }
 
 // Delete buttons ask twice instead of using confirm().
@@ -189,7 +153,7 @@ export function openSheet(title, body, { submitLabel = 'Save', onSubmit, onMount
   dlg.innerHTML = `<form class="sheet-form" novalidate>
     <div class="sheet-head"><h2>${esc(title)}</h2><button type="button" class="icon-btn" data-close aria-label="Close">×</button></div>
     ${body.includes('form-step') ? '<div class="sheet-progress" aria-hidden="true"><i></i></div>' : ''}
-    <div class="sheet-body">${body}${body.includes('data-tech-add') ? techDatalist() : ''}</div>
+    <div class="sheet-body">${body}</div>
     <div class="sheet-foot">
       ${onDelete ? `<button type="button" class="btn danger sm" data-delete>${esc(deleteLabel)}</button>` : ''}
       <span class="grow"></span>
@@ -213,9 +177,10 @@ export function openSheet(title, body, { submitLabel = 'Save', onSubmit, onMount
   $$('[data-close]', dlg).forEach(b => b.addEventListener('click', dismiss))
   const del = $('[data-delete]', dlg)
   if (del) del.addEventListener('click', () => { if (armDelete(del, onDelete)) { dismiss(); toast('Deleted') } })
-  wireTechPickers(form)
+  wireTechFields(form)
+  wireFindAdd(form)
   wireFocusPickers(form)
-  wireMovePickers(form)
+  wireChains(form)
   onMount?.(form)
   wireSteps(form)
   if (!dlg.open) dlg.showModal()

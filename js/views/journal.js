@@ -1,12 +1,13 @@
 import { S, save, saveMany, remove } from '../store.js'
 import { UI } from '../ui.js'
-import { ACTIVITY_TYPES, AREAS, BELTS, ENERGY, FEELS, INTENSITIES, PLAN_HIT, POSITIONS, PROMPTS, REASONS, RESULTS, ROLES, SESSION_TYPES, SIZES, SLEEP, promptFor } from '../vocab.js'
+import { ACTIVITY_TYPES, AREAS, BELTS, ENERGY, FEELS, INTENSITIES, PLAN_HIT, PROMPTS, REASONS, RESULTS, SESSION_TYPES, SIZES, SLEEP, promptFor } from '../vocab.js'
 import { $, $$, byDateDesc, cap, esc, fmtDateLong, fmtTime, hrs, isoDate, monthLabel, newId, parseD, plural, posRole, shiftMonth, sum, toast, today, weekStart, ym } from '../util.js'
-import { field, selectEl, chipsEl, focusPicker, radioChips, techSelect, openSheet, movesPicker, readMoves } from '../sheet.js'
-import { partnerProfile, seqById, techById } from '../model.js'
+import { field, selectEl, chipsEl, focusPicker, radioChips, techSelect, openSheet } from '../sheet.js'
+import { chainBuilder, readChain, rollFlow, setChainStart } from '../picker.js'
+import { partnerProfile, rollMoves, seqById, techById } from '../model.js'
 import { heatLevel } from '../charts.js'
-import { addPhotos, removePhotos, hydratePhotos, photoURL } from '../photos.js'
-import { partnerDatalist, stepOptions } from './rolls.js'
+import { addPhotos, removePhotos, hydratePhotos, openViewer, photoURL } from '../photos.js'
+import { movesUsed, partnerDatalist, stepOptions } from './rolls.js'
 import { activeInjuries, activeOn, injuriesOf, injuryName } from '../body.js'
 import { distUnit, fmtClock, isRun, paceOf, rpeIntensity } from '../load.js'
 import { latestTags, nextPlan } from '../loop.js'
@@ -89,26 +90,50 @@ function searchResults() {
   return hits.length ? `<div class="stack">${hits.map(entryCard).join('')}</div>` : `<p class="muted">No sessions mention “${esc(UI.journalQ)}”.</p>`
 }
 
-const rollMini = r => `<div class="roll-mini"><span>${posRole(r.position, r.role)} <span class="result ${esc(r.result)}">${esc(RESULTS[r.result]?.label || '')}</span></span><button class="mini" data-act="edit-roll" data-id="${r.id}">Edit</button></div>`
+// Long notes show three lines and a "more" that opens the rest, no script needed.
+let clamps = 0
+const clamp = (text, n = 200) => text.length <= n ? esc(text)
+  : `<span class="clamp"><input type="checkbox" id="clamp${++clamps}" class="clamp-tog"><span class="clamp-text">${esc(text)}</span><label for="clamp${clamps}" class="link small">more</label></span>`
 
+const rollMini = r => `<div class="log-roll ${esc(r.result)}">
+  <div class="log-roll-head"><span><b>${r.chain?.length ? 'Roll' : posRole(r.position, r.role)}</b>${r.partner ? ` <span class="small muted">with ${esc(r.partner)}</span>` : ''}</span>
+    <span class="result ${esc(r.result)}">${esc(RESULTS[r.result]?.label || '')}</span><button class="mini" data-act="edit-roll" data-id="${r.id}">Edit</button></div>
+  ${rollFlow(r) || movesUsed({ moves: rollMoves(r) })}
+  ${r.what ? `<p class="small log-what">${clamp(r.what, 140)}</p>` : ''}
+</div>`
+
+// Results at a glance: how the rolls went and how many moves landed or got you.
+function rollSummary(rolls) {
+  const count = k => rolls.filter(r => r.result === k).length, moves = rolls.flatMap(rollMoves)
+  const landed = moves.filter(m => m.outcome === 'landed').length, caught = moves.filter(m => m.outcome === 'caughtBy').length
+  return `<div class="tags sum-chips"><span class="tag">${plural(rolls.length, 'roll')}</span>${[['worked', 'good'], ['partial', 'mid'], ['broke', 'bad']].map(([k, c]) => count(k) ? `<span class="tag ${c}">${count(k)} ${RESULTS[k].label.toLowerCase()}</span>` : '').join('')}${landed ? `<span class="tag good">${plural(landed, 'move')} landed</span>` : ''}${caught ? `<span class="tag bad">Caught ${caught}×</span>` : ''}</div>`
+}
+
+const PLAN_LOOK = { 'Stuck to it': 'good', 'Partly': 'mid', 'Went another way': 'bad' }
+
+// A training day as one card: the photos up top, the facts at a glance, each roll as a flow of moves.
 function entryCard(s) {
-  const d = parseD(s.date), rolls = S.roll.filter(r => r.sessionId === s.id)
-  const drilled = (s.drilled || []).map(techById).filter(Boolean)
+  const d = parseD(s.date), rolls = S.roll.filter(r => r.sessionId === s.id).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+  const drilled = (s.drilled || []).map(techById).filter(Boolean), photos = s.photos || []
   const reps = (s.reps || []).filter(r => r.count && techById(r.techId))
-  const notes = [['Plan', s.plan ? s.plan + (s.planHit ? ` (${s.planHit.toLowerCase()})` : '') : ''], ['Felt', s.feel], ['Worked', s.worked], ['Went wrong', s.struggled], ['Lesson', s.lesson], ['Notes', s.notes]].filter(x => x[1])
-  return `<article class="entry">
-    <div class="date-block"><span class="d">${d.getDate()}</span><span class="m">${d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' })}</span></div>
-    <div style="min-width:0">
-      <div class="entry-top"><h3>${esc(s.type)}${s.time ? ` <span class="entry-time">${fmtTime(s.time)}</span>` : ''}</h3><span class="entry-meta">${s.minutes ? esc(s.minutes) + ' min' : ''}${s.rounds ? `, ${plural(+s.rounds, 'round')}` : ''}</span></div>
+  const facts = [s.minutes && s.minutes + ' min', +s.rounds && plural(+s.rounds, 'round'), s.feel && 'felt ' + s.feel.toLowerCase()].filter(Boolean)
+  const body = [s.energy && `Energy ${ENERGY[s.energy].toLowerCase()}`, s.sleep && `Sleep ${SLEEP[s.sleep].toLowerCase()}`].filter(Boolean)
+  const notes = [['Worked', s.worked], ['Went wrong', s.struggled], ['Lesson', s.lesson], ['Notes', s.notes]].filter(x => x[1])
+  return `<article class="entry log-card">
+    ${photos.length ? `<button class="log-hero" data-act="view-photo" data-session="${s.id}" data-i="0" aria-label="Open photos"><img data-photo="${photos[0]}" alt="Training photo">${photos.length > 1 ? `<span class="photo-count">${photos.length} photos</span>` : ''}</button>
+      ${photos.length > 1 ? `<div class="log-strip">${photos.slice(1).map((id, i) => `<button data-act="view-photo" data-session="${s.id}" data-i="${i + 1}" aria-label="Open photo ${i + 2}"><img data-photo="${id}" alt=""></button>`).join('')}</div>` : ''}` : ''}
+    <div class="log-body">
+      <div class="log-head"><div class="date-block"><span class="d">${d.getDate()}</span><span class="m">${d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' })}</span></div>
+        <div style="min-width:0"><h3>${esc(s.type)}${s.time ? ` <span class="entry-time">${fmtTime(s.time)}</span>` : ''}</h3><p class="entry-meta">${esc(cap(facts.join(' · ')))}</p></div></div>
+      ${body.length || injuriesOf(s).length ? `<div class="tags">${body.map(b => `<span class="tag">${esc(b)}</span>`).join('')}${injuriesOf(s).map(i => `<span class="tag bad">Around ${esc(injuryName(i).toLowerCase())}</span>`).join('')}</div>` : ''}
+      ${s.plan ? `<p class="log-plan"><span class="tag pos">Plan</span> ${esc(s.plan)}${s.planHit ? ` <span class="tag ${PLAN_LOOK[s.planHit] || ''}">${esc(s.planHit)}</span>` : ''}${techById(s.planTechId) && PLAN_RESULT[s.planResult] ? ` <span class="tag ${s.planResult === 'landed' ? 'good' : ''}">${esc(techById(s.planTechId).name)}: ${PLAN_RESULT[s.planResult].toLowerCase()}</span>` : ''}</p>` : ''}
+      ${rolls.length ? `<div class="log-rolls">${rollSummary(rolls)}${rolls.map(rollMini).join('')}</div>` : ''}
       ${(s.focus || []).length || drilled.length ? `<div class="tags">${(s.focus || []).map(p => `<span class="tag pos">${esc(p)}</span>`).join('')}${drilled.map(t => `<span class="tag">${esc(t.name)}</span>`).join('')}</div>` : ''}
-      ${reps.length ? `<p class="small" style="margin-top:8px">Reps: ${reps.map(r => `${r.count} × ${esc(techById(r.techId).name.toLowerCase())}`).join(', ')}</p>` : ''}
-      ${bodyNote(s)}
+      ${reps.length ? `<p class="small">Reps: ${reps.map(r => `${r.count} × ${esc(techById(r.techId).name.toLowerCase())}`).join(', ')}</p>` : ''}
       ${(s.wentWell || []).length || (s.trouble || []).length ? `<div class="tags">${(s.wentWell || []).map(a => `<span class="tag good">✓ ${esc(a)}</span>`).join('')}${(s.trouble || []).map(a => `<span class="tag bad">✗ ${esc(a)}</span>`).join('')}</div>` : ''}
-      ${notes.length ? `<dl class="refl">${notes.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
-      ${s.reflectA ? `<p class="prompt-q">${esc(s.reflectQ)}</p><p class="small" style="max-width:70ch">${esc(s.reflectA)}</p>` : ''}
-      ${s.coachQ ? `<p class="coach-q"><span class="tag pos">Ask coach</span> ${esc(s.coachQ)}${s.coachAnswered ? ' <span class="small muted">(answered)</span>' : s.coachAsked ? ' <span class="small muted">(asked)</span>' : ''}</p>${s.coachA ? `<p class="small" style="max-width:70ch">${esc(s.coachA)}</p>` : ''}` : ''}
-      ${(s.photos || []).length ? `<div class="photos">${s.photos.map(id => `<button data-act="view-photo" data-id="${id}" aria-label="Open photo"><img data-photo="${id}" alt="Training photo"></button>`).join('')}</div>` : ''}
-      ${rolls.length ? `<div style="margin-top:10px">${rolls.map(rollMini).join('')}</div>` : ''}
+      ${notes.length ? `<dl class="refl">${notes.map(([k, v]) => `<dt>${k}</dt><dd>${clamp(v)}</dd>`).join('')}</dl>` : ''}
+      ${s.reflectA ? `<p class="prompt-q">${esc(s.reflectQ)}</p><p class="small" style="max-width:70ch">${clamp(s.reflectA)}</p>` : ''}
+      ${s.coachQ ? `<p class="coach-q"><span class="tag pos">Ask coach</span> ${esc(s.coachQ)}${s.coachAnswered ? ' <span class="small muted">(answered)</span>' : s.coachAsked ? ' <span class="small muted">(asked)</span>' : ''}</p>${s.coachA ? `<p class="small" style="max-width:70ch">${clamp(s.coachA)}</p>` : ''}` : ''}
       <div class="row-actions">
         <button class="btn sm ghost" data-act="new-roll" data-session="${s.id}">Add roll notes</button>
         <button class="btn sm ghost" data-act="edit-session" data-id="${s.id}">Edit</button>
@@ -120,10 +145,6 @@ function entryCard(s) {
 // Three numbered steps cover a typical log in under a minute. Everything else is folded away.
 
 // Energy, sleep and injuries: optional one-tap tags that the Stats insights compare roll results across.
-const bodyNote = s => {
-  const parts = [s.energy && `energy ${ENERGY[s.energy].toLowerCase()}`, s.sleep && `sleep ${SLEEP[s.sleep].toLowerCase()}`, ...injuriesOf(s).map(i => 'around ' + injuryName(i).toLowerCase())].filter(Boolean)
-  return parts.length ? `<p class="small muted" style="margin-top:6px">${esc(cap(parts.join(' · ')))}</p>` : ''
-}
 const tagChips = (name, options, value) => `<div class="chips">${Object.entries(options).map(([v, l]) => `<label class="chip"><input type="radio" name="${name}" value="${v}" ${v === value ? 'checked' : ''} data-untoggle><span>${l}</span></label>`).join('')}</div>`
 
 function bodyCheck(s) {
@@ -188,7 +209,7 @@ function repRow(i, rep = { techId: 'c:shrimp', count: '' }) {
 
 function rollRow(i, preset) {
   const k = name => `r${i}_${name}`
-  const seqOptions = [{ value: '', label: 'None' }, ...S.seq.map(s => ({ value: s.id, label: s.name }))]
+  const seqOptions = [{ value: '', label: 'None' }, ...S.seq.map(s => ({ value: s.id, label: s.name }))], seq = seqById(preset.seqId)
   return `<div class="ql-roll" data-row="${i}">
     <div class="ql-roll-head"><h3 data-row-title>Roll</h3><button type="button" class="mini" data-remove-row>Remove</button></div>
     <div class="grid3">
@@ -196,10 +217,9 @@ function rollRow(i, preset) {
       ${field('Belt', selectEl(k('level'), BELTS, 'Blue'))}
       ${field('Size', selectEl(k('size'), [{ value: '', label: 'Not noted' }, ...SIZES], ''))}
     </div>
-    <div class="grid2">${field('Position', selectEl(k('position'), POSITIONS, preset.position))}${field('Your role', selectEl(k('role'), ROLES, preset.role))}</div>
-    <div class="grid2">${field('Sequence', selectEl(k('seqId'), seqOptions, preset.seqId, 'data-seq'))}${field('Step it reached', `<select name="${k('nodeId')}" data-node>${stepOptions(preset.seqId, '')}</select>`)}</div>
+    <fieldset><legend>What happened, move by move</legend>${chainBuilder(k(''), seq ? { position: seq.position, role: seq.role } : {}, preset.position)}</fieldset>
     <fieldset><legend>Result</legend><div class="chips">${Object.entries(RESULTS).map(([v, o]) => `<label class="chip r-${v}"><input type="radio" name="${k('result')}" value="${v}" data-result><span>${o.label}</span></label>`).join('')}</div></fieldset>
-    ${movesPicker()}
+    <details class="more" ${preset.seqId ? 'open' : ''}><summary>Sequence you ran</summary><div class="grid2">${field('Sequence', selectEl(k('seqId'), seqOptions, preset.seqId, 'data-seq'))}${field('Step it reached', `<select name="${k('nodeId')}" data-node>${stepOptions(preset.seqId, '')}</select>`)}</div></details>
     <fieldset data-why hidden><legend>Why it went wrong</legend>${chipsEl(k('reasons'), REASONS, [])}</fieldset>
     ${field('What happened', `<textarea name="${k('what')}" rows="2" placeholder="Where it started and where it fell apart"></textarea>`)}
     ${field('Try next time', `<input type="text" name="${k('tryNext')}" placeholder="One thing to test">`)}
@@ -261,8 +281,7 @@ function sessionForm(id, date) {
 
       $('#s-add-roll', form).addEventListener('click', () => {
         const prev = $$('[data-row]', rollBox).pop()
-        const get = name => prev?.querySelector(`[name$="_${name}"]`)?.value
-        addRoll(prev ? { position: get('position'), role: get('role'), seqId: get('seqId') } : rollPreset)
+        addRoll(prev ? { position: readChain($('[data-chain]', prev)).position || rollPreset.position, seqId: prev.querySelector('[data-seq]').value } : rollPreset)
       })
       $('#s-add-rep', form).addEventListener('click', () => repBox.insertAdjacentHTML('beforeend', repRow(reps++)))
       form.addEventListener('click', e => {
@@ -279,7 +298,7 @@ function sessionForm(id, date) {
         if (e.target.matches('[data-seq]')) {
           const seq = seqById(e.target.value)
           $('[data-node]', row).innerHTML = stepOptions(e.target.value, '')
-          if (seq) { row.querySelector(`[name="r${i}_position"]`).value = seq.position; if (seq.role) row.querySelector(`[name="r${i}_role"]`).value = seq.role }
+          if (seq) setChainStart($('[data-chain]', row), seq.position, seq.role)
         }
         if (e.target.matches('[data-result]')) $('[data-why]', row).hidden = e.target.value === 'worked'
         if (e.target.matches('[data-partner]')) {
@@ -307,9 +326,12 @@ function sessionForm(id, date) {
       const date = fd.get('date')
       if (!date) { $('#form-error').textContent = 'Add the date you trained.'; return false }
       const rows = $$('[data-row]', form)
-      const typed = row => ['partner', 'what', 'tryNext'].some(n => (fd.get(`r${row.dataset.row}_${n}`) || '').trim()) || readMoves(row).length
+      const chainOf = row => readChain($('[data-chain]', row))
+      const typed = row => ['partner', 'what', 'tryNext'].some(n => (fd.get(`r${row.dataset.row}_${n}`) || '').trim()) || chainOf(row).chain.length
       const missing = rows.findIndex(row => !fd.get(`r${row.dataset.row}_result`) && typed(row))
       if (missing >= 0) { $('#form-error').textContent = `Pick a result for roll ${missing + 1}, or remove it.`; return false }
+      const nowhere = rows.findIndex(row => fd.get(`r${row.dataset.row}_result`) && !chainOf(row).position)
+      if (nowhere >= 0) { $('#form-error').textContent = `Pick where roll ${nowhere + 1} started.`; return false }
 
       const added = await addPhotos(newFiles.filter(Boolean))
       const dropped = (s.photos || []).filter(p => !keptPhotos.includes(p))
@@ -335,11 +357,11 @@ function sessionForm(id, date) {
       }
       const rolls = rows.filter(row => fd.get(`r${row.dataset.row}_result`)).map((row, j) => {
         const g = name => fd.get(`r${row.dataset.row}_${name}`) || ''
-        const partner = g('partner').trim(), seqId = g('seqId'), result = g('result'), tryNext = g('tryNext').trim()
+        const partner = g('partner').trim(), seqId = g('seqId'), result = g('result'), tryNext = g('tryNext').trim(), chain = chainOf(row)
         return {
           id: newId('roll'), kind: 'roll', date, sessionId, partner, level: g('level'), size: g('size'),
-          styles: partnerProfile(partner)?.styles || [], position: g('position'), role: g('role'),
-          seqId, nodeId: seqId ? g('nodeId') : '', techId: '', moves: readMoves(row), result,
+          styles: partnerProfile(partner)?.styles || [], position: chain.position, role: chain.role,
+          seqId, nodeId: seqId ? g('nodeId') : '', techId: '', moves: chain.moves, chain: chain.chain, result,
           reasons: result === 'worked' ? [] : fd.getAll(`r${row.dataset.row}_reasons`),
           what: g('what').trim(), tryNext, tryStatus: tryNext ? 'open' : '', createdAt: Date.now() + j,
         }
@@ -479,6 +501,7 @@ export const actions = {
   'cal-month': el => { UI.calMonth = shiftMonth(UI.calMonth, +el.dataset.d) },
   'cal-today': () => { UI.calMonth = ym(new Date()); UI.calDay = today() },
   'cal-day': el => { UI.calDay = el.dataset.date },
-  'view-photo': async el => openSheet('Photo', `<img class="photo-full" src="${await photoURL(el.dataset.id)}" alt="Training photo">`),
+  // A session's photos open together, so you can swipe through them. Nothing behind needs redrawing.
+  'view-photo': el => { openViewer(S.session.find(x => x.id === el.dataset.session)?.photos || [el.dataset.id], +el.dataset.i || 0); return false },
   'coach-asked': el => { const s = S.session.find(x => x.id === el.dataset.id); if (s) { saveMany([{ ...s, coachAsked: true }]); toast('Marked as asked') } },
 }

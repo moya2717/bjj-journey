@@ -214,13 +214,13 @@ export const slipTo = (from, to) => from === 'Standing' || !SLIP[to.pos] ? { pos
 const NEEDS = { 'Back': 'their back', 'Mount': 'you mounted on them', 'Side control': 'you on top in side control', 'Knee on belly': 'your knee on their belly', 'North-south': 'you on top in north-south', 'Turtle': 'them turtled under you' }
 
 export const key = (pos, role) => pos + '|' + role
-const flip = role => ({ Top: 'Bottom', Bottom: 'Top' }[role] || role)
+export const flip = role => ({ Top: 'Bottom', Bottom: 'Top' }[role] || role)
 const idOf = name => 'c:' + slug(name)
 const pick = list => list[Math.floor(Math.random() * list.length)]
 const shuffle = list => [...list].sort(() => Math.random() - 0.5)
-const attackerOf = pos => pos === 'Standing' ? 'Neutral' : GUARDS.includes(pos) || pos === 'Leg entanglement' ? 'Bottom' : 'Top'
+export const attackerOf = pos => pos === 'Standing' ? 'Neutral' : GUARDS.includes(pos) || pos === 'Leg entanglement' ? 'Bottom' : 'Top'
 
-const TABLE = Object.fromEntries(Object.entries(MENU).map(([k, moves]) => [k, moves.map(([name, pos, role, pts = 0]) =>
+export const TABLE = Object.fromEntries(Object.entries(MENU).map(([k, moves]) => [k, moves.map(([name, pos, role, pts = 0]) =>
   ({ id: idOf(name), to: pos ? { pos, role } : null, pts, after: (AFTER[name] || []).map(idOf) }))]))
 
 // Moves you added yourself join in when their type says clearly what they do from here.
