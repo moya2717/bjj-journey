@@ -63,4 +63,5 @@ export const byDateAsc = (a, b) => (a.date || '').localeCompare(b.date || '') ||
 // A roll counts 1 when it worked, ½ when it partly worked.
 export const score = roll => RESULTS[roll.result]?.score ?? 0
 export const rate = rolls => rolls.length ? rolls.reduce((t, r) => t + score(r), 0) / rolls.length : null
-export const posRole = (position, role) => esc(position) + (role && role !== 'Neutral' ? ', ' + esc(role.toLowerCase()) : '')
+// A roll logged in Simple mode may have no position yet.
+export const posRole = (position, role) => !position ? 'Roll' : esc(position) + (role && role !== 'Neutral' ? ', ' + esc(role.toLowerCase()) : '')

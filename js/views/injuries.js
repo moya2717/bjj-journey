@@ -64,7 +64,7 @@ function causeOptions(current) {
   const options = [{ value: '', label: 'Not from training, or not sure' }]
   sessions.forEach(s => {
     options.push({ value: s.id, label: `${fmtDate(s.date)} · ${s.type}` })
-    S.roll.filter(r => r.sessionId === s.id).forEach(r => options.push({ value: r.id, label: `   ↳ Roll: ${r.position}${r.role && r.role !== 'Neutral' ? ', ' + r.role.toLowerCase() : ''} · ${RESULTS[r.result]?.label || ''}` }))
+    S.roll.filter(r => r.sessionId === s.id).forEach(r => options.push({ value: r.id, label: `   ↳ Roll${r.position ? ': ' + r.position + (r.role && r.role !== 'Neutral' ? ', ' + r.role.toLowerCase() : '') : ''} · ${RESULTS[r.result]?.label || ''}` }))
   })
   return options
 }

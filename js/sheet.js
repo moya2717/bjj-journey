@@ -153,13 +153,18 @@ function wireSwipe(dlg) {
 }
 
 // Forms in numbered steps get a progress bar, and a step's number turns into a tick once it has an answer.
+// Steps folded away inside a closed section don't count until you open it.
 function wireSteps(form) {
-  const steps = $$('.form-step', form), bar = $('.sheet-progress i', form)
-  if (!steps.length || !bar) return
+  const bar = $('.sheet-progress i', form)
+  if (!bar) return
   const answered = step => $$('input,textarea', step).some(i => ['radio', 'checkbox'].includes(i.type) ? i.checked : !['search', 'hidden', 'file'].includes(i.type) && i.value.trim())
-  const update = () => { bar.style.width = steps.filter(s => s.classList.toggle('done', answered(s))).length / steps.length * 100 + '%' }
+  const update = () => {
+    const steps = $$('.form-step', form).filter(s => !s.parentElement.closest('details:not([open])'))
+    bar.style.width = steps.filter(s => s.classList.toggle('done', answered(s))).length / (steps.length || 1) * 100 + '%'
+  }
   form.addEventListener('input', update)
   form.addEventListener('change', update)
+  form.addEventListener('toggle', update, true)
   form.addEventListener('click', () => setTimeout(update))
   update()
 }

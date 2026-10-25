@@ -4,7 +4,7 @@ import { BELTS, POSITIONS, REASONS, RESULTS, SIZES, STYLES } from '../vocab.js'
 import { $, byDateDesc, esc, fmtDate, fmtDateLong, newId, posRole, toast, today, trunc } from '../util.js'
 import { field, selectEl, chipsEl, techSelect, openSheet } from '../sheet.js'
 import { chainBuilder, readChain, rollFlow, setChainStart } from '../picker.js'
-import { MOVE_OUTCOMES, nodeDepth, nodePath, partnerNames, partnerProfile, rollTechId, seqById, sizeLabel, techById, treeOrder } from '../model.js'
+import { MOVE_OUTCOMES, logMode, nodeDepth, nodePath, partnerNames, partnerProfile, rollTechId, seqById, sizeLabel, techById, treeOrder } from '../model.js'
 
 export function view() {
   return `<div class="page-head"><div><h1>Rolling analysis</h1><p class="lede">One note per key exchange: where it started, where it broke down, and what you’ll try next.</p></div>
@@ -37,7 +37,7 @@ export function rollCard(r) {
   const statusLabel = { open: 'Not tested yet', worked: 'Tested, it worked', failed: 'Tested, didn’t work' }[status]
   const partnerBits = [r.partner && `with ${esc(r.partner)}`, r.level && r.level !== 'Unknown' && `${esc(r.level.toLowerCase())} belt`, r.size && esc(sizeLabel(r.size)), (r.styles || []).length && esc(r.styles.join(', ').toLowerCase())].filter(Boolean)
   return `<article class="roll ${esc(r.result)}">
-    <div class="entry-top"><h3>${posRole(r.position, r.role)}</h3><span class="result ${esc(r.result)}">${esc(RESULTS[r.result]?.label || '')}</span></div>
+    <div class="entry-top"><h3>${r.position ? posRole(r.position, r.role) : r.partner ? 'Roll with ' + esc(r.partner) : 'Roll'}</h3><span class="result ${esc(r.result)}">${esc(RESULTS[r.result]?.label || '')}</span></div>
     <p class="entry-meta">${[fmtDateLong(r.date), ...partnerBits].join(', ')}</p>
     ${seq ? `<p class="path">${esc(seq.name)}: ${nodePath(seq, r.nodeId).map(esc).join(' › ')}</p>` : tech ? `<p class="path">${esc(tech.name)}</p>` : ''}
     ${rollFlow(r) || movesUsed(r)}
@@ -71,6 +71,8 @@ export function stepOptions(seqId, selected, first = 'Whole sequence') {
 
 export const partnerDatalist = () => `<datalist id="partner-list">${partnerNames().map(p => `<option value="${esc(p)}"></option>`).join('')}</datalist>`
 
+const SIMPLE_RESULTS = { worked: 'It worked', partial: 'Partly', broke: 'It fell apart' }
+
 const seqOptions = () => [{ value: '', label: 'None' }, ...S.seq.map(s => ({ value: s.id, label: s.name }))]
 
 function rollForm(id, preset = {}) {
@@ -86,27 +88,42 @@ function rollForm(id, preset = {}) {
   const presetSeq = !id && seqById(preset.seqId)
   if (presetSeq) { r.position = presetSeq.position; r.role = presetSeq.role || r.role }
   const sessionOptions = [{ value: '', label: 'Not linked' }, ...[...S.session].sort(byDateDesc).slice(0, 60).map(s => ({ value: s.id, label: fmtDateLong(s.date) + ', ' + s.type }))]
+  // Simple mode asks three things: who with, how it went, what happened. The rest folds away,
+  // and opens by itself when a roll already has it.
+  const simple = logMode() === 'simple'
+  if (simple && !id) Object.assign(r, { result: '', level: 'Unknown' })
+  const detailed = id && (r.position || r.reasons?.length || r.tryNext || r.seqId || r.techId || r.styles?.length || r.size)
 
-  // The common case comes first (where, how it went, what next). Partner and sequence details fold away.
-  openSheet(id ? 'Edit roll note' : 'Log a roll', `
-    <div class="grid2">${field('Date', `<input type="date" name="date" id="r-date" value="${esc(r.date)}" required>`)}${field('Session', selectEl('sessionId', sessionOptions, r.sessionId, 'id="r-session"'))}</div>
-    <fieldset><legend>What happened, move by move</legend>${chainBuilder('', r, last?.position)}</fieldset>
-    <fieldset><legend>Result</legend><div class="chips">${Object.entries(RESULTS).map(([k, v]) => `<label class="chip r-${k}"><input type="radio" name="result" value="${k}" ${r.result === k ? 'checked' : ''}><span>${v.label}</span></label>`).join('')}</div></fieldset>
-    <fieldset data-why ${r.result === 'worked' ? 'hidden' : ''}><legend>Why it went wrong</legend>${chipsEl('reasons', REASONS, r.reasons || [])}</fieldset>
-    ${field('What happened', `<textarea name="what" id="r-what" rows="3" placeholder="He got the underhook as soon as I cut, came up, and I ended up on bottom">${esc(r.what)}</textarea>`)}
-    ${field('What you’ll try next time', `<input type="text" name="tryNext" id="r-next" value="${esc(r.tryNext)}" placeholder="Crossface first, then cut">`)}
-    <details class="more" ${r.partner || (r.styles || []).length ? 'open' : ''}><summary>Partner: name, belt, size, style</summary><div>
-      <div class="grid3">
-        ${field('Partner (optional)', `<input type="text" name="partner" id="r-partner" list="partner-list" autocomplete="off" value="${esc(r.partner)}" placeholder="Name or nickname">`)}
+  const partnerName = field(simple ? 'Who did you roll with? (optional)' : 'Partner (optional)', `<input type="text" name="partner" id="r-partner" list="partner-list" autocomplete="off" value="${esc(r.partner)}" placeholder="Name or nickname">`)
+  const where = `<fieldset><legend>What happened, move by move</legend>${chainBuilder('', r, last?.position)}</fieldset>`
+  const result = `<fieldset><legend>${simple ? 'How did it go?' : 'Result'}</legend><div class="chips">${Object.entries(RESULTS).map(([k, v]) => `<label class="chip r-${k}"><input type="radio" name="result" value="${k}" ${r.result === k ? 'checked' : ''}><span>${simple ? SIMPLE_RESULTS[k] : v.label}</span></label>`).join('')}</div></fieldset>`
+  const why = `<fieldset data-why ${r.result === 'worked' ? 'hidden' : ''}><legend>Why it went wrong</legend>${chipsEl('reasons', REASONS, r.reasons || [])}</fieldset>`
+  const what = field(simple ? 'What happened?' : 'What happened', `<textarea name="what" id="r-what" rows="3" placeholder="${simple ? 'They got on top and I couldn’t get them off. I remembered to keep my elbows in.' : 'He got the underhook as soon as I cut, came up, and I ended up on bottom'}">${esc(r.what)}</textarea>`)
+  const tryNext = field('What you’ll try next time', `<input type="text" name="tryNext" id="r-next" value="${esc(r.tryNext)}" placeholder="Crossface first, then cut">`)
+  const partnerMore = `<div class="grid3">
+        ${simple ? '' : partnerName}
         ${field('Partner’s belt', selectEl('level', BELTS, r.level, 'id="r-level"'))}
         ${field('Their size', selectEl('size', [{ value: '', label: 'Not noted' }, ...SIZES], r.size || '', 'id="r-size"'))}
       </div>${partnerDatalist()}
-      <fieldset><legend>Their style</legend>${chipsEl('styles', STYLES, r.styles || [])}</fieldset>
+      <fieldset><legend>Their style</legend>${chipsEl('styles', STYLES, r.styles || [])}</fieldset>`
+  const sequence = `<div class="grid2">${field('Sequence you ran', selectEl('seqId', seqOptions(), r.seqId, 'id="r-seq"'))}${field('Step it reached', `<select name="nodeId" id="r-node">${stepOptions(r.seqId, r.nodeId)}</select>`)}</div>
+      ${field('Main move (if not in a sequence)', techSelect('techId', r.techId, { extra: 'id="r-tech"' }))}`
+  const date = field('Date', `<input type="date" name="date" id="r-date" value="${esc(r.date)}" required>`)
+  const sessionPick = field('Session', selectEl('sessionId', sessionOptions, r.sessionId, 'id="r-session"'))
+
+  // The common case comes first (where, how it went, what next). Partner and sequence details fold away.
+  openSheet(id ? 'Edit roll note' : 'Log a roll', simple ? `
+    <div class="grid2">${date}${partnerName}</div>
+    ${result}
+    ${what}
+    <details class="more" ${detailed ? 'open' : ''}><summary>Add more detail <span class="hint">position, moves, causes, what to try next</span></summary><div>
+      ${sessionPick}${where}${why}${tryNext}${partnerMore}${sequence}
     </div></details>
-    <details class="more" ${r.seqId || r.techId ? 'open' : ''}><summary>Sequence or main move</summary><div>
-      <div class="grid2">${field('Sequence you ran', selectEl('seqId', seqOptions(), r.seqId, 'id="r-seq"'))}${field('Step it reached', `<select name="nodeId" id="r-node">${stepOptions(r.seqId, r.nodeId)}</select>`)}</div>
-      ${field('Main move (if not in a sequence)', techSelect('techId', r.techId, { extra: 'id="r-tech"' }))}
-    </div></details>
+    <p class="form-error" id="form-error"></p>` : `
+    <div class="grid2">${date}${sessionPick}</div>
+    ${where}${result}${why}${what}${tryNext}
+    <details class="more" ${r.partner || (r.styles || []).length ? 'open' : ''}><summary>Partner: name, belt, size, style</summary><div>${partnerMore}</div></details>
+    <details class="more" ${r.seqId || r.techId ? 'open' : ''}><summary>Sequence or main move</summary><div>${sequence}</div></details>
     <p class="form-error" id="form-error"></p>`, {
     submitLabel: id ? 'Save changes' : 'Save roll',
     onDelete: id ? () => remove(r) : null,
@@ -124,7 +141,8 @@ function rollForm(id, preset = {}) {
       const date = fd.get('date')
       if (!date) { $('#form-error').textContent = 'Add the date of the roll.'; return false }
       const chain = readChain($('[data-chain]', form))
-      if (!chain.position) { $('#form-error').textContent = 'Pick where the roll started.'; return false }
+      if (simple && !fd.get('result')) { $('#form-error').textContent = 'Pick how it went.'; return false }
+      if (!simple && !chain.position && (!id || r.position)) { $('#form-error').textContent = 'Pick where the roll started.'; return false }
       const tryNext = fd.get('tryNext').trim()
       const rec = {
         ...(id ? r : {}), id: id || newId('roll'), kind: 'roll', date, sessionId: fd.get('sessionId'),

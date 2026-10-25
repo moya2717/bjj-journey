@@ -2,7 +2,7 @@
 // Everything here is read from the journal you already keep; only your picks are saved, in settings.
 import { S, cached } from './store.js'
 import { ENERGY, SLEEP } from './vocab.js'
-import { byDateDesc, daysAgo, isoDate, sum, today, topKeys, weekStart } from './util.js'
+import { byDateDesc, daysAgo, fmtDate, isoDate, sum, today, topKeys, trunc, weekStart } from './util.js'
 import { masteryOf, myTechs, rollMoves, seqById, techById } from './model.js'
 import { badSpots, weakestStep } from './analysis.js'
 import { activeInjuries, injuryName } from './body.js'
@@ -35,8 +35,14 @@ export const focusIdeas = () => cached('focusIdeas', () => {
   // A move you use that's one step from its next mastery level, the most used first. Solo drills don't count.
   const move = myTechs().filter(t => t.type !== 'Movement').map(t => ({ t, level: masteryOf(t).level })).find(x => x.level >= 1 && x.level < 4)
   if (move) list.push({ text: `${NEXT_STEP[move.level]} ${move.t.name}${NEXT_WHERE[move.level + 1]}`, techId: move.t.id, seqId: '', why: `Next mastery level for a move you use` })
+  // The newest "Something to fix" from the last two weeks, so even a simple log gets a focus.
+  const fix = recentNotes('struggled', 13)[0]
+  if (fix) list.push({ text: `Work on: ${trunc(fix.struggled, 70)}`, techId: '', seqId: '', why: `Something to fix, from ${fmtDate(fix.date)}` })
   return list
 })
+
+// Sessions with a short "Something that worked" or "Something to fix" note, newest first.
+export const recentNotes = (key, days) => S.session.filter(s => s.date >= daysAgo(days) && s[key] && s[key].length <= 140).sort(byDateDesc)
 
 // Up to 3 things worth taking into your next class: this week's focus first, then the ideas above.
 export const todaysFocus = () => cached('todaysFocus', () => {
@@ -81,6 +87,7 @@ export const weekReview = () => cached('weekReview', () => {
     rolls: { n: rolls.length, worked: rolls.filter(r => r.result === 'worked').length, partial: rolls.filter(r => r.result === 'partial').length, broke: rolls.filter(r => r.result === 'broke').length },
     causes: Object.entries(causes).sort((a, b) => b[1] - a[1]).slice(0, 3),
     landed: top('landed'), caught: top('caughtBy'),
+    notes: sessions.filter(s => s.worked || s.struggled).sort(byDateDesc),
     plan: { n: planned.length, hit: sum(planned, s => s.planHit === 'Stuck to it' ? 1 : s.planHit === 'Partly' ? 0.5 : 0), unrated: sessions.filter(s => s.plan && !s.planHit).length },
   }
 })

@@ -4,7 +4,7 @@ import { ACTIVITY_TYPES, AREAS, BELTS, ENERGY, FEELS, INTENSITIES, PLAN_HIT, PRO
 import { $, $$, byDateDesc, cap, esc, fmtDateLong, fmtTime, hrs, isoDate, monthLabel, newId, parseD, plural, posRole, shiftMonth, sum, toast, today, weekStart, ym } from '../util.js'
 import { field, selectEl, chipsEl, focusPicker, radioChips, techSelect, openSheet } from '../sheet.js'
 import { chainBuilder, readChain, rollFlow, setChainStart } from '../picker.js'
-import { partnerProfile, rollMoves, seqById, techById } from '../model.js'
+import { hasDetail, logMode, partnerProfile, rollMoves, seqById, techById } from '../model.js'
 import { heatLevel } from '../charts.js'
 import { addPhotos, removePhotos, hydratePhotos, openViewer, photoURL } from '../photos.js'
 import { movesUsed, partnerDatalist, stepOptions } from './rolls.js'
@@ -142,7 +142,8 @@ function entryCard(s) {
 }
 
 // ---------- Session form: the session, its drills, its rolls and photos on one screen ----------
-// Three numbered steps cover a typical log in under a minute. Everything else is folded away.
+// The basics and a note come first, rolls last. Simple mode folds everything past the note into one
+// "Add more detail"; Detailed lays it all open. Both are the same form, so switching keeps what you typed.
 
 // Energy, sleep and injuries: optional one-tap tags that the Stats insights compare roll results across.
 const tagChips = (name, options, value) => `<div class="chips">${Object.entries(options).map(([v, l]) => `<label class="chip"><input type="radio" name="${name}" value="${v}" ${v === value ? 'checked' : ''} data-untoggle><span>${l}</span></label>`).join('')}</div>`
@@ -189,16 +190,25 @@ function howItWent(s) {
 
 function thinkItThrough(s) {
   const question = s.reflectQ || promptFor(s.date || today())
-  // Entries written before the multiple-choice questions keep their notes editable.
-  const legacy = [['worked', 'What worked (your notes)', s.worked], ['struggled', 'What went wrong (your notes)', s.struggled]].filter(x => x[2])
   return `<div class="prompt-box">
       <div class="prompt-head"><span class="small muted">Something to think about</span><button type="button" class="link small" data-new-prompt>Different question</button></div>
       <p class="q-text" data-prompt-text>${esc(question)}</p><input type="hidden" name="reflectQ" value="${esc(question)}">
       <textarea name="reflectA" id="f-reflect" rows="3" aria-label="Your answer" placeholder="Take a minute with this one">${esc(s.reflectA || '')}</textarea>
     </div>
-    ${field('Question for your coach', `<input type="text" name="coachQ" id="f-coach" value="${esc(s.coachQ || '')}" placeholder="How do I stop the knee shield coming back?">`)}
-    ${legacy.map(([name, label, value]) => field(label, `<textarea name="${name}" rows="2">${esc(value)}</textarea>`)).join('')}
-    ${field('Other observations', `<textarea name="notes" id="f-notes" rows="4" placeholder="Anything else: injuries, what class covered, who you rolled with, ideas to try">${esc(s.notes || '')}</textarea>`)}`
+    ${field('Question for your coach', `<input type="text" name="coachQ" id="f-coach" value="${esc(s.coachQ || '')}" placeholder="How do I stop the knee shield coming back?">`)}`
+}
+
+// The note comes first: it's the one thing every log needs. Simple mode keeps the copy jargon-free.
+function noteStep(s, simple) {
+  // Older entries kept longer notes here, so those stay in a textarea and keep their line breaks.
+  const line = (name, value, hint) => (value || '').includes('\n')
+    ? `<textarea name="${name}" id="f-${name}" rows="3">${esc(value)}</textarea>`
+    : `<input type="text" name="${name}" id="f-${name}" value="${esc(value || '')}" placeholder="${hint}">`
+  return `${field('How was class? What did you learn?', `<textarea name="notes" id="f-notes" rows="4" placeholder="${simple ? 'We worked on escaping when someone is on top of you. I got stuck a lot, but my partner showed me how to bridge.' : 'What class covered, how the rolls went, ideas to try'}">${esc(s.notes || '')}</textarea>`)}
+    <div class="grid2">
+      ${field('Something that worked', line('worked', s.worked, simple ? 'Keeping my elbows tight' : 'Framing early on bottom'))}
+      ${field('Something to fix', line('struggled', s.struggled, simple ? 'I held my breath and got tired' : 'Let them flatten me out'))}
+    </div>`
 }
 
 function repRow(i, rep = { techId: 'c:shrimp', count: '' }) {
@@ -239,36 +249,44 @@ function sessionForm(id, date) {
   const rollPreset = { position: lastRoll.position, role: lastRoll.role, seqId: seqById(lastRoll.seqId) ? lastRoll.seqId : '' }
   const existingRolls = id ? S.roll.filter(r => r.sessionId === id) : []
   const keptPhotos = [...(s.photos || [])], newFiles = []
+  // Simple mode folds everything past the note into one "Add more detail". An entry that already
+  // has detail opens it, so nothing you wrote is ever hidden.
+  const mode = logMode(), simple = mode === 'simple', firstRun = !id && !S.settings.logMode && !S.session.length
+  const showDetail = id && (hasDetail(s) || existingRolls.length)
   let rows = 0
 
-  openSheet(id ? 'Edit training' : 'Log training', `
-    ${id ? '' : `<p class="hint">Running, lifting, yoga or recovery? <button type="button" class="link" data-act="new-activity" data-date="${esc(s.date)}">Log other activity</button></p>`}
+  openSheet(id ? 'Edit training' : 'Log training', `<div class="log-form" data-log-form data-mode="${mode}">
+    ${firstRun ? `<div class="first-run" data-first-run><p><b>How much do you want to log?</b> You can change this any time.</p>
+      <div class="first-run-picks"><button type="button" class="btn sm" data-log-mode="simple">I’m new to jiu-jitsu: keep it simple</button><button type="button" class="btn sm ghost" data-log-mode="detailed">I want everything</button></div></div>` : ''}
+    <div class="log-mode-row" ${firstRun ? 'hidden' : ''}><div class="seg" role="group" aria-label="How much to log">${['simple', 'detailed'].map(m => `<button type="button" data-log-mode="${m}" aria-pressed="${m === mode}">${cap(m)}</button>`).join('')}</div>
+      ${id ? '' : `<button type="button" class="link small" data-act="new-activity" data-date="${esc(s.date)}">Log a run or other activity</button>`}</div>
     ${step(1, 'The session', `
-      <div class="grid3">${field('Date', `<input type="date" name="date" id="s-date" value="${esc(s.date)}" required>`)}${field('Class time', `<input type="time" name="time" id="s-time" value="${esc(s.time || '')}">`)}${field('Class type', selectEl('type', SESSION_TYPES, s.type, 'id="s-type"'))}</div>
+      <div class="grid3">${field('Date', `<input type="date" name="date" id="s-date" value="${esc(s.date)}" required>`)}${field('Class type', selectEl('type', SESSION_TYPES, s.type, 'id="s-type"'))}<span data-detail-only>${field('Class time', `<input type="time" name="time" id="s-time" value="${esc(s.time || '')}">`)}</span></div>
       <div class="grid2">
         ${field('Minutes on the mat', `<input type="number" name="minutes" id="s-min" min="0" max="600" step="5" inputmode="numeric" value="${esc(s.minutes)}">`)}
-        ${field('Rounds rolled', `<input type="number" name="rounds" id="s-rounds" min="0" max="40" inputmode="numeric" value="${esc(s.rounds)}">`)}
-      </div>
-      ${bodyCheck(s)}`)}
-    ${step(2, 'How it went', howItWent(s))}
-    ${step(3, 'Key exchanges', `<p class="hint">One note per exchange that mattered. A roll without a result isn’t saved.</p>
-      ${existingRolls.length ? `<div>${existingRolls.map(r => `<div class="roll-mini"><span>${posRole(r.position, r.role)} <span class="result ${esc(r.result)}">${esc(RESULTS[r.result]?.label || '')}</span></span></div>`).join('')}<p class="hint">Edit saved rolls from the journal.</p></div>` : ''}
-      <div class="ql-rolls" id="s-rolls"></div>
-      <div><button type="button" class="btn sm ghost" id="s-add-roll">+ Add a roll</button></div>`)}
-    <p class="optional-label">Optional</p>
-    <details class="more" ${id && ((s.focus || []).length || (s.drilled || []).length) ? 'open' : ''}><summary>What class covered: positions and moves drilled</summary><div>
-      ${focusPicker(s.focus || [], s.drilled || [])}
-    </div></details>
-    <details class="more" ${(s.reps || []).length ? 'open' : ''}><summary>Drill reps (shrimps, bridges, stand-ups…)</summary><div>
-      <div class="reps" id="s-reps">${(s.reps || []).map((r, i) => repRow(i, r)).join('')}</div>
-      <div><button type="button" class="btn sm ghost" id="s-add-rep">+ Add reps</button></div>
-    </div></details>
-    <details class="more" ${(s.photos || []).length ? 'open' : ''}><summary>Photos</summary><div>
+        ${field(simple ? 'Rounds of sparring' : 'Rounds rolled', `<input type="number" name="rounds" id="s-rounds" min="0" max="40" inputmode="numeric" value="${esc(s.rounds)}">`)}
+      </div>`)}
+    ${step(2, simple ? 'Your notes' : 'Notes', noteStep(s, simple))}
+    <details class="more" ${(s.photos || []).length ? 'open' : ''}><summary>Add a photo</summary><div>
       <div class="photos" id="s-photos"></div>
       <label class="btn sm ghost file-btn">Add photos<input type="file" id="s-file" accept="image/*" multiple></label>
     </div></details>
-    <details class="more" ${s.reflectA || s.coachQ || s.notes || s.worked || s.struggled ? 'open' : ''}><summary>Think it through: reflection, coach question, notes</summary><div>${thinkItThrough(s)}</div></details>
-    ${partnerDatalist()}
+    <details class="more add-detail" data-add-detail ${!simple || showDetail ? 'open' : ''}><summary>Add more detail <span class="hint">plan, energy, drills, reflection, rolls</span></summary><div>
+      ${step(3, 'How it went', bodyCheck(s) + howItWent(s))}
+      <details class="more" ${id && ((s.focus || []).length || (s.drilled || []).length) ? 'open' : ''}><summary>What class covered: positions and moves drilled</summary><div>
+        ${focusPicker(s.focus || [], s.drilled || [])}
+      </div></details>
+      <details class="more" ${(s.reps || []).length ? 'open' : ''}><summary>Drill reps (shrimps, bridges, stand-ups…)</summary><div>
+        <div class="reps" id="s-reps">${(s.reps || []).map((r, i) => repRow(i, r)).join('')}</div>
+        <div><button type="button" class="btn sm ghost" id="s-add-rep">+ Add reps</button></div>
+      </div></details>
+      <details class="more" ${s.reflectA || s.coachQ ? 'open' : ''}><summary>Think it through: reflection and a question for your coach</summary><div>${thinkItThrough(s)}</div></details>
+      ${step(4, simple ? 'Rolls' : 'Key exchanges', `<p class="hint">${simple ? 'One note per roll you want to remember' : 'One note per exchange that mattered'}. A roll without a result isn’t saved.</p>
+        ${existingRolls.length ? `<div>${existingRolls.map(r => `<div class="roll-mini"><span>${posRole(r.position, r.role)} <span class="result ${esc(r.result)}">${esc(RESULTS[r.result]?.label || '')}</span></span></div>`).join('')}<p class="hint">Edit saved rolls from the journal.</p></div>` : ''}
+        <div class="ql-rolls" id="s-rolls"></div>
+        <div><button type="button" class="btn sm ghost" id="s-add-roll">+ Add a roll</button></div>`)}
+    </div></details>
+    ${partnerDatalist()}</div>
     <p class="form-error" id="form-error"></p>`, {
     submitLabel: id ? 'Save changes' : 'Save',
     onDelete: id ? () => { remove(s); removePhotos(s.photos || []); saveMany(existingRolls.map(r => ({ ...r, sessionId: '' }))) } : null,
@@ -278,6 +296,19 @@ function sessionForm(id, date) {
       const addRoll = preset => { rollBox.insertAdjacentHTML('beforeend', rollRow(rows++, preset)); renumber() }
       let reps = (s.reps || []).length
       wireBodyCheck(form)
+      // Switching modes keeps what you've typed: it only folds or unfolds the extras, and remembers the pick.
+      form.addEventListener('click', e => {
+        const pick = e.target.closest('[data-log-mode]')
+        if (!pick) return
+        const m = pick.dataset.logMode, box = $('[data-log-form]', form)
+        box.dataset.mode = m
+        $('[data-add-detail]', form).open = m === 'detailed' || !!showDetail
+        $$('.seg [data-log-mode]', form).forEach(b => b.setAttribute('aria-pressed', b.dataset.logMode === m))
+        $('[data-first-run]', form)?.remove()
+        $('.log-mode-row', form).hidden = false
+        if (m === 'detailed' && !$('[data-row]', rollBox)) addRoll(rollPreset)
+        saveMany([{ ...S.settings, logMode: m }])
+      })
 
       $('#s-add-roll', form).addEventListener('click', () => {
         const prev = $$('[data-row]', rollBox).pop()
@@ -320,7 +351,7 @@ function sessionForm(id, date) {
         })
         e.target.value = ''
       })
-      if (!id) addRoll(rollPreset)
+      if (!id && !simple) addRoll(rollPreset)
     },
     onSubmit: async (fd, form) => {
       const date = fd.get('date')
@@ -369,8 +400,10 @@ function sessionForm(id, date) {
       UI.calDay = date
       UI.calMonth = date.slice(0, 7)
       // The plan is used up once a new session logs it.
+      // Your first log also keeps the mode you used, so adding detail once doesn't switch you to Detailed.
       const usedPlan = !id && plan && session.plan === plan.text
-      saveMany([session, ...rolls, ...(usedPlan ? [{ ...S.settings, nextPlan: null }] : [])])
+      const settings = { ...(usedPlan ? { nextPlan: null } : {}), ...(S.settings.logMode ? {} : { logMode: $('[data-log-form]', form).dataset.mode }) }
+      saveMany([session, ...rolls, ...(Object.keys(settings).length ? [{ ...S.settings, ...settings }] : [])])
       toast(rolls.length ? `Training and ${plural(rolls.length, 'roll')} saved` : 'Training saved')
     },
   })

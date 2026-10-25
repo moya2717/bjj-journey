@@ -45,6 +45,8 @@ The bar at the bottom has five sections. Each one holds a few screens, shown as 
 
 Tap a section twice to go back to its first screen. The round **+** button logs training from anywhere.
 
+**Simple or Detailed logging.** New to jiu-jitsu? Simple asks for the basics, a note about class, and one thing that worked and one to fix. Everything else (plans, energy and sleep, drills, reflection, rolls move by move) waits behind **Add more detail**. Detailed shows it all. Switch at the top of the log form or in **You → Profile**, under Settings.
+
 ## Moving your entries over from the claude.ai version
 
 1. Open the old journal on claude.ai, go to **Stats → Export as JSON**, and save the file.

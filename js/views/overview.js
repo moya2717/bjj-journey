@@ -10,7 +10,7 @@ import { activeInjuries, duration, injuriesOf, injuryName } from '../body.js'
 import { fmtDist, loadTrend, runStats } from '../load.js'
 import { WIDGETS, homeWidgets } from './athlete.js'
 import { questBoard } from './character.js'
-import { TAG_LABELS, nextPlan, readiness, reviewDue, todaysFocus } from '../loop.js'
+import { TAG_LABELS, nextPlan, readiness, recentNotes, reviewDue, todaysFocus } from '../loop.js'
 
 export function view() {
   const fresh = !S.session.length && !S.roll.length
@@ -100,7 +100,7 @@ function focusCard() {
     <div class="history-head"><h2 id="focus-h">Today’s focus</h2><button class="card-link" data-act="tab" data-view="review">Week in review</button></div>
     ${plan ? `<div class="callout"><p class="small muted">Planned for your next session</p><p><strong>${esc(plan.text)}</strong></p>
       <div class="row-actions"><button class="btn sm" data-act="new-session">Log it</button><button class="btn sm ghost" data-act="clear-plan">Clear</button></div></div>` : ''}
-    ${list.length ? '' : '<p class="small muted">Log rolls, sequences and the moves you drill. Suggestions for what to bring to class show up here.</p>'}
+    ${list.length ? '' : '<p class="small muted">After class, write down something to fix. It shows up here as one thing to bring to your next class. Rolls, sequences and drills add more ideas.</p>'}
     <ul class="list">${list.filter(f => f.text !== plan?.text).map(f => `<li class="focus-item"><span><b>${esc(f.text)}</b><span class="small muted">${esc(f.why)}</span></span>
       <span class="row-actions">${f.seqId ? `<button class="btn sm ghost" data-act="open-seq" data-id="${esc(f.seqId)}">Open</button>` : ''}<button class="btn sm" data-act="plan-focus" data-i="${list.indexOf(f)}">Plan it</button></span></li>`).join('')}</ul>
   </section>`
@@ -141,7 +141,8 @@ function flaggedTrouble() {
 function whatGoesWrong() {
   const from = daysAgo(59), recent = S.roll.filter(r => r.date >= from)
   if (!recent.length && areaCounts('trouble', from).length) return flaggedTrouble() + '<p class="small muted">Log a few rolls too, to see exactly where things break down.</p>'
-  if (!recent.length) return '<p class="empty">Log a few rolls with where they broke down. Your repeat problem spots show up here.</p><button class="link" data-act="new-roll">Log a roll</button>'
+  if (!recent.length && recentNotes('struggled', 59).length) return noteList('struggled', 'Things you wanted to fix') + '<p class="small muted">See the same thing twice? That’s a good focus for next class.</p>'
+  if (!recent.length) return '<p class="empty">After class, write down one thing to fix. Over a few weeks, the things that keep coming up show up here.</p><button class="link" data-act="new-session">Log training</button>'
   const { bad, groups } = badSpots(from)
   if (!bad.length) return `<p>No breakdowns in ${plural(recent.length, 'logged roll')}. Either it’s going well, or the hard rounds aren’t making it into the log.</p>`
   const top = groups.slice(0, 3), max = top[0].weight || 1
@@ -164,6 +165,9 @@ function whatGoesWrong() {
     ${hard ? `<div class="callout"><p class="small muted">Hardest matchup, last 90 days</p><p>Against <strong>${esc(hard.label)}</strong> partners you’re at ${pct(hard.rate)}, against everyone else ${pct(hard.others)}.</p><div><button class="link" data-act="tab" data-view="matchups">See matchups</button></div></div>` : ''}`
 }
 
+// Your own words from recent logs, for a journal that doesn't track rolls in detail.
+const noteList = (key, title) => `<p class="sub">${title}</p><ul class="list">${recentNotes(key, 59).slice(0, 3).map(s => `<li><p>${esc(s[key])}</p><p class="small muted">${fmtDate(s.date)}</p></li>`).join('')}</ul>`
+
 function whatNext() {
   const { groups } = badSpots(daysAgo(59))
   const frequency = Object.fromEntries(groups.map(g => [g.position + '|' + (g.role || ''), g.n]))
@@ -176,7 +180,8 @@ function whatNext() {
   const almost = computeAchievements().filter(a => !a.unlockedOn && progressOf(a) >= 0.7).sort((a, b) => progressOf(b) - progressOf(a)).slice(0, 2)
   const struggling = allTechs().map(t => ({ t, ...techStats(t.id) })).filter(x => x.n >= 3 && x.rate < 0.4).sort((a, b) => a.rate - b.rate).slice(0, 2)
   if (![experiments, proven, unanswered, coachQs, behind, almost, struggling].some(l => l.length))
-    return '<p class="empty">When you log a roll, add what you’ll try next time. Those experiments, plus gaps in your sequences, show up here as your to-do list.</p>'
+    return recentNotes('worked', 59).length ? noteList('worked', 'What’s working, keep doing it')
+      : '<p class="empty">Write down something that worked after each class. Your wins collect here, and as you add more detail your to-do list grows too.</p>'
 
   let html = ''
   const section = (title, items, render, more = '') => { if (items.length) html += `<p class="sub">${title}</p><ul class="list">${items.map(render).join('')}</ul>${more}` }
@@ -213,18 +218,20 @@ function isImproving() {
   })).filter(Boolean).sort((x, y) => Math.abs(y.c - y.q) - Math.abs(x.c - x.q))
   const movers = problemTrends().causes.filter(t => ['fading', 'growing', 'new'].includes(t.state)).sort((x, y) => Math.abs(y.cur - y.prev) - Math.abs(x.cur - x.prev)).slice(0, 4)
   const series = monthlySeries(6)
+  const noRolls = !cur.length && !prev.length
+  if (noRolls && sc.length) verdict = ['na', `You showed up ${plural(sc.length, 'time')} in the last 30 days. That’s how you get better.`]
   return `<p class="verdict ${verdict[0]}">${verdict[1]}</p>
-    ${verdict[0] === 'na' ? `<p class="small muted">The comparison needs at least 5 rolls in each of the last two 30-day windows. You have ${cur.length} and ${prev.length}.</p>` : ''}
+    ${verdict[0] === 'na' ? `<p class="small muted">${noRolls ? 'Log how your rolls go (one tap: worked, partly or fell apart) to see your success rate climb here.' : `The comparison needs at least 5 rolls in each of the last two 30-day windows. You have ${cur.length} and ${prev.length}.`}</p>` : ''}
     <dl class="compare">
-      <dt>Roll success, prior 30 days → last 30</dt><dd>${pct(rp)} → ${pct(rc)} ${arrow(rc, rp)}</dd>
-      <dt>Rolls that broke down</dt><dd>${bp} → ${bc} ${arrow(bc, bp, true)}</dd>
+      ${noRolls ? '' : `<dt>Roll success, prior 30 days → last 30</dt><dd>${pct(rp)} → ${pct(rc)} ${arrow(rc, rp)}</dd>
+      <dt>Rolls that broke down</dt><dd>${bp} → ${bc} ${arrow(bc, bp, true)}</dd>`}
       <dt>Sessions</dt><dd>${sp.length} → ${sc.length} ${arrow(sc.length, sp.length)}</dd>
       <dt>Mat hours</dt><dd>${hrs(sum(sp, 'minutes'))} → ${hrs(sum(sc, 'minutes'))}</dd>
     </dl>
     ${byPosition.length ? `<p class="sub">By position</p><dl class="compare">${byPosition.slice(0, 4).map(x => `<dt>${posRole(x.p, x.role)}</dt><dd>${pct(x.q)} → ${pct(x.c)} ${arrow(x.c, x.q)}</dd>`).join('')}</dl>` : ''}
     ${movers.length ? `<p class="sub">Causes, share of rolls</p><dl class="compare">${movers.map(t => `<dt>${esc(t.label)}</dt><dd>${pct(t.prev)} → ${pct(t.cur)} ${arrow(t.cur, t.prev, true)}</dd>`).join('')}</dl>` : ''}
     ${series.some(s => s.rate != null) ? `<div><p class="sub">Monthly roll success</p>${lineChart(series, { w: 320, h: 110 })}</div>` : ''}
-    <p class="small muted">A roll counts as 1 when it worked and ½ when it partly worked. Partners and what you attempt change the number, so read it alongside your notes.</p>`
+    ${noRolls ? '' : '<p class="small muted">A roll counts as 1 when it worked and ½ when it partly worked. Partners and what you attempt change the number, so read it alongside your notes.</p>'}`
 }
 
 // ---------- Coaching review: a prompt you paste into Claude ----------

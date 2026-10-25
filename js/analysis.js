@@ -9,7 +9,7 @@ const notWorked = r => r.result !== 'worked'
 
 // Where rolls go wrong, grouped by position and role, worst first.
 export function badSpots(from) {
-  const bad = S.roll.filter(r => r.date >= from && notWorked(r))
+  const bad = S.roll.filter(r => r.date >= from && notWorked(r) && r.position)
   const groups = {}
   bad.forEach(r => {
     const g = groups[r.position + '|' + (r.role || '')] ||= { position: r.position, role: r.role, n: 0, weight: 0, reasons: {}, last: null }
@@ -135,8 +135,7 @@ export function breakSummary(rolls) {
   const spots = {}, causes = {}
   const bad = rolls.filter(notWorked)
   bad.forEach(r => {
-    const k = posRole(r.position, r.role)
-    spots[k] = (spots[k] || 0) + 1
+    if (r.position) { const k = posRole(r.position, r.role); spots[k] = (spots[k] || 0) + 1 }
     ;(r.reasons || []).forEach(x => causes[x] = (causes[x] || 0) + 1)
   })
   return { bad: bad.length, spot: topKeys(spots, 1)[0] || '', cause: topKeys(causes, 1)[0] || '' }
@@ -165,7 +164,7 @@ export function problemTrends() {
     .map(x => build(x, () => true, r => notWorked(r) && (r.reasons || []).includes(x), 3))
     .filter(t => t.total).sort((x, y) => y.total - x.total)
   const spotCounts = {}
-  S.roll.filter(notWorked).forEach(r => { const k = r.position + '|' + (r.role || 'Neutral'); spotCounts[k] = (spotCounts[k] || 0) + 1 })
+  S.roll.filter(r => notWorked(r) && r.position).forEach(r => { const k = r.position + '|' + (r.role || 'Neutral'); spotCounts[k] = (spotCounts[k] || 0) + 1 })
   const spots = topKeys(spotCounts, 6).map(k => {
     const [position, role] = k.split('|')
     return build(position + (role !== 'Neutral' ? ', ' + role.toLowerCase() : ''), r => r.position === position && (r.role || 'Neutral') === role, notWorked, 2)

@@ -146,4 +146,15 @@ export function ageDivision(birthday) {
   return { age, label }
 }
 
-export const rankName = r => r.belt + ' belt' + (+r.stripes ? ', ' + plural(+r.stripes, 'stripe') : '')
+// Simple or Detailed logging. Your pick wins. Otherwise a journal that already has detail stays
+// detailed, unless you've recorded a white belt; everyone else starts simple.
+export const hasDetail = s => !!(s.plan || s.feel || s.energy || s.sleep || s.lesson || s.reflectA || s.coachQ
+  || [s.drilled, s.reps, s.focus, s.wentWell, s.trouble, s.injuryIds].some(x => (x || []).length))
+
+export function logMode() {
+  if (S.settings.logMode) return S.settings.logMode
+  const white = S.profile.promotions.length && currentRank().belt === 'White'
+  return !white && (S.roll.length || S.session.some(hasDetail)) ? 'detailed' : 'simple'
+}
+
+export const rankName =r => r.belt + ' belt' + (+r.stripes ? ', ' + plural(+r.stripes, 'stripe') : '')

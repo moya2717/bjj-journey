@@ -5,7 +5,7 @@ import { UI } from '../ui.js'
 import { BELT_LOOK, RANKS } from '../vocab.js'
 import { $, $$, byDateAsc, esc, fmtDate, fmtMonthY, hrs, newId, pct, plural, span, sum, toast, today, trunc, ym } from '../util.js'
 import { field, selectEl, armDelete, openSheet, radioChips } from '../sheet.js'
-import { ageDivision, currentRank, rankName } from '../model.js'
+import { ageDivision, currentRank, logMode, rankName } from '../model.js'
 import { bodyInsights, moveTrends, weeklyStreak } from '../analysis.js'
 import { stackedBars, trendLine } from '../charts.js'
 import { exportBackup, importBackup } from '../backup.js'
@@ -120,6 +120,7 @@ export function mount(root) {
   $('#home-widgets')?.addEventListener('change', () => save({ ...S.settings, homeWidgets: $$('#home-widgets input:checked').map(i => i.value) }))
   $('#dist-unit')?.addEventListener('change', e => save({ ...S.settings, distUnit: e.target.value }))
   $('#theme')?.addEventListener('change', e => save({ ...S.settings, theme: e.target.value }))
+  $('#log-mode')?.addEventListener('change', e => save({ ...S.settings, logMode: e.target.value }))
   $('#weekly-target')?.addEventListener('change', e => save({ ...S.settings, weeklyTarget: Math.max(1, Math.min(14, parseInt(e.target.value, 10) || 3)) }))
   $('#import-file')?.addEventListener('change', async e => {
     const file = e.target.files[0]
@@ -305,6 +306,7 @@ function dataPanel() {
     <div class="settings-list">
       <label class="setting"><span>Weekly session target</span><input type="number" id="weekly-target" min="1" max="14" inputmode="numeric" value="${esc(S.settings.weeklyTarget || 3)}"></label>
       <label class="setting"><span>Run distances in</span>${selectEl('', [{ value: 'mi', label: 'Miles' }, { value: 'km', label: 'Kilometers' }], distUnit(), 'id="dist-unit"')}</label>
+      <label class="setting"><span>Training log <span class="hint">Simple asks for a note; Detailed adds plans, drills and rolls move by move</span></span>${selectEl('', [{ value: 'simple', label: 'Simple' }, { value: 'detailed', label: 'Detailed' }], logMode(), 'id="log-mode"')}</label>
       <label class="setting"><span>Look</span>${selectEl('', [{ value: '', label: 'Match my phone' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], S.settings.theme || '', 'id="theme"')}</label>
     </div>
     <p class="small muted" style="margin-top:10px;max-width:70ch">Your journal lives only on this device and works without internet. Nobody else can see it. Back it up now and then: on iPhone, choose “Save to Files” so it lands in iCloud Drive. ${last ? `Last backup: ${fmtDate(last)}.` : '<strong>No backup yet.</strong>'}</p>
