@@ -4,7 +4,8 @@ import { UI } from '../ui.js'
 import { cap, esc, newId, plural, posRole, toast, today } from '../util.js'
 import { masteryOf, masteryPips, techById } from '../model.js'
 import { videoSearch } from '../catalog.js'
-import { PARTNERS, STARTS, TURNS, describe, newRoll, play } from '../sim.js'
+import { PARTNERS, STARTS, TURNS, describe, newRoll, optionsFor, play, scout } from '../sim.js'
+import { hasAbility } from '../game.js'
 
 export function view() {
   const g = UI.sim
@@ -44,13 +45,18 @@ function turn(g) {
     ${g.pending ? `<p class="sim-react">They react: ${esc(g.pending.label.toLowerCase())}.</p>` : ''}
     <p class="field-label" style="margin:10px 0 6px">What do you do?</p>
     <div class="quiz-options">${g.options.map((o, i) => {
-      const t = techById(o.id), m = masteryOf(t).level
+      const t = techById(o.id), m = masteryOf(t).level, sc = g.scout?.turn === g.turn ? g.scout : null
       return `<button class="quiz-opt" data-act="sim-move" data-i="${i}">
-        <span>${esc(t.name)}${o.answer ? ' <span class="tag good">Your answer</span>' : o.defend ? ' <span class="tag">Defend</span>' : ''}</span>
+        <span>${esc(t.name)}${o.answer ? ' <span class="tag good">Your answer</span>' : o.defend ? ' <span class="tag">Defend</span>' : ''}${sc?.decoys[i] ? ' <span class="tag bad">Their move</span>' : sc?.best === i ? ' <span class="tag good">Likeliest to land</span>' : ''}</span>
         <span class="small muted">${esc(t.type)} ${m ? masteryPips(m) : ''}</span></button>`
     }).join('')}</div>
     ${g.log.length ? `<ol class="sim-log">${g.log.slice(0, 4).map(e => `<li class="${e.worked ? 'worked' : ''}"><span class="small muted">Turn ${e.turn}</span> ${esc(e.text)}</li>`).join('')}</ol>` : ''}
-    <div class="row-actions"><button class="btn sm ghost" data-act="sim-quit">Stop</button></div>`
+    <div class="row-actions">${perk('reshuffle', 'Reshuffle', 'sim-reshuffle', g.reshuffled)}${perk('scout', 'Scout', 'sim-scout', g.scout)}<button class="btn sm ghost" data-act="sim-quit">Stop</button></div>`
+}
+
+// Abilities bought in the shop: each works once per roll.
+function perk(id, label, act, used) {
+  return hasAbility(id) ? `<button class="btn sm ${used ? 'ghost' : ''}" data-act="${act}" ${used ? 'disabled' : ''}>${label}${used ? ' used' : ''}</button>` : ''
 }
 
 function results(g) {
@@ -118,6 +124,8 @@ export const actions = {
   'sim-partner': el => { UI.simSetup.partner = el.dataset.k },
   'sim-go': () => { const c = UI.simSetup ||= { start: 'standing', partner: 'even' }; UI.sim = newRoll(c.start, c.partner); UI.simSaved = {}; scrollTo(0, 0) },
   'sim-quit': () => { UI.sim = null },
+  'sim-reshuffle': () => { const g = UI.sim; if (g && !g.reshuffled && hasAbility('reshuffle')) { g.options = optionsFor(g); g.reshuffled = true; g.scout = g.scout && { ...g.scout, turn: 0 } } },
+  'sim-scout': () => { const g = UI.sim; if (g && !g.scout && hasAbility('scout')) g.scout = scout(g) },
   'sim-move': el => {
     const g = play(UI.sim, +el.dataset.i)
     if (g.over) {

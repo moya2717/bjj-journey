@@ -13,12 +13,17 @@ import { exampleRecords } from '../examples.js'
 import { previewImport } from './importing.js'
 import { addPhotos, hydratePhotos, photoURL, removePhotos } from '../photos.js'
 import { activeInjuries, injuryName } from '../body.js'
+import { characterPanel, characterWidget, shopPanel, storyPanel } from './character.js'
 import { LOAD_TYPES, distIn, distUnit, fmtClock, fmtDist, loadMonths, loadTrend, loadWeeks, paceOf, runStats, runs } from '../load.js'
 
 export function view() {
   return `<h1 class="sr">Athlete profile</h1>
   <div class="stat-grid">
     ${profilePanel()}
+    <h2 class="section-title wide">Character</h2>
+    ${characterPanel()}
+    ${storyPanel()}
+    ${shopPanel()}
     <h2 class="section-title wide">Training load</h2>
     ${loadPanel()}
     ${runsPanel()}
@@ -91,6 +96,7 @@ const card = (view, anchor, label, num, sub, cls = '') => `<button class="widget
   <span class="w-lbl">${label}</span>${num === '' ? '' : `<span class="w-num">${num}</span>`}<span class="w-sub">${sub}</span></button>`
 
 export const WIDGETS = {
+  character: ['Character', characterWidget],
   load: ['Weekly load', () => { const t = loadTrend(); return card('athlete', 'load', 'Training load', t.now, t.ratio == null ? 'this week so far' : `${pct(t.ratio)} of your 4-week average`, t.spike ? 'warn' : '') }],
   runs: ['Run distance', () => { const r = runStats(); return card('athlete', 'runs', 'Running', `${fmtDist(r.week.dist)}<small> ${r.unit}</small>`, `this week, ${fmtDist(r.month.dist)} ${r.unit} this month`) }],
   streak: ['Streak', () => card('athlete', '', 'Streak', plural(weeklyStreak(), 'week'), `in a row at ${S.settings.weeklyTarget || 3}+ sessions`)],
@@ -99,7 +105,7 @@ export const WIDGETS = {
   moves: ['Moves landed', () => { const t = moveTrends(12), n = sum(t.months.at(-1)?.counts || [], x => x); return card('stats', 'moves', 'Moves landed', n, t.topLanded[0] ? `this month. Most landed: ${esc(trunc(t.topLanded[0].tech.name, 24))}` : 'this month') }],
   sleep: ['Sleep and energy', () => { const f = bodyInsights().findings[0]; return card('stats', 'body', 'Sleep and energy', '', f ? esc(f.text) : 'No clear pattern yet. Tag energy and sleep when you log.', 'text') }],
 }
-export const homeWidgets = () => (S.settings.homeWidgets || ['load', 'runs', 'streak', 'injuries']).filter(k => WIDGETS[k])
+export const homeWidgets = () => (S.settings.homeWidgets || ['character', 'load', 'runs', 'streak', 'injuries']).filter(k => WIDGETS[k])
 
 function widgetPanel() {
   const on = homeWidgets()

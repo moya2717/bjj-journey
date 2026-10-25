@@ -9,6 +9,7 @@ import { computeAchievements, goalStatus, progressOf } from '../achievements.js'
 import { activeInjuries, duration, injuriesOf, injuryName } from '../body.js'
 import { fmtDist, loadTrend, runStats } from '../load.js'
 import { WIDGETS, homeWidgets } from './athlete.js'
+import { questBoard } from './character.js'
 import { TAG_LABELS, nextPlan, readiness, reviewDue, todaysFocus } from '../loop.js'
 
 export function view() {
@@ -21,6 +22,7 @@ export function view() {
       <button class="btn ghost" data-act="new-roll">Log a roll</button>
       <button class="btn ghost" data-act="tab" data-view="sim">Live roll</button>
     </div>
+    ${questBoard()}
     ${fresh ? `<div class="empty-state">
       <h2>Start with one session</h2>
       <p>Log what you trained and how your rolls went. After a few weeks, Home answers three questions: what keeps going wrong, what to work on next, and whether your game is improving.</p>

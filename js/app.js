@@ -21,6 +21,7 @@ import * as stats from './views/stats.js'
 import * as injuries from './views/injuries.js'
 import * as athlete from './views/athlete.js'
 import * as review from './views/review.js'
+import * as character from './views/character.js'
 
 const VIEWS = {
   overview: ['Home', overview],
@@ -69,6 +70,7 @@ const actions = Object.assign(
     },
   },
   ...Object.values(VIEWS).map(([, view]) => view.actions),
+  character.actions,
 )
 
 let shownView
@@ -119,13 +121,15 @@ document.addEventListener('click', async e => {
   if (await action(el) !== false) render()
 })
 
-// Celebrate anything that unlocks as a result of a save.
-let unlocked = new Set()
+// Celebrate what a save earned: XP, quests and levels first, then any achievement it unlocked.
+let unlocked = new Set(), gains
 function announceUnlocks() {
-  const now = unlockedIds(), fresh = [...now].filter(id => !unlocked.has(id))
+  const now = unlockedIds(), fresh = [...now].filter(id => !unlocked.has(id)), after = character.snapshot()
+  const earned = character.announceGains(gains, after)
   unlocked = now
-  if (!fresh.length) return
-  setTimeout(() => toast(fresh.length === 1 ? `Achievement unlocked: ${titleOf(fresh[0])}` : `${fresh.length} achievements unlocked`), 900)
+  gains = after
+  if (earned) setTimeout(() => toast(earned), 900)
+  if (fresh.length) setTimeout(() => toast(fresh.length === 1 ? `Achievement unlocked: ${titleOf(fresh[0])}` : `${fresh.length} achievements unlocked`), earned ? 3800 : 900)
 }
 
 async function boot() {
@@ -136,6 +140,7 @@ async function boot() {
     return
   }
   unlocked = unlockedIds()
+  gains = character.snapshot()
   onChange(() => { render(); announceUnlocks() })
   render()
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {

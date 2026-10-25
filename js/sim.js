@@ -316,6 +316,12 @@ function chance(m, t, state, option) {
   return Math.max(0.05, Math.min(0.9, p))
 }
 
+// Scout, a shop ability: which options belong to your partner, and which of yours is likeliest to land.
+export function scout(state) {
+  const odds = state.options.map(o => o.decoy ? -1 : chance(menuFor(state).find(x => x.id === o.id) || { id: o.id, to: null, pts: 0 }, techById(o.id), state, o))
+  return { turn: state.turn, decoys: state.options.map(o => !!o.decoy), best: odds.indexOf(Math.max(...odds)) }
+}
+
 function blockText(m, t) {
   if (isFinish(m)) return BLOCKS.find(([re]) => re.test(t.name))[1]
   if (m.to?.pos === 'Back') return 'they turn in to face you'
