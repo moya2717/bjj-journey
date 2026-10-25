@@ -165,14 +165,16 @@ const fits = (t, { pos, role }) => t.type !== 'Movement' && (pos === 'Standing' 
 
 // Most likely moves from a spot, best first: your history here and after the last move,
 // then the game's menu for the spot, then the library's moves for the position.
+// Anything off the game's menu must belong to this side: after they shrimp out, you don't pass from bottom.
 export function suggest(at, steps) {
   const score = {}, h = history(), uses = techUsage()
-  const add = (id, n) => { if (techById(id)) score[id] = (score[id] || 0) + n }
-  const setups = steps.map(s => s.techId).filter(Boolean), last = setups[setups.length - 1]
+  const setups = steps.map(s => s.techId).filter(Boolean), last = setups[setups.length - 1], menu = menuFor({ ...at, setups })
+  const onMenu = new Set(menu.map(m => m.id))
+  const add = (id, n) => { const t = techById(id); if (t && (onMenu.has(id) || fits(t, at))) score[id] = (score[id] || 0) + n }
   Object.entries(h.at[key(at.pos, at.role)] || {}).forEach(([id, n]) => add(id, 3 * n))
   Object.entries(h.after[last] || {}).forEach(([id, n]) => add(id, 4 * n))
-  menuFor({ ...at, setups }).forEach(m => add(m.id, 2))
-  allTechs().filter(t => t.position === at.pos && fits(t, at)).forEach(t => add(t.id, t.starred ? 1.5 : 0.5))
+  menu.forEach(m => add(m.id, 2))
+  allTechs().filter(t => t.position === at.pos).forEach(t => add(t.id, t.starred ? 1.5 : 0.5))
   Object.keys(score).forEach(id => { score[id] += Math.min(uses[id] || 0, 10) * 0.2 })
   return Object.keys(score).sort((a, b) => score[b] - score[a])
 }
