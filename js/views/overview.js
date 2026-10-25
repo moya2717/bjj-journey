@@ -1,6 +1,6 @@
-import { S } from '../store.js'
+import { S, save } from '../store.js'
 import { POSITIONS, RESULTS } from '../vocab.js'
-import { byDateAsc, byDateDesc, daysAgo, isoDate, parseD, esc, fmtDate, hrs, plural, pct, posRole, rate, span, sum, toast, today, topKeys, trunc, weekStart } from '../util.js'
+import { byDateAsc, byDateDesc, cap, daysAgo, isoDate, parseD, esc, fmtDate, hrs, plural, pct, posRole, rate, span, sum, toast, today, topKeys, trunc, weekStart } from '../util.js'
 import { MOVE_OUTCOMES, allTechs, currentRank, nodePath, rankName, rollTechId, seqById, techById } from '../model.js'
 import { areaCounts, badSpots, bodyInsights, hardestMatchup, monthlySeries, moveTrends, problemTrends, techStats, unpromoted, weakestStep } from '../analysis.js'
 import { lineChart } from '../charts.js'
@@ -9,6 +9,7 @@ import { computeAchievements, goalStatus, progressOf } from '../achievements.js'
 import { activeInjuries, duration, injuriesOf, injuryName } from '../body.js'
 import { fmtDist, loadTrend, runStats } from '../load.js'
 import { WIDGETS, homeWidgets } from './athlete.js'
+import { TAG_LABELS, nextPlan, readiness, reviewDue, todaysFocus } from '../loop.js'
 
 export function view() {
   const fresh = !S.session.length && !S.roll.length
@@ -25,6 +26,7 @@ export function view() {
       <p>Log what you trained and how your rolls went. After a few weeks, Home answers three questions: what keeps going wrong, what to work on next, and whether your game is improving.</p>
       <div class="head-actions"><button class="btn ghost" data-act="load-examples">Load example entries</button></div>
     </div>` : `${nudges()}
+    <div class="loop">${readinessCard()}${focusCard()}</div>
     ${widgets()}
     ${insights()}
     <h2 class="section-title">Your game, last 60 days</h2>
@@ -76,12 +78,45 @@ function insights() {
   return list.length ? `<div class="insights">${list.map(([view, anchor, lbl, text]) => `<button class="insight-card" data-act="goto" data-view="${view}" data-anchor="${anchor}"><span class="w-lbl">${lbl}</span><span>${text}</span></button>`).join('')}</div>` : ''
 }
 
+// ---------- Learning loop: readiness, today's focus ----------
+
+function readinessCard() {
+  const r = readiness(), t = r.tags, checked = t.from === 'check-in'
+  const pick = (k, v, l) => `<button class="pill" data-act="checkin" data-k="${k}" data-v="${v}" aria-pressed="${checked && t[k] === v}">${l}</button>`
+  return `<section class="ready ready-${r.level}" aria-labelledby="ready-h">
+    <p class="w-lbl" id="ready-h">Readiness</p>
+    <p class="ready-verdict">${r.known ? r.label : 'Check in to get a suggestion'}</p>
+    ${r.known ? `<p class="small">${r.why.length ? esc(cap(r.why.join(', '))) + '.' : 'Nothing in your log says to change course.'}</p>` : ''}
+    <div class="checkin">${Object.entries(TAG_LABELS).map(([k, opts]) => `<div class="checkin-row"><span class="small muted">${cap(k)}</span>${Object.entries(opts).map(([v, l]) => pick(k, v, l)).join('')}</div>`).join('')}</div>
+    <p class="small muted">A suggestion from your log, not medical advice. Listen to your body and your coach.</p>
+  </section>`
+}
+
+function focusCard() {
+  const list = todaysFocus(), plan = nextPlan()
+  return `<section class="focus" aria-labelledby="focus-h">
+    <div class="history-head"><h2 id="focus-h">Today’s focus</h2><button class="card-link" data-act="tab" data-view="review">Week in review</button></div>
+    ${plan ? `<div class="callout"><p class="small muted">Planned for your next session</p><p><strong>${esc(plan.text)}</strong></p>
+      <div class="row-actions"><button class="btn sm" data-act="new-session">Log it</button><button class="btn sm ghost" data-act="clear-plan">Clear</button></div></div>` : ''}
+    ${list.length ? '' : '<p class="small muted">Log rolls, sequences and the moves you drill. Suggestions for what to bring to class show up here.</p>'}
+    <ul class="list">${list.filter(f => f.text !== plan?.text).map(f => `<li class="focus-item"><span><b>${esc(f.text)}</b><span class="small muted">${esc(f.why)}</span></span>
+      <span class="row-actions">${f.seqId ? `<button class="btn sm ghost" data-act="open-seq" data-id="${esc(f.seqId)}">Open</button>` : ''}<button class="btn sm" data-act="plan-focus" data-i="${list.indexOf(f)}">Plan it</button></span></li>`).join('')}</ul>
+  </section>`
+}
+
+// Back up every 30 days. "Not now" hides the reminder for a week.
+const backupDue = () => (S.session.length + S.roll.length + S.activity.length + S.seq.length > 0)
+  && (!S.settings.lastBackup || S.settings.lastBackup < daysAgo(30)) && !(S.settings.backupSnooze >= daysAgo(6))
+
 function nudges() {
   const due = dueCards().length
   const next = [...S.profile.tournaments].sort(byDateAsc).find(t => t.date >= today())
   const days = next && Math.round((parseD(next.date) - parseD(today())) / 864e5)
   const hurt = activeInjuries()
   const items = [
+    reviewDue() && `<button class="nudge review-due" data-act="tab" data-view="review"><strong>Weekly review</strong> Look back at your week and pick one focus</button>`,
+    backupDue() && `<div class="nudge backup"><span><strong>Back up your journal.</strong> ${S.settings.lastBackup ? `Last backup ${fmtDate(S.settings.lastBackup)}.` : 'It only lives on this phone.'}</span>
+      <span class="row-actions"><button class="btn sm" data-act="export">Back up now</button><button class="btn sm ghost" data-act="backup-snooze">Not now</button></span></div>`,
     hurt.length && `<button class="nudge hurt" data-act="tab" data-view="injuries"><strong>${hurt.length === 1 ? 'Active injury' : hurt.length + ' active injuries'}</strong> ${esc(hurt.slice(0, 2).map(i => `${injuryName(i)}, ${duration(i).toLowerCase()}`).join('; '))}${hurt.length > 2 ? '…' : ''}</button>`,
     due && `<button class="nudge" data-act="tab" data-view="study"><strong>${due}</strong> ${due === 1 ? 'card' : 'cards'} to review today</button>`,
     next && days <= 90 && `<button class="nudge" data-act="tab" data-view="compete"><strong>${days === 0 ? 'Today' : days + (days === 1 ? ' day' : ' days')}</strong> until ${esc(next.name)}</button>`,
@@ -225,6 +260,12 @@ Keep it under 400 words. Don't invent entries. If notes mention pain or injury, 
 }
 
 export const actions = {
+  // The quick check-in: tap again to clear. Saved for today only.
+  'checkin': el => {
+    const c = S.settings.checkin?.date === today() ? S.settings.checkin : { date: today() }, k = el.dataset.k
+    save({ ...S.settings, checkin: { ...c, [k]: c[k] === el.dataset.v ? '' : el.dataset.v } })
+  },
+  'backup-snooze': () => { save({ ...S.settings, backupSnooze: today() }) },
   'review': async () => {
     const text = reviewPrompt()
     try {

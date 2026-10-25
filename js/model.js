@@ -47,6 +47,8 @@ const masteryEvidence = () => cached('masteryEvidence', () => {
   S.seq.forEach(s => s.nodes.forEach(n => raise(n.techId, 1)))
   S.study.forEach(v => (v.notes || []).forEach(n => raise(n.techId, 1)))
   S.session.forEach(s => { (s.drilled || []).forEach(id => raise(id, 2)); (s.reps || []).forEach(r => raise(r.techId, 2)) })
+  // A planned move you stuck to counts as drilled, or as hit in sparring when you say you landed it.
+  S.session.forEach(s => { if (s.planTechId && s.planHit && s.planHit !== 'Went another way') raise(s.planTechId, s.planResult === 'landed' ? 3 : 2) })
   const myRank = BELTS.indexOf(currentRank().belt)
   const since = {}
   ;[...S.roll].sort(byDateAsc).forEach(r => {

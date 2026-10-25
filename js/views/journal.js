@@ -9,6 +9,7 @@ import { addPhotos, removePhotos, hydratePhotos, photoURL } from '../photos.js'
 import { partnerDatalist, stepOptions } from './rolls.js'
 import { activeInjuries, activeOn, injuriesOf, injuryName } from '../body.js'
 import { distUnit, fmtClock, isRun, paceOf, rpeIntensity } from '../load.js'
+import { latestTags, nextPlan } from '../loop.js'
 
 // ---------- Calendar ----------
 
@@ -105,7 +106,7 @@ function entryCard(s) {
       ${(s.wentWell || []).length || (s.trouble || []).length ? `<div class="tags">${(s.wentWell || []).map(a => `<span class="tag good">✓ ${esc(a)}</span>`).join('')}${(s.trouble || []).map(a => `<span class="tag bad">✗ ${esc(a)}</span>`).join('')}</div>` : ''}
       ${notes.length ? `<dl class="refl">${notes.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
       ${s.reflectA ? `<p class="prompt-q">${esc(s.reflectQ)}</p><p class="small" style="max-width:70ch">${esc(s.reflectA)}</p>` : ''}
-      ${s.coachQ ? `<p class="coach-q"><span class="tag pos">Ask coach</span> ${esc(s.coachQ)}${s.coachAsked ? ' <span class="small muted">(asked)</span>' : ''}</p>` : ''}
+      ${s.coachQ ? `<p class="coach-q"><span class="tag pos">Ask coach</span> ${esc(s.coachQ)}${s.coachAnswered ? ' <span class="small muted">(answered)</span>' : s.coachAsked ? ' <span class="small muted">(asked)</span>' : ''}</p>${s.coachA ? `<p class="small" style="max-width:70ch">${esc(s.coachA)}</p>` : ''}` : ''}
       ${(s.photos || []).length ? `<div class="photos">${s.photos.map(id => `<button data-act="view-photo" data-id="${id}" aria-label="Open photo"><img data-photo="${id}" alt="Training photo"></button>`).join('')}</div>` : ''}
       ${rolls.length ? `<div style="margin-top:10px">${rolls.map(rollMini).join('')}</div>` : ''}
       <div class="row-actions">
@@ -151,12 +152,15 @@ function wireBodyCheck(form) {
   $('[data-around]', form)?.addEventListener('change', e => { $('[data-injury-pick]', form).hidden = !e.target.checked })
 }
 
+const PLAN_RESULT = { tried: 'Drilled or tried it', landed: 'Hit it in sparring' }
+
 const step = (n, title, body) => `<section class="form-step"><h3 class="step-title"><span class="step-n" aria-hidden="true">${n}</span>${title}</h3>${body}</section>`
 
 function howItWent(s) {
   return `<fieldset><legend>How did your body feel?</legend>${radioChips('feel', FEELS, s.feel || '')}</fieldset>
     ${field('What did you plan to work on?', `<input type="text" name="plan" id="f-plan" value="${esc(s.plan || '')}" placeholder="Win the underhook before I cut">`)}
     <fieldset><legend>Did you stick to your plan?</legend>${radioChips('planHit', PLAN_HIT, s.planHit || '')}</fieldset>
+    ${techById(s.planTechId) ? `<fieldset data-plan-move><legend>How did ${esc(techById(s.planTechId).name)} go? <span class="hint">Raises its mastery when you stuck to the plan</span></legend>${tagChips('planResult', PLAN_RESULT, s.planResult || '')}</fieldset>` : ''}
     <fieldset><legend>What went well? <span class="hint">Pick any</span></legend>${chipsEl('wentWell', AREAS, s.wentWell || [])}</fieldset>
     <fieldset><legend>What gave you trouble? <span class="hint">Pick any</span></legend>${chipsEl('trouble', AREAS, s.trouble || [])}</fieldset>
     ${field('Lesson to keep', `<textarea name="lesson" id="f-lesson" rows="2" placeholder="One sentence you want to remember">${esc(s.lesson || '')}</textarea>`)}`
@@ -204,7 +208,12 @@ function rollRow(i, preset) {
 
 function sessionForm(id, date) {
   const last = [...S.session].sort(byDateDesc)[0] || { type: 'Gi', minutes: 90, rounds: 5 }
-  const s = id ? S.session.find(x => x.id === id) : { date: date || today(), time: last.time || '', type: last.type, minutes: last.minutes, rounds: last.rounds, focus: [], drilled: [], reps: [], photos: [] }
+  // A new log picks up the plan you chose on Home, and today's check-in when it's for today.
+  const plan = nextPlan(), check = latestTags()
+  const s = id ? S.session.find(x => x.id === id) : {
+    date: date || today(), time: last.time || '', type: last.type, minutes: last.minutes, rounds: last.rounds, focus: [], drilled: [], reps: [], photos: [],
+    plan: plan?.text || '', planTechId: plan?.techId || '', ...((date || today()) === today() && check.from === 'check-in' ? { sleep: check.sleep, energy: check.energy } : {}),
+  }
   if (!s) return
   const lastRoll = [...S.roll].sort(byDateDesc)[0] || { position: 'Half guard', role: 'Top', seqId: '' }
   const rollPreset = { position: lastRoll.position, role: lastRoll.role, seqId: seqById(lastRoll.seqId) ? lastRoll.seqId : '' }
@@ -315,10 +324,13 @@ function sessionForm(id, date) {
         reps: $$('[data-rep]', form).map(r => ({ techId: fd.get(`rep${r.dataset.rep}_tech`), count: +fd.get(`rep${r.dataset.rep}_count`) || 0 })).filter(r => r.techId && r.count),
         photos: [...keptPhotos, ...added],
         plan: fd.get('plan').trim(), feel: fd.get('feel') || '', planHit: fd.get('planHit') || '',
+        // The planned move stays linked only while the plan text is the one that named it.
+        ...(s.planTechId && fd.get('plan').trim() === s.plan ? { planTechId: s.planTechId, planResult: fd.get('planResult') || '' } : { planTechId: '', planResult: '' }),
         wentWell: fd.getAll('wentWell'), trouble: fd.getAll('trouble'),
         worked: (fd.get('worked') ?? s.worked ?? '').trim(), struggled: (fd.get('struggled') ?? s.struggled ?? '').trim(), lesson: fd.get('lesson').trim(),
         reflectQ: answer ? fd.get('reflectQ') : '', reflectA: answer, notes: fd.get('notes').trim(),
         coachQ, coachAsked: coachQ && coachQ === s.coachQ ? !!s.coachAsked : false,
+        coachAnswered: coachQ && coachQ === s.coachQ ? !!s.coachAnswered : false, coachA: coachQ && coachQ === s.coachQ ? s.coachA || '' : '',
         energy: fd.get('energy') || '', sleep: fd.get('sleep') || '', injuryIds: fd.get('aroundInjury') ? fd.getAll('injuryIds') : [],
       }
       const rolls = rows.filter(row => fd.get(`r${row.dataset.row}_result`)).map((row, j) => {
@@ -334,7 +346,9 @@ function sessionForm(id, date) {
       })
       UI.calDay = date
       UI.calMonth = date.slice(0, 7)
-      saveMany([session, ...rolls])
+      // The plan is used up once a new session logs it.
+      const usedPlan = !id && plan && session.plan === plan.text
+      saveMany([session, ...rolls, ...(usedPlan ? [{ ...S.settings, nextPlan: null }] : [])])
       toast(rolls.length ? `Training and ${plural(rolls.length, 'roll')} saved` : 'Training saved')
     },
   })

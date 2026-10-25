@@ -20,12 +20,14 @@ import * as achievements from './views/achievements.js'
 import * as stats from './views/stats.js'
 import * as injuries from './views/injuries.js'
 import * as athlete from './views/athlete.js'
+import * as review from './views/review.js'
 
 const VIEWS = {
   overview: ['Home', overview],
   journal: ['Calendar', journal],
   rolls: ['Rolls', rolls],
   matchups: ['Matchups', matchups],
+  review: ['Week', review],
   sequences: ['Sequences', sequences],
   library: ['Moves', library],
   sim: ['Live roll', sim],
@@ -42,7 +44,7 @@ const VIEWS = {
 // Icons are simple 24px line drawings, so they follow the theme's text color.
 const SECTIONS = {
   home: { label: 'Home', views: ['overview'], icon: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>' },
-  journal: { label: 'Journal', views: ['journal', 'rolls', 'matchups'], icon: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
+  journal: { label: 'Journal', views: ['journal', 'rolls', 'matchups', 'review'], icon: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
   game: { label: 'Game', views: ['sequences', 'library', 'sim'], icon: '<circle cx="5" cy="12" r="2.2"/><circle cx="19" cy="5" r="2.2"/><circle cx="19" cy="19" r="2.2"/><path d="M7 11l10-5M7 13l10 5"/>' },
   learn: { label: 'Learn', views: ['resources', 'study'], icon: '<path d="M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M9 7h7"/>' },
   you: { label: 'You', views: ['athlete', 'stats', 'injuries', 'compete', 'achievements'], icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>' },
