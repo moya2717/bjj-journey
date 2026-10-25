@@ -8,12 +8,13 @@ import { heatLevel } from '../charts.js'
 import { addPhotos, removePhotos, hydratePhotos, photoURL } from '../photos.js'
 import { partnerDatalist, stepOptions } from './rolls.js'
 import { activeInjuries, activeOn, injuriesOf, injuryName } from '../body.js'
+import { distUnit, fmtClock, isRun, paceOf, rpeIntensity } from '../load.js'
 
 // ---------- Calendar ----------
 
 export function view() {
   return `<div class="page-head"><div><h1>Journal</h1><p class="lede">Every training day on the calendar. Tap a day to see or add what happened.</p></div>
-    <div class="head-actions"><button class="btn" data-act="new-session" data-date="${UI.calDay}">Log BJJ</button><button class="btn ghost" data-act="new-activity" data-date="${UI.calDay}">Log other activity</button></div></div>
+    <div class="head-actions"><button class="btn" data-act="new-session" data-date="${UI.calDay}">Log BJJ</button><button class="btn ghost" data-act="new-run" data-date="${UI.calDay}">Log a run</button><button class="btn ghost" data-act="new-activity" data-date="${UI.calDay}">Log other activity</button></div></div>
     <div class="filters"><label class="field search"><span class="field-label">Search your notes</span><input type="search" id="journal-search" value="${esc(UI.journalQ)}" placeholder="Try “underhook” or “mount”"></label></div>
     <div id="journal-body">${UI.journalQ.trim() ? searchResults() : calendar() + dayPanel()}</div>`
 }
@@ -72,7 +73,7 @@ function dayPanel() {
   const studies = S.study.filter(v => v.date === UI.calDay)
   const looseRolls = S.roll.filter(r => r.date === UI.calDay && !sessions.some(s => s.id === r.sessionId))
   return `<div class="day-panel">
-    <div class="day-head"><h2>${fmtDateLong(UI.calDay)}</h2><div class="head-actions"><button class="btn sm" data-act="new-session" data-date="${UI.calDay}">Log BJJ</button><button class="btn sm ghost" data-act="new-activity" data-date="${UI.calDay}">Log other activity</button></div></div>
+    <div class="day-head"><h2>${fmtDateLong(UI.calDay)}</h2><div class="head-actions"><button class="btn sm" data-act="new-session" data-date="${UI.calDay}">Log BJJ</button><button class="btn sm ghost" data-act="new-run" data-date="${UI.calDay}">Log a run</button><button class="btn sm ghost" data-act="new-activity" data-date="${UI.calDay}">Log other activity</button></div></div>
     ${sessions.length || activities.length || studies.length
       ? [...sessions.map(s => [s.time, entryCard(s)]), ...activities.map(a => [a.time, activityCard(a)]), ...studies.map(v => ['99', studyMini(v)])].sort((a, b) => (a[0] || '99').localeCompare(b[0] || '99')).map(x => x[1]).join('')
       : `<p class="muted">Nothing logged on this day.</p>`}
@@ -347,7 +348,7 @@ function activityCard(a) {
     <div class="date-block"><span class="d">${d.getDate()}</span><span class="m">${d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' })}</span></div>
     <div style="min-width:0">
       <div class="entry-top"><h3>${esc(a.type)}${a.time ? ` <span class="entry-time">${fmtTime(a.time)}</span>` : ''}</h3>
-        <span class="entry-meta">${[a.minutes && a.minutes + ' min', a.distance && `${a.distance} ${a.unit || 'mi'}`, a.intensity].filter(Boolean).map(esc).join(', ')}</span></div>
+        <span class="entry-meta">${[a.minutes && (isRun(a) ? fmtClock(+a.minutes) : a.minutes + ' min'), a.distance && `${a.distance} ${a.unit || 'mi'}`, isRun(a) && paceOf(+a.minutes, +a.distance) && fmtClock(paceOf(+a.minutes, +a.distance)) + ' /' + (a.unit || 'mi'), a.rpe ? 'RPE ' + a.rpe : a.intensity].filter(Boolean).map(esc).join(', ')}</span></div>
       ${a.notes ? `<p class="small" style="margin-top:6px;max-width:70ch">${esc(a.notes)}</p>` : ''}
       <div class="row-actions"><button class="btn sm ghost" data-act="edit-activity" data-id="${a.id}">Edit</button></div>
     </div></article>`
@@ -362,11 +363,11 @@ const studyMini = v => `<article class="entry activity">
 const DISTANCE_TYPES = ['Running', 'Cycling', 'Swimming']
 
 function activityForm(id, date) {
-  const last = [...S.activity].sort(byDateDesc)[0]
-  const a = id ? S.activity.find(x => x.id === id) : { date: date || today(), time: '', type: last?.type || 'Running', minutes: last?.minutes || 30, distance: '', unit: last?.unit || 'mi', intensity: last?.intensity || 'Moderate', notes: '' }
+  const last = S.activity.filter(x => !isRun(x)).sort(byDateDesc)[0]
+  const a = id ? S.activity.find(x => x.id === id) : { date: date || today(), time: '', type: last?.type || 'Strength training', minutes: last?.minutes || 30, distance: '', unit: last?.unit || 'mi', intensity: last?.intensity || 'Moderate', notes: '' }
   if (!a) return
   openSheet(id ? 'Edit activity' : 'Log other activity', `
-    <p class="hint">Training outside BJJ. It shows on your calendar and in your stats, but doesn’t count toward mat hours.</p>
+    <p class="hint">Training outside BJJ. It shows on your calendar and in your training load, but doesn’t count toward mat hours.${id ? '' : ` Went for a run? <button type="button" class="link" data-act="new-run" data-date="${esc(a.date)}">Log a run</button> to get your pace.`}</p>
     <fieldset><legend>Activity</legend>${radioChips('type', ACTIVITY_TYPES, a.type)}</fieldset>
     <div class="grid3">
       ${field('Date', `<input type="date" name="date" id="a-date" value="${esc(a.date)}" required>`)}
@@ -401,9 +402,64 @@ function activityForm(id, date) {
   })
 }
 
+// ---------- Runs: an activity of type Running, with distance, time, pace and effort ----------
+
+const RPE = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+
+export function runForm(id, date) {
+  const a = id ? S.activity.find(x => x.id === id) : { date: date || today(), time: '', minutes: '', distance: '', unit: distUnit(), rpe: '', notes: '' }
+  if (!a) return
+  const secs = Math.round((+a.minutes || 0) * 60)
+  openSheet(id ? 'Edit run' : 'Log a run', `
+    <div class="inline-row dist-row">
+      ${field('Distance', `<input type="number" name="distance" id="r-dist" min="0" step="0.01" inputmode="decimal" value="${esc(a.distance)}" placeholder="3.1">`)}
+      ${field('Unit', selectEl('unit', ['mi', 'km'], a.unit || 'mi', 'id="r-unit"'))}
+    </div>
+    <div class="inline-row">
+      ${field('Hours', `<input type="number" name="h" id="r-h" min="0" max="24" inputmode="numeric" value="${secs >= 3600 ? Math.floor(secs / 3600) : ''}" placeholder="0">`)}
+      ${field('Minutes', `<input type="number" name="m" id="r-m" min="0" max="59" inputmode="numeric" value="${secs ? Math.floor(secs / 60) % 60 : ''}" placeholder="28">`)}
+      ${field('Seconds', `<input type="number" name="s" id="r-s" min="0" max="59" inputmode="numeric" value="${secs % 60 || ''}" placeholder="30">`)}
+    </div>
+    <p class="pace-live" id="r-pace" aria-live="polite"></p>
+    <fieldset><legend>How hard, 1 to 10 <span class="hint">1 is a walk, 10 is all-out</span></legend>${radioChips('rpe', RPE, String(a.rpe || ''))}</fieldset>
+    <div class="grid2">
+      ${field('Date', `<input type="date" name="date" id="r-date" value="${esc(a.date)}" required>`)}
+      ${field('Time', `<input type="time" name="time" id="r-time" value="${esc(a.time)}">`)}
+    </div>
+    ${field('Notes', `<textarea name="notes" id="r-notes" rows="2" placeholder="Route, how your legs felt, intervals">${esc(a.notes)}</textarea>`)}
+    <p class="form-error" id="form-error"></p>`, {
+    submitLabel: id ? 'Save changes' : 'Save run',
+    onDelete: id ? () => remove(a) : null,
+    onMount: form => {
+      const show = () => {
+        const fd = new FormData(form), p = paceOf(runMinutes(fd), +fd.get('distance'))
+        $('#r-pace', form).textContent = p ? `Pace ${fmtClock(p)} per ${fd.get('unit')}` : 'Add distance and time to see your pace.'
+      }
+      form.addEventListener('input', show)
+      show()
+    },
+    onSubmit: fd => {
+      const date = fd.get('date'), minutes = runMinutes(fd), rpe = +fd.get('rpe') || ''
+      if (!date) { $('#form-error').textContent = 'Add the date.'; return false }
+      if (!minutes && !+fd.get('distance')) { $('#form-error').textContent = 'Add how far or how long you ran.'; return false }
+      UI.calDay = date
+      UI.calMonth = date.slice(0, 7)
+      save({
+        ...(id ? a : {}), id: id || newId('activity'), kind: 'activity', date, time: fd.get('time') || '', type: 'Running',
+        minutes: Math.round(minutes * 100) / 100, distance: +fd.get('distance') || '', unit: fd.get('unit'),
+        rpe, intensity: rpe ? rpeIntensity(rpe) : a.intensity || 'Moderate', notes: fd.get('notes').trim(),
+      })
+      toast(id ? 'Run saved' : 'Run logged')
+    },
+  })
+}
+
+const runMinutes = fd => (+fd.get('h') || 0) * 60 + (+fd.get('m') || 0) + (+fd.get('s') || 0) / 60
+
 export const actions = {
+  'new-run': el => runForm(null, el.dataset.date),
   'new-activity': el => activityForm(null, el.dataset.date),
-  'edit-activity': el => activityForm(el.dataset.id),
+  'edit-activity': el => S.activity.find(x => x.id === el.dataset.id && isRun(x)) ? runForm(el.dataset.id) : activityForm(el.dataset.id),
   'new-session': el => sessionForm(null, el.dataset.date),
   'edit-session': el => sessionForm(el.dataset.id),
   'cal-month': el => { UI.calMonth = shiftMonth(UI.calMonth, +el.dataset.d) },

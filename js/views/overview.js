@@ -1,34 +1,79 @@
 import { S } from '../store.js'
 import { POSITIONS, RESULTS } from '../vocab.js'
-import { byDateAsc, byDateDesc, daysAgo, parseD, esc, fmtDate, hrs, plural, pct, posRole, rate, span, sum, toast, today, topKeys, trunc } from '../util.js'
+import { byDateAsc, byDateDesc, daysAgo, isoDate, parseD, esc, fmtDate, hrs, plural, pct, posRole, rate, span, sum, toast, today, topKeys, trunc, weekStart } from '../util.js'
 import { MOVE_OUTCOMES, allTechs, currentRank, nodePath, rankName, rollTechId, seqById, techById } from '../model.js'
-import { areaCounts, badSpots, bodyInsights, hardestMatchup, monthlySeries, problemTrends, techStats, unpromoted, weakestStep } from '../analysis.js'
+import { areaCounts, badSpots, bodyInsights, hardestMatchup, monthlySeries, moveTrends, problemTrends, techStats, unpromoted, weakestStep } from '../analysis.js'
 import { lineChart } from '../charts.js'
 import { dueCards } from '../srs.js'
 import { computeAchievements, goalStatus, progressOf } from '../achievements.js'
 import { activeInjuries, duration, injuriesOf, injuryName } from '../body.js'
+import { fmtDist, loadTrend, runStats } from '../load.js'
+import { WIDGETS, homeWidgets } from './athlete.js'
 
 export function view() {
-  if (!S.session.length && !S.roll.length) return `
-    <div class="empty-state">
+  const fresh = !S.session.length && !S.roll.length
+  return `<h1 class="sr">Home</h1>
+    ${thisWeek()}
+    <div class="quick">
+      <button class="btn quick-main" data-act="new-session">Log training</button>
+      <button class="btn ghost" data-act="new-run">Log a run</button>
+      <button class="btn ghost" data-act="new-roll">Log a roll</button>
+      <button class="btn ghost" data-act="tab" data-view="sim">Live roll</button>
+    </div>
+    ${fresh ? `<div class="empty-state">
       <h2>Start with one session</h2>
-      <p>Log what you trained and how your rolls went. After a few weeks, this page answers three questions: what keeps going wrong, what to work on next, and whether your game is improving.</p>
-      <div class="head-actions"><button class="btn" data-act="new-session">Log training</button><button class="btn ghost" data-act="load-examples">Load example entries</button></div>
-    </div>`
-  const insight = bodyInsights().findings[0]
-  return `
-    ${nudges()}
-    ${insight ? `<div class="callout home-insight"><p class="small muted">Energy, sleep and injuries</p><p class="insight">${esc(insight.text)}</p><div><button class="link" data-act="tab" data-view="stats">See the numbers</button></div></div>` : ''}
-    <div class="overview-bar"><p class="muted">From your last 60 days of training</p>
-      <div class="head-actions"><button class="btn" data-act="new-session">Log training</button><button class="btn ghost" data-act="new-roll">Log a roll</button></div></div>
+      <p>Log what you trained and how your rolls went. After a few weeks, Home answers three questions: what keeps going wrong, what to work on next, and whether your game is improving.</p>
+      <div class="head-actions"><button class="btn ghost" data-act="load-examples">Load example entries</button></div>
+    </div>` : `${nudges()}
+    ${widgets()}
+    ${insights()}
+    <h2 class="section-title">Your game, last 60 days</h2>
     <div class="questions">
-      <article class="q q-wrong"><h2>What keeps going wrong?</h2>${whatGoesWrong()}</article>
-      <article class="q q-next"><h2>What should I work on next?</h2>${whatNext()}</article>
-      <article class="q q-improve"><h2>Is my game actually improving?</h2>${isImproving()}</article>
+      <article class="q q-wrong"><h2>What keeps going wrong?</h2>${whatGoesWrong()}<button class="card-link" data-act="tab" data-view="rolls">All your rolls</button></article>
+      <article class="q q-next"><h2>What should I work on next?</h2>${whatNext()}<button class="card-link" data-act="tab" data-view="sequences">Your sequences</button></article>
+      <article class="q q-improve"><h2>Is my game actually improving?</h2>${isImproving()}<button class="card-link" data-act="tab" data-view="stats">All your stats</button></article>
     </div>
     <section class="review" aria-labelledby="rv-h"><div class="review-head">
       <div><h2 id="rv-h">Coaching review with Claude</h2><p class="lede">Packs your last 60 days of notes with a coaching prompt. Paste it into the Claude app for patterns, blind spots and questions to test on the mat.</p></div>
-      <div class="head-actions"><button class="btn" data-act="review">Copy for Claude</button></div></div></section>`
+      <div class="head-actions"><button class="btn" data-act="review">Copy for Claude</button></div></div></section>`}`
+}
+
+// The hero: this week's sessions against your target, mat hours, run distance and load.
+function thisWeek() {
+  const from = isoDate(weekStart(new Date())), week = S.session.filter(s => s.date >= from)
+  const target = S.settings.weeklyTarget || 3, t = loadTrend(), r = runStats()
+  const ring = Math.min(1, week.length / target), C = 2 * Math.PI * 26
+  return `<button class="hero ${t.spike ? 'spike' : ''}" data-act="goto" data-view="athlete" data-anchor="load">
+    <span class="hero-head"><span class="hero-title">This week</span><span class="hero-more">Profile →</span></span>
+    <span class="hero-body">
+      <svg class="ring" viewBox="0 0 64 64" aria-hidden="true"><circle class="track" cx="32" cy="32" r="26"/>${ring ? `<circle class="fill" cx="32" cy="32" r="26" stroke-dasharray="${(ring * C).toFixed(1)} ${C.toFixed(1)}"/>` : ''}<text x="32" y="37" text-anchor="middle">${week.length}/${target}</text></svg>
+      <span class="hero-stats">
+        <span><b>${week.length}</b> ${week.length === 1 ? 'session' : 'sessions'}, target ${target}</span>
+        <span><b>${hrs(sum(week, 'minutes'))}</b> mat hrs</span>
+        <span><b>${fmtDist(r.week.dist)}</b> ${r.unit} run</span>
+        <span><b>${t.ratio == null ? '—' : pct(t.ratio)}</b> of usual load</span>
+      </span>
+    </span>
+    ${t.spike ? '<span class="hero-warn">Load is well above your 4-week average. Ease in.</span>' : ''}
+  </button>`
+}
+
+function widgets() {
+  const keys = homeWidgets()
+  return keys.length ? `<div class="widgets">${keys.map(k => WIDGETS[k][1]()).join('')}</div>` : ''
+}
+
+// One or two things worth knowing right now, each opening the screen with the detail.
+// A finding already on a Home card isn't repeated.
+function insights() {
+  const from = daysAgo(59), { groups } = badSpots(from), spot = groups[0], body = bodyInsights().findings[0]
+  const landed = moveTrends(1).topLanded[0], shown = homeWidgets()
+  const list = [
+    spot && ['rolls', '', 'Keeps going wrong', `${posRole(spot.position, spot.role)}: ${plural(spot.n, 'breakdown')} in 60 days${topKeys(spot.reasons, 1)[0] ? `, mostly ${esc(topKeys(spot.reasons, 1)[0].toLowerCase())}` : ''}.`],
+    body && !shown.includes('sleep') && ['stats', 'body', 'Energy, sleep and injuries', esc(body.text)],
+    landed && !shown.includes('moves') && ['stats', 'moves', 'Your best move', `${esc(landed.tech.name)} is your most landed move, ${plural(landed.n, 'time')} so far.`],
+  ].filter(Boolean).slice(0, 2)
+  return list.length ? `<div class="insights">${list.map(([view, anchor, lbl, text]) => `<button class="insight-card" data-act="goto" data-view="${view}" data-anchor="${anchor}"><span class="w-lbl">${lbl}</span><span>${text}</span></button>`).join('')}</div>` : ''
 }
 
 function nudges() {

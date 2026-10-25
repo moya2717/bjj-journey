@@ -62,13 +62,15 @@ export function beltArt(rank) {
     <div class="bar" style="background:${look.bar}">${'<i></i>'.repeat(Math.min(4, +rank.stripes || 0))}</div></div>`
 }
 
-// Monthly stacked bars. Each series gets a class (g0, g1…) so CSS colors it for both themes.
-export function stackedBars(months, names, { w = 340, h = 150, what = 'Moves landed' } = {}) {
-  const pL = 26, pR = 6, pT = 10, pB = 22, iw = w - pL - pR, ih = h - pT - pB
+// Stacked bars, one per month or week. Each series gets a class (g0, g1… unless given) so CSS colors it for both themes.
+export function stackedBars(months, names, { w = 340, h = 150, what = 'Moves landed', by = 'month', classes = names.map((_, i) => 'g' + i) } = {}) {
   const total = m => m.counts.reduce((a, b) => a + b, 0)
-  const max = Math.max(1, ...months.map(total)), top = max <= 4 ? max : Math.ceil(max / 4) * 4
+  // Small counts round up to a multiple of 4; big numbers to a round half-step, like 5000.
+  const max = Math.max(1, ...months.map(total)), step = 10 ** Math.floor(Math.log10(max)) / 2
+  const top = max <= 4 ? max : max < 100 ? Math.ceil(max / 4) * 4 : Math.ceil(max / step) * step
+  const pL = 14 + 6 * String(top).length, pR = 6, pT = 10, pB = 22, iw = w - pL - pR, ih = h - pT - pB
   const slot = iw / months.length, bw = Math.min(28, slot * 0.64), y = v => pT + ih - v / top * ih
-  const label = what + ' by month: ' + months.map(m => `${m.label} ${names.map((g, i) => `${g} ${m.counts[i]}`).join(', ')}`).join('; ')
+  const label = `${what} by ${by}: ` + months.map(m => `${m.label} ${names.map((g, i) => `${g} ${m.counts[i]}`).join(', ')}`).join('; ')
   return `<svg class="chart stack" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}">
     ${[0, top / 2, top].map(v => `<line class="grid" x1="${pL}" x2="${w - pR}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${pL - 6}" y="${y(v) + 3}" text-anchor="end">${+v.toFixed(1)}</text>`).join('')}
     ${months.map((m, i) => {
@@ -76,10 +78,10 @@ export function stackedBars(months, names, { w = 340, h = 150, what = 'Moves lan
       let base = 0
       return `<g>${m.counts.map((c, j) => {
         if (!c) return ''
-        const r = `<rect class="g${j}" x="${x.toFixed(1)}" y="${y(base + c).toFixed(1)}" width="${bw.toFixed(1)}" height="${(c / top * ih).toFixed(1)}"><title>${esc(m.label)}: ${c} ${esc(names[j].toLowerCase())}</title></rect>`
+        const r = `<rect class="${classes[j]}" x="${x.toFixed(1)}" y="${y(base + c).toFixed(1)}" width="${bw.toFixed(1)}" height="${(c / top * ih).toFixed(1)}"><title>${esc(m.label)}: ${c} ${esc(names[j].toLowerCase())}</title></rect>`
         base += c
         return r
-      }).join('')}<text class="axis" x="${(x + bw / 2).toFixed(1)}" y="${h - 6}" text-anchor="middle">${esc(m.label)}</text></g>`
+      }).join('')}${months.length > 8 && (months.length - 1 - i) % 2 ? '' : `<text class="axis" x="${(x + bw / 2).toFixed(1)}" y="${h - 6}" text-anchor="middle">${esc(m.label)}</text>`}</g>`
     }).join('')}
   </svg>`
 }
@@ -100,5 +102,22 @@ export function butterfly(rows, { w = 320, row = 22 } = {}) {
         ${r.landed ? `<text class="axis" x="${(mid + lw + 4).toFixed(1)}" y="${cy + bh / 2 + 4}">${r.landed}</text>` : ''}`
     }).join('')}
     <line class="grid" x1="${mid}" x2="${mid}" y1="14" y2="${h - 2}"/>
+  </svg>`
+}
+
+// A simple trend line for any number, with a formatter for the axis. Gaps (null) are skipped.
+export function trendLine(points, { w = 340, h = 120, fmt = String, what = '' } = {}) {
+  const pL = 38, pR = 10, pT = 10, pB = 22, iw = w - pL - pR, ih = h - pT - pB
+  const vals = points.map(p => p.v).filter(v => v != null)
+  if (!vals.length) return ''
+  const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.15 || hi * 0.1 || 1, min = lo - pad, max = hi + pad
+  const x = i => pL + (points.length < 2 ? iw / 2 : i * iw / (points.length - 1)), y = v => pT + ih - (v - min) / (max - min) * ih
+  const dots = points.map((p, i) => p.v == null ? null : [x(i), y(p.v), p]).filter(Boolean)
+  const every = Math.ceil(points.length / 6)
+  return `<svg class="chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(what + ': ' + points.filter(p => p.v != null).map(p => `${p.label} ${fmt(p.v)}`).join(', '))}">
+    ${[min + pad, max - pad].map(v => `<line class="grid" x1="${pL}" x2="${w - pR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text class="axis" x="${pL - 6}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${esc(fmt(v))}</text>`).join('')}
+    ${points.map((p, i) => i % every ? '' : `<text class="axis" x="${x(i).toFixed(1)}" y="${h - 6}" text-anchor="middle">${esc(p.label)}</text>`).join('')}
+    ${dots.length > 1 ? `<path class="line" d="M${dots.map(d => d[0].toFixed(1) + ',' + d[1].toFixed(1)).join(' L')}"/>` : ''}
+    ${dots.map(d => `<circle class="dot" cx="${d[0].toFixed(1)}" cy="${d[1].toFixed(1)}" r="3.5"><title>${esc(d[2].label)}: ${esc(fmt(d[2].v))}</title></circle>`).join('')}
   </svg>`
 }

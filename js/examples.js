@@ -1,4 +1,4 @@
-// Example entries so a fresh journal shows what it does. All marked example: true, removable from Stats.
+// Example entries so a fresh journal shows what it does. All marked example: true, removable from You → Profile.
 import { S } from './store.js'
 import { FEELS, PLAN_HIT, PROMPTS } from './vocab.js'
 import { byDateAsc, daysAgo, ym } from './util.js'

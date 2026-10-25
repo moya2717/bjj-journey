@@ -1,14 +1,8 @@
-import { S, allRecords, eraseEverything, removeMany, save, saveMany } from '../store.js'
-import { ACTIVITY_TYPES, BELT_LOOK, FEELS, PLACES, POSITIONS, RANKS } from '../vocab.js'
-import { $, byDateAsc, dayPart, daysAgo, esc, fmtDate, fmtMonthY, hrs, monthLabel, newId, pct, plural, rate, span, sum, toast, today, trunc, ym } from '../util.js'
-import { field, selectEl, armDelete, openSheet, radioChips } from '../sheet.js'
-import { ageDivision, currentRank, rankName } from '../model.js'
+import { S } from '../store.js'
+import { ACTIVITY_TYPES, FEELS, POSITIONS } from '../vocab.js'
+import { dayPart, daysAgo, esc, hrs, monthLabel, pct, plural, rate, sum, ym } from '../util.js'
 import { areaCounts, bodyInsights, monthlySeries, moveTrends, problemTrends, weeklyStreak } from '../analysis.js'
 import { butterfly, heatmap, lineChart, spark, stackedBars } from '../charts.js'
-import { exportBackup, importBackup } from '../backup.js'
-import { exampleRecords } from '../examples.js'
-import { previewImport } from './importing.js'
-import { addPhotos, hydratePhotos, photoURL, removePhotos } from '../photos.js'
 
 export function view() {
   const month = ym(new Date()), thisMonth = S.session.filter(s => s.date.startsWith(month))
@@ -20,9 +14,8 @@ export function view() {
     .filter(x => x.f || x.r).sort((a, b) => (b.f + b.r) - (a.f + a.r))
   const maxAttention = Math.max(1, ...positions.map(x => x.f + x.r))
 
-  return `<h1 class="sr">Profile and stats</h1>
+  return `<h1 class="sr">Stats</h1>
   <div class="stat-grid">
-    ${profilePanel()}
     <h2 class="section-title wide">Training</h2>
     <section class="panel wide"><h2>Consistency</h2>
       <div class="figures">
@@ -49,192 +42,7 @@ export function view() {
       <thead><tr><th scope="col">Month</th><th scope="col">Sessions</th><th scope="col">Mat hours</th><th scope="col">Rolls logged</th><th scope="col">Broke down</th><th scope="col">Success</th></tr></thead>
       <tbody>${series.slice().reverse().map(s => `<tr><td>${monthLabel(s.m)}</td><td>${s.sessions}</td><td>${hrs(s.minutes)}</td><td>${s.n}</td><td>${s.broke}</td><td>${pct(s.rate)}</td></tr>`).join('')}</tbody></table></div>
     </section>
-    <h2 class="section-title wide">Settings</h2>
-    ${dataPanel()}
   </div>`
-}
-
-export function mount(root) {
-  hydratePhotos(root)
-  $('#weekly-target')?.addEventListener('change', e => save({ ...S.settings, weeklyTarget: Math.max(1, Math.min(14, parseInt(e.target.value, 10) || 3)) }))
-  $('#import-file')?.addEventListener('change', async e => {
-    const file = e.target.files[0]
-    e.target.value = ''
-    if (!file) return
-    try {
-      const n = await importBackup(file)
-      toast(n.records ? `Restored ${plural(n.records, 'entry', 'entries')}${n.photos ? ` and ${plural(n.photos, 'photo')}` : ''}` : 'That file has no journal entries.')
-    } catch { toast('That file isn’t a journal backup.') }
-  })
-  $('#other-app-file')?.addEventListener('change', async e => {
-    const files = [...e.target.files]
-    e.target.value = ''
-    if (files.length) previewImport(files)
-  })
-}
-
-// ---------- Fighter profile ----------
-
-// The fighter card: your belt as a banner, the numbers that matter, and a tale of the tape.
-function profilePanel() {
-  const P = S.profile, rank = currentRank(), look = BELT_LOOK[rank.belt] || BELT_LOOK.White
-  const wins = sum(P.tournaments, 'wins'), losses = sum(P.tournaments, 'losses')
-  const medals = place => P.tournaments.filter(t => t.place === place).length
-  const sinceRank = S.session.filter(s => !rank.since || s.date >= rank.since)
-  const initials = (P.name || 'You').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
-  const tiles = [
-    [P.startDate ? span(P.startDate) : '—', 'training'],
-    [S.session.length, plural(S.session.length, 'session').replace(/^\d+ /, '')],
-    [hrs(sum(S.session, 'minutes')), 'mat hours'],
-    [`${wins}–${losses}`, 'match record'],
-  ]
-  return `<section class="fighter-card wide" aria-labelledby="fp-h" style="--fc-belt:${look.belt};--fc-ink:${look.ink};--fc-muted:${look.muted};--fc-bar:${look.bar}">
-    <div class="fc-banner">
-      <div class="fc-bar" aria-hidden="true">${'<i></i>'.repeat(Math.min(4, rank.stripes))}</div>
-      <button class="btn sm fc-edit" data-act="edit-profile">${P.createdAt ? 'Edit' : 'Set up profile'}</button>
-      <div class="fc-id">
-        ${P.photo ? `<button class="fc-avatar" data-act="view-photo" data-id="${P.photo}" aria-label="Open profile photo"><img data-photo="${P.photo}" alt=""></button>` : `<button class="fc-avatar fc-initials" data-act="edit-profile" aria-label="Add a profile photo">${esc(initials)}</button>`}
-        <div class="fc-names">
-          <h2 id="fp-h">${esc(P.name || 'Your name')}</h2>
-          <p>${esc(rankName(rank))}</p>
-          ${P.gym || P.team ? `<p class="fc-gym">${esc([P.gym, P.team].filter(Boolean).join(' · '))}</p>` : ''}
-        </div>
-      </div>
-    </div>
-    <div class="fc-tiles">${tiles.map(([v, l]) => `<div><span class="fc-num">${esc(v)}</span><span class="fc-lbl">${esc(l)}</span></div>`).join('')}</div>
-    <div class="fc-body">
-      ${taleOfTheTape(P, rank, sinceRank)}
-      ${P.goal ? `<p class="profile-goal">“${esc(P.goal)}”</p>` : ''}
-      ${medals('Gold') + medals('Silver') + medals('Bronze') ? `<div class="fc-medals">${[['Gold', 'gold'], ['Silver', 'silver'], ['Bronze', 'bronze']].filter(([k]) => medals(k)).map(([k, c]) => `<span class="medal ${c}">${medals(k)} × ${k}</span>`).join('')}</div>` : ''}
-    </div>
-  </section>
-  ${rankPanel(P)}
-  ${tournamentPanel(P)}`
-}
-
-// Like the stat comparison before a fight: only what you've filled in.
-function taleOfTheTape(P, rank, sinceRank) {
-  const age = ageDivision(P.birthday)
-  const rows = [
-    ['Age', age && `${age.age} · ${age.label}`],
-    ['Height', P.height], ['Weight', [P.weight, P.weightClass].filter(Boolean).join(' · ')],
-    ['Plays', P.game], ['Coach', P.coach],
-    ['Training since', P.startDate && fmtMonthY(P.startDate)],
-    ['At this rank', rank.since && `${span(rank.since)} · ${plural(sinceRank.length, 'session')}, ${hrs(sum(sinceRank, 'minutes'))} hrs`],
-  ].filter(([, v]) => v)
-  return `<div class="tape"><h3>Tale of the tape</h3>
-    ${rows.length ? `<dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
-    ${rows.length < 4 ? `<p class="small muted">Add your birthday, weight, height and coach in <button class="link" data-act="edit-profile">Edit profile</button> to fill this in.</p>` : ''}</div>`
-}
-
-function rankPanel(P) {
-  const promotions = [...P.promotions].sort(byDateAsc).reverse()
-  return `<section class="panel"><div class="history-head"><h2 style="margin:0">Rank history</h2><button class="btn sm ghost" data-act="new-promo">Add promotion</button></div>
-    ${promotions.length ? `<ol class="rank-line">${promotions.map((p, i) => {
-      const look = BELT_LOOK[p.belt] || BELT_LOOK.White
-      return `<li class="${i === 0 ? 'current' : ''}">
-        <span class="mini-belt" style="background:${look.belt}" aria-hidden="true"><span style="background:${look.bar}">${'<i></i>'.repeat(Math.min(4, +p.stripes || 0))}</span></span>
-        <div class="what"><strong>${esc(rankName(p))}</strong><span class="small muted">${fmtMonthY(p.date)}${promotions[i + 1] ? ` · after ${span(promotions[i + 1].date, p.date)}` : ''}${i === 0 ? ' · current' : ''}</span>
-          ${p.note ? `<p class="small muted">${esc(p.note)}</p>` : ''}</div>
-        <button class="mini" data-act="edit-promo" data-id="${p.id}">Edit</button></li>`
-    }).join('')}</ol>` : '<p class="muted small" style="margin-top:8px">Add each belt and stripe with its date. Your header and fighter card take your belt color, and time at each rank shows here.</p>'}
-  </section>`
-}
-
-function tournamentPanel(P) {
-  const tournaments = [...P.tournaments].sort(byDateAsc).reverse()
-  return `<section class="panel"><div class="history-head"><h2 style="margin:0">Competition</h2><button class="btn sm ghost" data-act="new-comp">Add tournament</button></div>
-    ${tournaments.length ? `<div class="stack" style="margin-top:10px">${tournaments.map(t => `<div class="comp-row">
-      <span class="medal-dot ${t.place && t.place !== 'No medal' ? esc(t.place.toLowerCase()) : ''}" aria-hidden="true">${t.place === 'Gold' ? '1' : t.place === 'Silver' ? '2' : t.place === 'Bronze' ? '3' : '–'}</span>
-      <div class="what"><strong>${esc(t.name)}</strong><span class="small muted">${fmtMonthY(t.date)}${t.division ? ` · ${esc(t.division)}` : ''} · ${+t.wins || 0}–${+t.losses || 0}</span></div>
-      <button class="mini" data-act="edit-comp" data-id="${t.id}">Edit</button></div>`).join('')}</div>`
-      : '<p class="muted small" style="margin-top:8px">Log each event with your division, your record and the main lesson. Plan the next one under You → Compete.</p>'}
-  </section>`
-}
-
-const saveProfile = patch => save({ ...S.profile, ...patch, id: 'profile_main', kind: 'profile', example: false })
-
-const GAMES = ['Gi', 'No-gi', 'Both']
-
-function profileForm() {
-  const P = S.profile, rank = currentRank()
-  let newPhoto = null
-  openSheet(P.createdAt ? 'Edit profile' : 'Set up your profile', `
-    <div class="fighter-id"><span class="avatar" id="pf-avatar">${P.photo ? '<img alt="" id="pf-img">' : ''}</span>
-      <label class="btn sm ghost file-btn">${P.photo ? 'Change photo' : 'Add a photo'}<input type="file" id="pf-file" accept="image/*"></label></div>
-    ${field('Name', `<input type="text" name="name" id="pf-name" value="${esc(P.name)}" placeholder="What your training partners call you">`)}
-    <div class="grid2">
-      ${field('Academy', `<input type="text" name="gym" id="pf-gym" value="${esc(P.gym)}" placeholder="Where you train">`)}
-      ${field('Team or affiliation', `<input type="text" name="team" id="pf-team" value="${esc(P.team || '')}" placeholder="Association your gym belongs to">`)}
-    </div>
-    <div class="grid2">
-      ${field('Coach', `<input type="text" name="coach" id="pf-coach" value="${esc(P.coach || '')}" placeholder="Head instructor">`)}
-      ${field('Started training', `<input type="date" name="startDate" id="pf-start" value="${esc(P.startDate)}">`)}
-    </div>
-    <fieldset><legend>Current rank</legend><div class="grid3">
-      ${field('Belt', selectEl('belt', RANKS, rank.belt, 'id="pf-belt"'))}
-      ${field('Stripes', selectEl('stripes', ['0', '1', '2', '3', '4'], String(rank.stripes), 'id="pf-stripes"'))}
-      ${field('Since', `<input type="date" name="since" id="pf-since" value="${esc(rank.since || today())}">`)}
-    </div><p class="hint">Changing your belt or stripes here adds a promotion to your history.</p></fieldset>
-    <div class="grid3">
-      ${field('Birthday', `<input type="date" name="birthday" id="pf-bday" value="${esc(P.birthday || '')}">`)}
-      ${field('Body weight', `<input type="text" name="weight" id="pf-weight" value="${esc(P.weight || '')}" placeholder="170 lb">`)}
-      ${field('Height', `<input type="text" name="height" id="pf-height" value="${esc(P.height || '')}" placeholder="5 ft 10">`)}
-    </div>
-    <div class="grid2">
-      ${field('Weight class', `<input type="text" name="weightClass" id="pf-class" value="${esc(P.weightClass || '')}" placeholder="Medium heavy">`)}
-      <fieldset><legend>You train</legend>${radioChips('game', GAMES, P.game || '')}</fieldset>
-    </div>
-    ${field('Long-term goal', `<textarea name="goal" id="pf-goal" rows="2" placeholder="Earn my purple belt and compete at Pans">${esc(P.goal || '')}</textarea>`)}`, {
-    submitLabel: 'Save profile',
-    onMount: async form => {
-      // A new rank starts today unless you pick another date.
-      const since = form.querySelector('#pf-since')
-      ;['#pf-belt', '#pf-stripes'].forEach(sel => form.querySelector(sel).addEventListener('change', () => {
-        const changed = form.elements.belt.value !== rank.belt || +form.elements.stripes.value !== rank.stripes
-        since.value = changed ? today() : rank.since || today()
-      }))
-      if (P.photo) form.querySelector('#pf-img').src = await photoURL(P.photo)
-      form.querySelector('#pf-file').addEventListener('change', e => {
-        newPhoto = e.target.files[0] || null
-        if (newPhoto) form.querySelector('#pf-avatar').innerHTML = `<img alt="" src="${URL.createObjectURL(newPhoto)}">`
-      })
-    },
-    onSubmit: async fd => {
-      const patch = {}
-      ;['name', 'gym', 'team', 'coach', 'startDate', 'birthday', 'weight', 'height', 'weightClass', 'goal'].forEach(k => patch[k] = (fd.get(k) || '').trim())
-      patch.game = fd.get('game') || ''
-      if (newPhoto) {
-        const [id] = await addPhotos([newPhoto])
-        if (id) { if (P.photo) removePhotos([P.photo]); patch.photo = id }
-      }
-      const belt = fd.get('belt'), stripes = +fd.get('stripes') || 0
-      if (belt !== rank.belt || stripes !== rank.stripes) {
-        patch.promotions = [...S.profile.promotions, { id: newId('promo'), date: fd.get('since') || today(), belt, stripes, note: '' }]
-      }
-      saveProfile(patch)
-      toast('Profile saved')
-    },
-  })
-}
-
-function promotionForm(id) {
-  const rank = currentRank()
-  const p = id ? S.profile.promotions.find(x => x.id === id) : { date: today(), belt: rank.belt, stripes: Math.min(4, rank.stripes + (S.profile.promotions.length ? 1 : 0)), note: '' }
-  if (!p) return
-  openSheet(id ? 'Edit promotion' : 'Add a promotion', `
-    <div class="grid3">${field('Date', `<input type="date" name="date" id="pr-date" value="${esc(p.date)}" required>`)}${field('Belt', selectEl('belt', RANKS, p.belt))}${field('Stripes', selectEl('stripes', ['0', '1', '2', '3', '4'], String(p.stripes || 0)))}</div>
-    ${field('Note', `<textarea name="note" id="pr-note" rows="2" placeholder="Who promoted you, what you’d been working on, how it felt">${esc(p.note)}</textarea>`)}
-    <p class="form-error" id="form-error"></p>`, {
-    submitLabel: id ? 'Save changes' : 'Add promotion',
-    onDelete: id ? () => saveProfile({ promotions: S.profile.promotions.filter(x => x.id !== id) }) : null,
-    onSubmit: fd => {
-      if (!fd.get('date')) { $('#form-error').textContent = 'Add the date of the promotion.'; return false }
-      const rec = { ...p, id: id || newId('promo'), date: fd.get('date'), belt: fd.get('belt'), stripes: +fd.get('stripes') || 0, note: fd.get('note').trim() }
-      saveProfile({ promotions: id ? S.profile.promotions.map(x => x.id === id ? rec : x) : [...S.profile.promotions, rec] })
-      toast(id ? 'Promotion saved' : 'Congratulations. Promotion added')
-    },
-  })
 }
 
 // ---------- Strengths and trouble areas ----------
@@ -260,7 +68,7 @@ function movesPanel() {
   if (!t.landed && !t.caught) return `<section class="panel wide"><h2>Moves in your rolls</h2><p class="muted">Add the moves you used when you log a roll, and mark each one landed, tried or caught by. Your offense, control and defense trends show up here.</p></section>`
   const max = Math.max(1, ...[...t.topLanded, ...t.topCaught].map(x => x.n))
   const top = (list, cls, none) => list.length ? `<div class="bars">${list.map(x => `<div class="bar-row"><span>${esc(x.tech.name)}</span><div class="meter ${cls}"><span style="width:${x.n / max * 100}%"></span></div><span class="n">${x.n}</span></div>`).join('')}</div>` : `<p class="muted small">${none}</p>`
-  return `<section class="panel wide"><h2>Moves in your rolls</h2>
+  return `<section class="panel wide" id="moves"><h2>Moves in your rolls</h2>
     <div class="trend-grid">
       <div><h3 style="margin-bottom:10px">Moves landed by month</h3>${t.months.some(m => m.counts.some(Boolean)) ? stackedBars(t.months, t.groups) : '<p class="muted small">Nothing landed in the last 12 months.</p>'}
         <p class="key" aria-hidden="true">${t.groups.map((g, i) => `<span><i class="g${i}"></i>${g}</span>`).join('')}</p></div>
@@ -295,12 +103,12 @@ function bodyPanel() {
   const { dims, findings, min } = bodyInsights()
   const used = dims.filter(d => d.tagged)
   if (!used.length) return `<section class="panel"><h2>Energy, sleep and injuries</h2><p class="muted">Tap your energy and sleep when you log training, and tag sessions you train around an injury. Once there’s enough, this panel shows whether they change how your rolls go.</p></section>`
-  return `<section class="panel wide"><h2>Energy, sleep and injuries</h2>
+  return `<section class="panel wide" id="body"><h2>Energy, sleep and injuries</h2>
     ${findings.length ? findings.map(f => `<div class="callout"><p class="insight">${esc(f.text)}</p><p class="small muted">${esc(f.detail)}</p></div>`).join('')
       : `<p class="muted">No clear pattern yet. A finding shows once a group has ${min.sessions}+ sessions and ${min.rolls}+ rolls on each side of the comparison, and the gap is bigger than chance would explain.</p>`}
-    <div class="trend-grid" style="margin-top:14px">${used.map(d => `<div><h3 style="margin-bottom:8px">${esc(d.title)}</h3><div class="table-scroll"><table>
+    <div class="trend-grid" style="margin-top:14px">${used.map(d => `<div><h3 style="margin-bottom:8px">${esc(d.title)}</h3><table class="fit">
       <thead><tr><th scope="col">${esc(d.title)}</th><th scope="col">Sessions</th><th scope="col">Rolls</th><th scope="col">Broke down</th><th scope="col">Success</th></tr></thead>
-      <tbody>${d.rows.map(r => `<tr><td>${esc(r.label)}</td><td>${r.sessions}</td><td>${r.rolls}</td><td>${r.rolls ? pct(r.broke / r.rolls) : '—'}</td><td>${pct(r.rate)}</td></tr>`).join('')}</tbody></table></div></div>`).join('')}</div>
+      <tbody>${d.rows.map(r => `<tr><td>${esc(r.label)}</td><td>${r.sessions}</td><td>${r.rolls}</td><td>${r.rolls ? pct(r.broke / r.rolls) : '—'}</td><td>${pct(r.rate)}</td></tr>`).join('')}</tbody></table></div>`).join('')}</div>
     <p class="small muted" style="margin-top:10px">Only rolls logged with a session count. Injury-free means no injury was active in your log that day. A pattern here is a lead to test, not proof: tiredness, partners and what you were working on all move these numbers.</p>
   </section>`
 }
@@ -338,40 +146,4 @@ function trendsPanel() {
       <div><h3>Causes</h3><p class="small muted">Share of all logged rolls that went wrong for this reason</p>${causes.length ? trendRows(causes.slice(0, 8), t => `${pct(t.prev)} → ${pct(t.cur)} of rolls`) : '<p class="muted">No causes ticked yet.</p>'}</div>
       <div><h3>Problem spots</h3><p class="small muted">Share of rolls from that spot that went wrong</p>${trendRows(spots, t => `${pct(t.prev)} → ${pct(t.cur)} went wrong`)}</div>
     </div></section>`
-}
-
-// ---------- Settings and data ----------
-
-function dataPanel() {
-  const last = S.settings.lastBackup, hasExamples = allRecords().some(r => r.example)
-  return `<section class="panel wide"><h2>Settings and backups</h2>
-    <label class="setting"><span>Weekly session target</span><input type="number" id="weekly-target" min="1" max="14" inputmode="numeric" value="${esc(S.settings.weeklyTarget || 3)}"></label>
-    <p class="small muted" style="margin-top:10px;max-width:70ch">Your journal lives only on this device and works without internet. Nobody else can see it. Back it up now and then: on iPhone, choose “Save to Files” so it lands in iCloud Drive. ${last ? `Last backup: ${fmtDate(last)}.` : '<strong>No backup yet.</strong>'}</p>
-    <div class="data-actions">
-      <button class="btn sm" data-act="export">Back up now</button>
-      <label class="btn ghost sm file-btn">Restore from a backup<input type="file" id="import-file" accept="application/json,.json,.zip,application/zip"></label>
-      <label class="btn ghost sm file-btn">Import from another app<input type="file" id="other-app-file" multiple accept=".csv,.tsv,.txt,.json,text/csv,application/json"></label>
-      ${hasExamples ? '<button class="btn ghost sm" data-act="remove-examples">Remove example entries</button>' : '<button class="btn ghost sm" data-act="load-examples">Load example entries</button>'}
-      <button class="btn danger sm" data-act="clear-all">Delete everything</button>
-    </div>
-  </section>`
-}
-
-export const actions = {
-  'edit-profile': () => profileForm(),
-  'new-promo': () => promotionForm(),
-  'edit-promo': el => promotionForm(el.dataset.id),
-  'export': async () => { try { if (await exportBackup()) toast('Backup ready') } catch { toast('Couldn’t make the backup. Try again.') } },
-  'load-examples': async () => { await saveMany(exampleRecords()); toast('Example entries added. Remove them here when you’re ready.') },
-  // Returning false keeps the button on screen so the second tap can confirm.
-  'remove-examples': async el => {
-    if (!armDelete(el, () => {})) return false
-    await removeMany(allRecords().filter(r => r.example))
-    toast('Example entries removed')
-  },
-  'clear-all': async el => {
-    if (!armDelete(el, () => {})) return false
-    await eraseEverything()
-    toast('Everything deleted')
-  },
 }

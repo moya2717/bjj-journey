@@ -17,4 +17,5 @@ export const UI = {
   libQ: '',
   libGroup: '',
   libScope: 'mine',
+  loadBy: 'week',
 }
