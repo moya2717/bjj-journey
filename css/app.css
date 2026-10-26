@@ -1080,7 +1080,7 @@ dialog.viewer::backdrop{background:#000}
 .move-line{display:flex;justify-content:space-between;gap:8px}
 
 /* ---------- Character: avatar, stats, story, shop, quests, level up ---------- */
-.avatar{display:block;width:100%;height:auto}
+.char-av{display:block;width:100%;height:auto}
 .char-top{display:flex;gap:16px;align-items:flex-start}
 .char-avatar{flex:none;width:124px;border-radius:18px;box-shadow:var(--glow)}
 .char-info{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
@@ -1107,7 +1107,7 @@ dialog.viewer::backdrop{background:#000}
 .shop-item.locked{opacity:.75}
 .shop-item .btn{margin-top:auto;align-self:flex-start}
 .shop-name{font-weight:700;font-size:.92rem}
-.avatar.mini{width:64px;border-radius:12px}
+.char-av.mini{width:64px;border-radius:12px}
 .ability-icon{display:flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:12px;font-size:1.9rem;color:var(--neon);background:var(--surface);border:1px solid var(--edge-strong)}
 .swatch{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px;border:1px solid rgba(0,0,0,.2)}
 .quests{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r);padding:14px;box-shadow:var(--shadow-1);margin-bottom:16px;display:flex;flex-direction:column;gap:8px;border-top:3px solid var(--neon-2)}
@@ -1127,13 +1127,13 @@ dialog.viewer::backdrop{background:#000}
 .quest-foot{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .quest-foot .card-link{margin:0}
 .widget.char-widget{grid-column:1/-1;flex-direction:row;align-items:center;gap:14px}
-.avatar.sm{flex:none;width:72px;border-radius:14px}
+.char-av.sm{flex:none;width:72px;border-radius:14px}
 .cw-body{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .cw-name{font-stretch:110%;font-weight:800;font-size:1.25rem;line-height:1.15;overflow-wrap:anywhere}
 dialog.levelup{border:0;padding:0;margin:auto;background:transparent;width:min(340px,calc(100% - 32px));max-width:none;border-radius:var(--r-lg);box-shadow:none;overflow:visible;animation:none}
 dialog.levelup::backdrop{background:rgba(0,0,0,.55)}
 .levelup-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding:22px 20px 20px;border-radius:var(--r-lg);background:var(--surface);color:var(--ink);border:1px solid color-mix(in srgb,var(--neon) 60%,transparent);box-shadow:var(--glow),var(--shadow-2)}
-.levelup-card .avatar{width:150px;border-radius:18px}
+.levelup-card .char-av{width:150px;border-radius:18px}
 .levelup-card h2{font-stretch:125%;font-weight:850;font-size:2.2rem;letter-spacing:-.02em;background:linear-gradient(90deg,var(--neon),var(--neon-2));-webkit-background-clip:text;background-clip:text;color:transparent}
 .levelup-card p{margin:0}
 .burst{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:inherit}
@@ -1147,3 +1147,14 @@ dialog.levelup::backdrop{background:rgba(0,0,0,.55)}
   .burst i:nth-child(1){--a:0deg}.burst i:nth-child(2){--a:30deg}.burst i:nth-child(3){--a:60deg}.burst i:nth-child(4){--a:90deg}.burst i:nth-child(5){--a:120deg}.burst i:nth-child(6){--a:150deg}.burst i:nth-child(7){--a:180deg}.burst i:nth-child(8){--a:210deg}.burst i:nth-child(9){--a:240deg}.burst i:nth-child(10){--a:270deg}.burst i:nth-child(11){--a:300deg}.burst i:nth-child(12){--a:330deg}
   @keyframes fly{0%{opacity:1;transform:translate(-50%,-50%) rotate(var(--a)) translateY(0)}100%{opacity:0;transform:translate(-50%,-50%) rotate(var(--a)) translateY(-130px)}}
 }
+.shop-shelves{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:10px -4px 12px;padding:2px 4px}
+.shop-shelves::-webkit-scrollbar{display:none}
+.shop-shelves .pill{flex:none}
+.tier{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;font-weight:800;color:var(--muted)}
+.tier.rare{color:var(--mat)}
+.tier.epic{color:var(--neon-2)}
+.tier.legendary{color:#D97706}
+.shop-item .char-av.mini{width:72px}
+.grade-row.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.grade.got{border-color:var(--worked)}.grade.drill{border-color:var(--partial)}.grade.coach{border-color:var(--mat)}
+.grade .small{text-align:center}

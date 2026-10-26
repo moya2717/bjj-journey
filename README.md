@@ -40,7 +40,7 @@ The bar at the bottom has five sections. Each one holds a few screens, shown as 
 | **Home** | Your overview: what keeps going wrong, what to work on next, whether you’re improving |
 | **Journal** | Calendar · Rolls · Matchups |
 | **Game** | Sequences (with the quiz) · Moves · Live roll |
-| **Learn** | Resources · Study (review deck, video study, fixes) |
+| **Learn** | Resources · Study (scenario review, video study, fixes) |
 | **You** | Profile & stats · Compete · Achievements |
 
 Tap a section twice to go back to its first screen. The round **+** button logs training from anywhere.
@@ -68,7 +68,7 @@ Importing the same file again fills in mat time and rolls that an earlier import
 
 ## Study
 
-- **Review deck:** every move you’ve seen, starred, drilled or put in a sequence becomes a flash card. Recall it, flip it to check against your own notes, and grade yourself. Cards you know come back less often; cards you forget come back tomorrow. Up to 10 new cards a day.
+- **Scenario review:** up to 5 situations a week from your own rolls: rounds that broke down, experiments you planned, your weakest sequence step and moves you keep getting caught by. Picture your answer, then reveal your notes, the matching fix and what comes next. Answer Got it, Need to drill (plans it for your next session) or Ask coach (adds a coach question).
 - **Mastery levels:** each move climbs from *seen it* → *drilled it* → *hit it in sparring* → *hit it on a higher belt*. Your logs fill these in (drilling, reps, rolls that worked, submission wins in competition); tap the level on any move to raise it yourself.
 - **Video study:** log instructionals and match study with timestamped notes. YouTube timestamps link to that moment, and notes tied to a move are copied into its Library notes.
 - **Mistakes and fixes:** every roll cause (grips, base, frames…) has the usual errors behind it, cues to fix it and a drill. Tap a cause on any roll note to open it.
@@ -130,7 +130,7 @@ js/maps.js            ready-made game maps (decision trees) shown in Resources
 js/resources.js       curated learning links shown in Resources
 js/importer.js        reads CSV/JSON exports from other training apps
 js/zip.js             reads and writes .zip files (imports and backups)
-js/srs.js             review deck scheduling (spaced repetition)
+js/scenarios.js       scenario review: weekly situations from your rolls
 js/fixes.js           mistake and fix cards for each roll cause
 js/views/*.js         one file per tab; each exports view(), an optional mount(), and its actions
 ```

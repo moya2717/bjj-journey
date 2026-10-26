@@ -143,8 +143,8 @@ function buildAchievements() {
     n => n === 1 ? 'First live roll submission' : `${n} live roll submissions`, n => `Finish ${plural(n, 'live roll')} by submission`))
   out.push(...family('Study', 'video-hours', S.study.map(v => ({ date: v.date, amount: (+v.minutes || 0) / 60 })), [1, 5, 10, 25, 50],
     n => `${n} hours of video study`, n => `Log ${plural(n, 'hour')} of instructionals or match study`))
-  out.push(...family('Study', 'reviews', (S.settings.reviewLog || []).map(date => ({ date, amount: 1 })), [10, 50, 250, 1000, 5000],
-    n => `${big(n)} cards reviewed`, n => `Review ${big(n)} cards in your deck`))
+  out.push(...family('Study', 'scenarios', (S.settings.scenarioLog || []).map(a => ({ date: a.date, amount: 1 })), [5, 25, 100, 250],
+    n => `${big(n)} scenarios reviewed`, n => `Think through ${big(n)} scenarios in Study`))
   out.push(...family('Study', 'learned', count(allTechs().filter(t => masteryOf(t).level >= 3), t => firstLiveSuccess(t.id) || (t.updatedAt ? isoDate(new Date(t.updatedAt)) : today())), [5, 15, 30, 60, 100],
     n => `${n} moves hit in sparring`, n => `Reach “hit it in sparring” on ${n} moves`))
   out.push(...family('Study', 'higher-belt', count(allTechs().filter(t => masteryOf(t).level >= 4), t => firstLiveSuccess(t.id) || (t.updatedAt ? isoDate(new Date(t.updatedAt)) : today())), [1, 5, 15, 30],

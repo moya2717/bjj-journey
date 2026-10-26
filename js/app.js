@@ -85,7 +85,7 @@ function render() {
     app.animate?.([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'cubic-bezier(.32,.72,0,1)' })
   shownView = UI.view
   // The log button would cover the answer buttons while you're quizzing or reviewing.
-  $('.fab').hidden = (UI.view === 'sequences' && !!UI.quiz) || (UI.view === 'study' && !!UI.review) || (UI.view === 'sim' && !!UI.sim)
+  $('.fab').hidden = (UI.view === 'sequences' && !!UI.quiz) || (UI.view === 'study' && !!UI.scenario) || (UI.view === 'sim' && !!UI.sim)
 }
 
 // The header is your belt: its color follows your rank, and the tape on the bar

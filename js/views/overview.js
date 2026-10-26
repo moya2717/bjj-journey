@@ -4,7 +4,7 @@ import { byDateAsc, byDateDesc, cap, daysAgo, isoDate, parseD, esc, fmtDate, hrs
 import { MOVE_OUTCOMES, allTechs, currentRank, nodePath, rankName, rollTechId, seqById, techById } from '../model.js'
 import { areaCounts, badSpots, bodyInsights, hardestMatchup, monthlySeries, moveTrends, problemTrends, techStats, unpromoted, weakestStep } from '../analysis.js'
 import { lineChart } from '../charts.js'
-import { dueCards } from '../srs.js'
+import { thisWeek as scenarioWeek } from '../scenarios.js'
 import { computeAchievements, goalStatus, progressOf } from '../achievements.js'
 import { activeInjuries, duration, injuriesOf, injuryName } from '../body.js'
 import { fmtDist, loadTrend, runStats } from '../load.js'
@@ -111,7 +111,7 @@ const backupDue = () => (S.session.length + S.roll.length + S.activity.length + 
   && (!S.settings.lastBackup || S.settings.lastBackup < daysAgo(30)) && !(S.settings.backupSnooze >= daysAgo(6))
 
 function nudges() {
-  const due = dueCards().length
+  const due = scenarioWeek().left.length
   const next = [...S.profile.tournaments].sort(byDateAsc).find(t => t.date >= today())
   const days = next && Math.round((parseD(next.date) - parseD(today())) / 864e5)
   const hurt = activeInjuries()
@@ -120,7 +120,7 @@ function nudges() {
     backupDue() && `<div class="nudge backup"><span><strong>Back up your journal.</strong> ${S.settings.lastBackup ? `Last backup ${fmtDate(S.settings.lastBackup)}.` : 'It only lives on this phone.'}</span>
       <span class="row-actions"><button class="btn sm" data-act="export">Back up now</button><button class="btn sm ghost" data-act="backup-snooze">Not now</button></span></div>`,
     hurt.length && `<button class="nudge hurt" data-act="tab" data-view="injuries"><strong>${hurt.length === 1 ? 'Active injury' : hurt.length + ' active injuries'}</strong> ${esc(hurt.slice(0, 2).map(i => `${injuryName(i)}, ${duration(i).toLowerCase()}`).join('; '))}${hurt.length > 2 ? '…' : ''}</button>`,
-    due && `<button class="nudge" data-act="tab" data-view="study"><strong>${due}</strong> ${due === 1 ? 'card' : 'cards'} to review today</button>`,
+    due && `<button class="nudge" data-act="tab" data-view="study"><strong>${due}</strong> ${due === 1 ? 'scenario' : 'scenarios'} to think through this week</button>`,
     next && days <= 90 && `<button class="nudge" data-act="tab" data-view="compete"><strong>${days === 0 ? 'Today' : days + (days === 1 ? ' day' : ' days')}</strong> until ${esc(next.name)}</button>`,
   ].filter(Boolean)
   return items.length ? `<div class="nudges">${items.join('')}</div>` : ''

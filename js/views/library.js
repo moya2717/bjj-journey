@@ -82,8 +82,7 @@ function techForm(id) {
     ${custom ? `<div class="grid2">${field('Position', selectEl('position', LIBRARY_GROUPS, t.position))}${field('Type', selectEl('type', TECH_TYPES, t.type))}</div>` : `<p class="hint">${esc(t.position)} · ${esc(t.type)}</p>`}
     ${field('Key details', `<textarea name="notes" id="t-notes" rows="4" placeholder="The two or three details that make it work for you">${esc(t.notes)}</textarea>`)}
     ${field('Video or reference link', `<input type="url" name="link" id="t-link" value="${esc(t.link)}" placeholder="https://youtube.com/…" inputmode="url">`)}
-    <div class="chips"><label class="chip"><input type="checkbox" name="starred" ${t.starred ? 'checked' : ''}><span>★ In my moves</span></label>
-      <label class="chip"><input type="checkbox" name="deck" ${t.type !== 'Movement' && (t.deck ?? masteryOf(t).level >= 1) ? 'checked' : ''}><span>In my review deck</span></label></div>
+    <div class="chips"><label class="chip"><input type="checkbox" name="starred" ${t.starred ? 'checked' : ''}><span>★ In my moves</span></label></div>
     <p class="form-error" id="form-error"></p>`, {
     submitLabel: id ? 'Save' : 'Add move',
     deleteLabel: custom ? 'Delete move' : 'Clear my notes',
@@ -93,7 +92,7 @@ function techForm(id) {
       if (!name) { $('#form-error').textContent = 'Give the move a name.'; return false }
       const link = fd.get('link').trim()
       if (link && !/^https?:\/\//i.test(link)) { $('#form-error').textContent = 'Links start with https://'; return false }
-      const rec = { ...(own || {}), id: id || newId('tech'), kind: 'tech', notes: fd.get('notes').trim(), link, starred: fd.has('starred'), deck: fd.has('deck') }
+      const rec = { ...(own || {}), id: id || newId('tech'), kind: 'tech', notes: fd.get('notes').trim(), link, starred: fd.has('starred') }
       if (custom) Object.assign(rec, { name, position: fd.get('position'), type: fd.get('type') })
       save(rec)
       toast(id ? 'Move saved' : 'Move added to your library')

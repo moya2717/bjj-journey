@@ -1,5 +1,5 @@
-// Study: the daily review deck, video study notes, and fixes for what keeps going wrong.
-import { S, save, saveMany, remove } from '../store.js'
+// Study: scenario review, video study notes, and fixes for what keeps going wrong.
+import { S, saveMany, remove } from '../store.js'
 import { UI } from '../ui.js'
 import { REASONS } from '../vocab.js'
 import { $, $$, byDateDesc, daysAgo, esc, fmtDate, hrs, newId, plural, sum, toast, today, trunc } from '../util.js'
@@ -7,15 +7,15 @@ import { field, openSheet, techSelect } from '../sheet.js'
 import { techById } from '../model.js'
 import { videoSearch } from '../catalog.js'
 import { FIXES } from '../fixes.js'
-import { cardPrompt, deck, dueCards, followUps, intervalLabel, nextDue, schedule } from '../srs.js'
+import { ANSWERS, PER_WEEK, scenarioLog, thisWeek } from '../scenarios.js'
 import { hydratePhotos } from '../photos.js'
 import { masteryButton } from './library.js'
 
 export function view() {
-  return `<div class="page-head"><div><h1>Study</h1><p class="lede">A few minutes a day: recall your moves, keep notes from what you watch, and fix what keeps going wrong.</p></div>
+  return `<div class="page-head"><div><h1>Study</h1><p class="lede">Think through the rounds that went wrong, keep notes from what you watch, and fix what keeps going wrong.</p></div>
     <div class="head-actions"><button class="btn ghost" data-act="new-study">Log video study</button></div></div>
     <div class="stat-grid">
-      <section class="panel wide">${UI.review ? reviewCard() : reviewIntro()}</section>
+      <section class="panel wide">${UI.scenario ? scenarioCard() : scenarioIntro()}</section>
       ${videoPanel()}
       ${fixesPanel()}
     </div>`
@@ -25,47 +25,42 @@ export function mount(root) {
   hydratePhotos(root)
 }
 
-// ---------- Review deck ----------
+// ---------- Scenario review ----------
 
-function reviewIntro() {
-  const due = dueCards(), size = deck().length, next = nextDue()
-  const reviewedToday = (S.settings.reviewLog || []).filter(d => d === today()).length
-  if (!size) return `<h2>Review deck</h2><p class="muted">Moves join your deck once you’ve seen them: star a move under Game → Moves, add it to a sequence, or log drilling it.</p>`
-  return `<h2>Review deck</h2>
-    <div class="figures">
-      <div class="figure"><div class="big">${due.length}</div><div class="lbl">cards due today</div></div>
-      <div class="figure"><div class="big">${size}</div><div class="lbl">moves in your deck</div></div>
-      <div class="figure"><div class="big">${reviewedToday}</div><div class="lbl">reviewed today</div></div>
+function scenarioIntro() {
+  const { done, left } = thisWeek()
+  const head = `<h2>Scenario review</h2><p class="small muted" style="margin:-6px 0 12px;max-width:70ch">Up to ${PER_WEEK} situations a week from your own rolls. Picture what you’d do, then check it against your notes and fixes.</p>`
+  if (!S.roll.length) return head + '<p class="muted">Log a few rolls, especially the ones that went wrong. Your scenarios are built from them.</p>'
+  return head + `<div class="figures">
+      <div class="figure"><div class="big">${left.length}</div><div class="lbl">left this week</div></div>
+      <div class="figure"><div class="big">${done}</div><div class="lbl">done this week</div></div>
     </div>
-    <p class="small muted" style="margin:8px 0 12px;max-width:70ch">Say the answer out loud or picture it before you flip the card. Grading honestly is what makes the schedule work.</p>
-    ${due.length ? `<button class="btn" data-act="review-start">Start review</button>` : `<p>You’re done for today.${next ? ` Next card is due ${fmtDate(next)}.` : ''}</p>`}`
+    ${left.length ? `<button class="btn" data-act="scenario-start">Start scenarios</button>`
+      : `<p>${done ? 'That’s this week done. New scenarios come on Monday.' : 'Nothing to review right now. Rolls that break down and experiments you plan turn into scenarios.'}</p>`}`
 }
 
-function reviewCard() {
-  const r = UI.review, t = techById(r.queue[r.i])
-  if (!t) { UI.review = null; return reviewIntro() }
-  const follow = followUps(t)
-  const grades = [['again', 'Forgot'], ['hard', 'Hard'], ['good', 'Got it'], ['easy', 'Easy']]
-  return `<div class="quiz-head"><span class="small muted">Card ${r.i + 1} of ${r.queue.length}</span><button class="btn sm ghost" data-act="review-stop">Stop</button></div>
+function scenarioCard() {
+  const r = UI.scenario, sc = r.queue[r.i]
+  if (!sc) { UI.scenario = null; return scenarioIntro() }
+  const fix = sc.fix, move = techById(sc.focus.techId)
+  return `<div class="quiz-head"><span class="small muted">Scenario ${r.i + 1} of ${r.queue.length}</span><button class="btn sm ghost" data-act="scenario-stop">Stop</button></div>
     <div class="meter mat quiz-progress"><span style="width:${r.i / r.queue.length * 100}%"></span></div>
-    <p class="tag pos quiz-context">${esc(t.position)} · ${esc(t.type)}${t.srs ? '' : ' · new card'}</p>
-    <h2 class="quiz-prompt">${esc(t.name)}</h2>
-    <p>${esc(cardPrompt(t))}</p>
-    ${!r.shown ? `<div class="row-actions" style="margin-top:16px"><button class="btn" data-act="review-show">Show my notes</button></div>` : `
+    <p class="tag pos quiz-context">${esc(sc.tag)}</p>
+    <h2 class="quiz-prompt">${esc(sc.prompt)}</h2>
+    ${!r.shown ? `<p class="small muted">Picture it or say it out loud first.</p><div class="row-actions" style="margin-top:12px"><button class="btn" data-act="scenario-show">Show my notes and fixes</button></div>` : `
       <div class="review-back">
-        <h3>Your notes</h3>
-        ${t.notes ? `<p style="white-space:pre-line">${esc(t.notes)}</p>` : `<p class="muted">No notes yet. Write your key details so next time you have something to check against.</p>`}
-        ${follow.length ? `<h3>In your sequences</h3><ul class="small" style="margin:0;padding-left:18px">${follow.map(f => `<li>${f.who === 'them' ? 'They: ' : 'You: '}${esc(f.label)} <span class="muted">(${esc(f.seq)})</span></li>`).join('')}</ul>` : ''}
-        ${(t.photos || []).length ? `<div class="photos">${t.photos.slice(0, 4).map(id => `<button data-act="view-photo" data-id="${id}" aria-label="Open photo"><img data-photo="${id}" alt=""></button>`).join('')}</div>` : ''}
-        <div class="row-actions">
-          <a class="btn sm ghost" href="${esc(t.link || videoSearch(t.name))}" target="_blank" rel="noopener noreferrer">${t.link ? 'My link' : 'Find videos'}</a>
-          <button class="btn sm ghost" data-act="edit-tech" data-id="${esc(t.id)}">Edit notes</button>
-          ${masteryButton(t)}
-        </div>
+        ${sc.what ? `<h3>What happened</h3><p class="quote">“${esc(sc.what)}”</p>` : ''}
+        ${sc.tryNext ? `<h3>Your plan</h3><p>${esc(sc.tryNext.text)} <span class="tag ${sc.tryNext.status === 'worked' ? 'good' : sc.tryNext.status === 'failed' ? 'bad' : ''}">${sc.tryNext.status === 'open' ? 'not tested yet' : sc.tryNext.status === 'worked' ? 'worked' : 'didn’t work'}</span></p>` : ''}
+        ${sc.notes ? `<h3>Your note on this step</h3><p>${esc(sc.notes)}</p>` : ''}
+        ${fix ? `<h3>Fix: ${esc(fix.reason)}</h3><ul class="small fix-list">${fix.cues.map(c => `<li>${esc(c)}</li>`).join('')}</ul><p class="small"><b>Drill:</b> ${esc(fix.drill)}</p>` : ''}
+        ${sc.next ? `<h3>What comes next</h3><p class="small muted">${esc(sc.next.from)}</p><ul class="small fix-list">${sc.next.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}
+        ${move ? `<div class="row-actions">
+          <a class="btn sm ghost" href="${esc(move.link || videoSearch(move.name))}" target="_blank" rel="noopener noreferrer">${move.link ? 'My link' : 'Find videos'}</a>
+          <button class="btn sm ghost" data-act="edit-tech" data-id="${esc(move.id)}">${esc(move.name)}: notes</button>
+          ${masteryButton(move)}</div>` : ''}
       </div>
-      <p class="small muted" style="margin-top:14px">How well did you remember it?</p>
-      <div class="grade-row">${grades.map(([g, label]) => `<button class="grade ${g}" data-act="review-grade" data-grade="${g}"><span>${label}</span><span class="small">${intervalLabel(schedule(t.srs, g).interval)}</span></button>`).join('')}</div>
-      <button class="link small" style="margin-top:10px" data-act="review-remove">Take this move out of my deck</button>`}`
+      <p class="small muted" style="margin-top:14px">How did your answer hold up?</p>
+      <div class="grade-row three">${Object.entries(ANSWERS).map(([k, label]) => `<button class="grade ${k}" data-act="scenario-answer" data-answer="${k}"><span>${label}</span><span class="small">${{ got: 'I had it', drill: 'Plan it next class', coach: 'Add a coach question' }[k]}</span></button>`).join('')}</div>`}`
 }
 
 // ---------- Video study ----------
@@ -165,27 +160,25 @@ function fixesPanel() {
 }
 
 export const actions = {
-  'review-start': () => { UI.review = { queue: dueCards().map(t => t.id), i: 0, shown: false }; scrollTo(0, 0) },
-  'review-show': () => { UI.review.shown = true },
-  'review-stop': () => { UI.review = null },
-  'review-grade': el => {
-    const r = UI.review, t = techById(r.queue[r.i])
-    const own = S.tech.find(x => x.id === t.id) || { id: t.id, kind: 'tech' }
-    const updates = [{ ...own, srs: schedule(t.srs, el.dataset.grade) }]
-    const day = S.settings.srsDay?.date === today() ? S.settings.srsDay : { date: today(), newCount: 0 }
-    updates.push({ ...S.settings, srsDay: t.srs ? day : { ...day, newCount: day.newCount + 1 }, reviewLog: [...(S.settings.reviewLog || []), today()].slice(-5000) })
+  'scenario-start': () => { UI.scenario = { queue: thisWeek().left, i: 0, shown: false }; scrollTo(0, 0) },
+  'scenario-show': () => { UI.scenario.shown = true },
+  'scenario-stop': () => { UI.scenario = null },
+  // Need to drill plans it for your next session; Ask coach adds the question to your latest session.
+  'scenario-answer': el => {
+    const r = UI.scenario, sc = r.queue[r.i], answer = el.dataset.answer
+    const settings = { ...S.settings, scenarioLog: [...scenarioLog(), { date: today(), id: sc.id, answer }].slice(-2000) }
+    const updates = [settings]
+    if (answer === 'drill') settings.nextPlan = sc.focus
+    if (answer === 'coach') {
+      const last = [...S.session].sort(byDateDesc)[0]
+      if (last) updates.push({ ...last, coachQ: last.coachQ && !last.coachAnswered ? `${last.coachQ} · ${sc.coachQ}` : sc.coachQ, coachAsked: false, coachAnswered: false })
+      else settings.nextPlan = { text: `Ask coach: ${sc.coachQ}`, techId: '', seqId: '' }
+    }
     r.i++
     r.shown = false
-    if (r.i >= r.queue.length) { UI.review = null; toast(`Review done: ${plural(r.queue.length, 'card')}`) }
+    if (r.i >= r.queue.length) UI.scenario = null
     saveMany(updates)
-  },
-  'review-remove': () => {
-    const r = UI.review, t = techById(r.queue[r.i]), own = S.tech.find(x => x.id === t.id) || { id: t.id, kind: 'tech' }
-    r.queue.splice(r.i, 1)
-    r.shown = false
-    if (r.i >= r.queue.length) UI.review = null
-    save({ ...own, deck: false })
-    toast(`${t.name} removed from your deck`)
+    toast(answer === 'drill' ? 'Planned for your next session' : answer === 'coach' ? 'Added to your coach questions' : UI.scenario ? 'Nice. Next one.' : 'Scenarios done for now')
   },
   'new-study': () => studyForm(),
   'edit-study': el => studyForm(el.dataset.id),
