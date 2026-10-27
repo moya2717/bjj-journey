@@ -2,6 +2,7 @@ import { S } from '../store.js'
 import { cap, daysAgo, esc, pct, plural, rate } from '../util.js'
 import { partnerNames } from '../model.js'
 import { breakSummary, hardestMatchup, matchupGroups } from '../analysis.js'
+import { fold } from './hub.js'
 
 function table(rows, firstColumn) {
   return `<div class="table-scroll"><table><thead><tr><th scope="col" class="l">${esc(firstColumn)}</th><th scope="col">Rolls</th><th scope="col">Success</th><th scope="col">vs everyone else</th><th scope="col" class="l">Usually goes wrong at</th><th scope="col" class="l">Main cause</th></tr></thead>
@@ -36,13 +37,11 @@ export function view() {
         ? `<p style="margin-top:8px;max-width:70ch">Your results drop most against <strong>${esc(hard.label)}</strong> partners: ${pct(hard.rate)} over ${plural(hard.n, 'roll')}, against ${pct(hard.others)} with everyone else.${hb.spot ? ` It mostly goes wrong at ${hb.spot}${hb.cause ? `, usually from ${esc(hb.cause.toLowerCase())}` : ''}.` : ''}</p>`
         : '<p class="muted" style="margin-top:8px">No matchup stands out yet. One shows up here once a group has at least 4 rolls and trails everyone else by 15 points or more.</p>'}
     </section>
-    <section class="panel wide">${matchupGroups(rolls).map(d => `<div class="mu-section"><h3>${d.title}</h3>
-      <p class="small muted" style="margin-bottom:6px">Partner ${d.what} noted on ${d.noted} of ${plural(rolls.length, 'roll')}</p>
-      ${d.rows.length ? table(d.rows, cap(d.what)) : `<p class="muted">Add partner ${d.what} when you log rolls to compare here.</p>`}</div>`).join('')}</section>
-    <section class="panel wide"><h2>Training partners</h2>
+    <div class="wide">${matchupGroups(rolls).map(d => fold('mu-' + d.what, `<b>${d.title}</b><span class="small muted">noted on ${d.noted} of ${rolls.length}</span>`,
+      d.rows.length ? table(d.rows, cap(d.what)) : `<p class="muted">Add partner ${d.what} when you log rolls to compare here.</p>`)).join('')}
+    ${fold('mu-partners', `<b>Training partners</b><span class="small muted">${plural(people.length, 'partner')}</span>`, `<div>
       ${people.length ? table(people, 'Partner') : '<p class="muted">Add partner names to your roll notes. Anyone you’ve rolled with at least twice shows up here.</p>'}
-      <p class="small muted" style="margin-top:10px">Small groups swing a lot. Treat a gap from 4 or 5 rolls as a question to test, not a conclusion.</p>
-    </section>
+      <p class="small muted" style="margin-top:10px">Small groups swing a lot. Treat a gap from 4 or 5 rolls as a question to test, not a conclusion.</p></div>`)}</div>
   </div>`
 }
 

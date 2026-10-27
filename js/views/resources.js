@@ -1,6 +1,7 @@
 import { S, save, remove } from '../store.js'
 import { UI } from '../ui.js'
-import { $, $$, esc, newId, plural, slug, toast } from '../util.js'
+import { $, esc, newId, plural, slug, sum, toast } from '../util.js'
+import { isOpen, more, subHead, subOf, tile } from './hub.js'
 import { field, openSheet } from '../sheet.js'
 import { masteryOf, techById } from '../model.js'
 import { masteryButton } from './library.js'
@@ -11,8 +12,7 @@ import { videoSearch } from '../catalog.js'
 const isAdded = map => S.seq.some(s => s.fromMap === map.id)
 
 // Fold-outs remember whether they're open, so ticking a box doesn't close them.
-const openState = new Set()
-const fold = key => `data-fold="${key}" ${openState.has(key) ? 'open' : ''}`
+const fold = key => `data-fold="${key}" ${isOpen(key) ? 'open' : ''}`
 
 function mapTree(map) {
   const children = parentId => map.nodes.filter(n => n.parentId === parentId)
@@ -46,35 +46,41 @@ const linkCard = (item, own) => `<div class="res-item">
   ${own ? `<div><button class="mini" data-act="edit-link" data-id="${item.id}">Edit</button></div>` : ''}
 </div>`
 
+// A tile per kind of resource; each opens as its own sub-screen.
 export function view() {
-  const mine = [...S.link].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-  return `<div class="page-head"><div><h1>Resources</h1><p class="lede">Game maps, belt checklists, the language of the mat and places to learn. Save your own links too.</p></div>
-    <div class="head-actions"><button class="btn" data-act="new-link">Save a link</button></div></div>
-    <nav class="jump" aria-label="On this page">${JUMPS.map(([id, label]) => `<button data-act="jump" data-target="${id}">${label}</button>`).join('')}</nav>
-    <section class="ach-section" id="res-maps"><h2>Game maps</h2>
+  const mine = [...S.link].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)), sub = subOf('resources')
+  const head = `<div class="page-head"><div><h1>Resources</h1><p class="lede">Game maps, belt checklists, the language of the mat and places to learn.</p></div>
+    <div class="head-actions"><button class="btn" data-act="new-link">Save a link</button></div></div>`
+  const group = RESOURCE_GROUPS.find(g => 'g:' + g.title === sub)
+  if (group) return subHead(group.title, 'Resources') + `<div class="res-grid">${group.items.map(i => linkCard(i, false)).join('')}</div>`
+  if (sub === 'maps') return subHead('Game maps', 'Resources') + `
       <p class="small muted" style="margin-bottom:10px;max-width:70ch">Decision trees for common positions: your move, how partners usually react, and an answer for each. Add one to Sequences, then edit it and log rolls against it.</p>
       ${MAP_GROUPS.map(([role, title]) => {
         const maps = GAME_MAPS.filter(m => m.role === role)
         return maps.length ? `<h3 class="map-group">${title} <span class="small muted">${maps.length}</span></h3><div class="stack">${maps.map(mapCard).join('')}</div>` : ''
-      }).join('')}
-    </section>
-    <section class="ach-section" id="res-belts"><h2>Belt checklists</h2>
+      }).join('')}`
+  if (sub === 'belts') return subHead('Belt checklists', 'Resources') + `
       <p class="small muted" style="margin-bottom:10px;max-width:70ch">The moves most coaches expect you to know before the next belt. Each climbs four levels: seen it, drilled it, hit it in sparring, hit it on a higher belt. Your logs fill these in; tap a level to raise it yourself.</p>
-      <div class="stack">${CHECKLISTS.map(checklist).join('')}</div>
-    </section>
-    <section class="ach-section" id="res-language"><h2>Know the language</h2><div class="stack">
-      <details class="map-card" ${fold('glossary')}><summary><span class="map-title">Glossary</span><span class="small muted">${GLOSSARY.length} terms you’ll hear on the mat</span></summary>
-        <dl class="glossary">${GLOSSARY.map(([term, meaning]) => `<dt>${esc(term)}</dt><dd>${esc(meaning)}</dd>`).join('')}</dl></details>
-      <details class="map-card" ${fold('points')}><summary><span class="map-title">Competition points</span><span class="small muted">IBJJF scoring at a glance</span></summary>
-        <div class="table-scroll" style="margin-top:10px"><table><thead><tr><th scope="col">Position</th><th scope="col">Points</th></tr></thead>
-          <tbody>${POINTS.table.map(([what, pts]) => `<tr><td>${esc(what)}</td><td>${pts}</td></tr>`).join('')}</tbody></table></div>
-        <ul class="small" style="margin:10px 0 0;padding-left:18px">${POINTS.notes.map(n => `<li style="margin:4px 0">${esc(n)}</li>`).join('')}</ul>
-        <p class="small muted" style="margin-top:8px">Rules change. Check the current rule book on <a href="https://ibjjf.com/" target="_blank" rel="noopener noreferrer">ibjjf.com</a> before you compete.</p></details>
-    </div></section>
-    <section class="ach-section" id="res-links"><h2>My links</h2>
-      ${mine.length ? `<div class="res-grid">${mine.map(l => linkCard(l, true)).join('')}</div>` : '<p class="muted">Save instructionals, videos and articles you want to come back to.</p>'}
-    </section>
-    ${RESOURCE_GROUPS.map(g => `<section class="ach-section"><h2>${esc(g.title)}</h2><div class="res-grid">${g.items.map(i => linkCard(i, false)).join('')}</div></section>`).join('')}`
+      <div class="stack">${CHECKLISTS.map(checklist).join('')}</div>`
+  if (sub === 'glossary') return subHead('Glossary', 'Resources') + `<p class="small muted">${GLOSSARY.length} terms you’ll hear on the mat</p>
+      <dl class="glossary">${GLOSSARY.map(([term, meaning]) => `<dt>${esc(term)}</dt><dd>${esc(meaning)}</dd>`).join('')}</dl>`
+  if (sub === 'points') return subHead('Competition points', 'Resources') + `<p class="small muted">IBJJF scoring at a glance</p>
+      <div class="table-scroll" style="margin-top:10px"><table><thead><tr><th scope="col">Position</th><th scope="col">Points</th></tr></thead>
+        <tbody>${POINTS.table.map(([what, pts]) => `<tr><td>${esc(what)}</td><td>${pts}</td></tr>`).join('')}</tbody></table></div>
+      <ul class="small" style="margin:10px 0 0;padding-left:18px">${POINTS.notes.map(n => `<li style="margin:4px 0">${esc(n)}</li>`).join('')}</ul>
+      <p class="small muted" style="margin-top:8px">Rules change. Check the current rule book on <a href="https://ibjjf.com/" target="_blank" rel="noopener noreferrer">ibjjf.com</a> before you compete.</p>`
+  if (sub === 'links') return subHead('My links', 'Resources') + `<div class="row-actions" style="margin-bottom:10px"><button class="btn sm" data-act="new-link">Save a link</button></div>
+      ${mine.length ? `<div class="res-grid">${more('links', mine, 10, l => linkCard(l, true))}</div>` : '<p class="muted">Save instructionals, videos and articles you want to come back to.</p>'}`
+  const added = GAME_MAPS.filter(isAdded).length
+  const lists = CHECKLISTS.map(list => list.moves.map(name => techById('c:' + slug(name))).filter(Boolean)), learned = sum(lists, l => l.filter(t => masteryOf(t).level >= 3).length)
+  return head + `<div class="dojo-tiles">
+      ${tile('maps', 'Game maps', GAME_MAPS.length, added ? `${added} in your sequences` : 'decision trees')}
+      ${tile('belts', 'Belt checklists', `${learned}<small>/${sum(lists, l => l.length)}</small>`, 'hit in sparring')}
+      ${tile('links', 'My links', mine.length, mine[0] ? esc(mine[0].name) : 'save your own')}
+      ${tile('glossary', 'Glossary', GLOSSARY.length, 'terms on the mat')}
+      ${tile('points', 'Points', POINTS.table.length, 'IBJJF scoring')}
+      ${RESOURCE_GROUPS.map(g => tile('g:' + g.title, esc(g.title), g.items.length, esc(g.items[0]?.name || ''))).join('')}
+    </div>`
 }
 
 function checklist(list) {
@@ -92,15 +98,7 @@ function checklist(list) {
   </details>`
 }
 
-const JUMPS = [['res-maps', 'Game maps'], ['res-belts', 'Belt checklists'], ['res-language', 'Glossary and points'], ['res-links', 'Links']]
 const MAP_GROUPS = [['Top', 'Attacking from top'], ['Bottom', 'From bottom'], ['Neutral', 'Standing']]
-
-export function mount(root) {
-  $$('details[data-fold]', root).forEach(d => d.addEventListener('toggle', () => {
-    if (d.open) openState.add(d.dataset.fold)
-    else openState.delete(d.dataset.fold)
-  }))
-}
 
 function linkForm(id) {
   const l = id ? S.link.find(x => x.id === id) : { name: '', url: '', note: '' }
@@ -121,7 +119,6 @@ function linkForm(id) {
 }
 
 export const actions = {
-  'jump': el => { document.getElementById(el.dataset.target)?.scrollIntoView({ block: 'start' }); return false },
   'new-link': () => linkForm(),
   'edit-link': el => linkForm(el.dataset.id),
   'add-map': el => {

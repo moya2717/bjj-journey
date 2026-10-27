@@ -3,13 +3,14 @@ import { UI } from '../ui.js'
 import { BELTS, POSITIONS, REASONS, RESULTS, SIZES, STYLES } from '../vocab.js'
 import { $, byDateDesc, esc, fmtDate, fmtDateLong, newId, posRole, toast, today, trunc } from '../util.js'
 import { field, selectEl, chipsEl, techSelect, openSheet } from '../sheet.js'
+import { more } from './hub.js'
 import { chainBuilder, readChain, rollFlow, setChainStart } from '../picker.js'
 import { MOVE_OUTCOMES, logMode, nodeDepth, nodePath, partnerNames, partnerProfile, rollTechId, seqById, sizeLabel, techById, treeOrder } from '../model.js'
 
 export function view() {
   return `<div class="page-head"><div><h1>Rolling analysis</h1><p class="lede">One note per key exchange: where it started, where it broke down, and what you’ll try next.</p></div>
     <div class="head-actions"><button class="btn" data-act="new-roll">Log a roll</button></div></div>
-    ${S.roll.length ? `<div class="filters">
+    ${S.roll.length ? `<div class="filters sticky-chips">
       ${field('Position', selectEl('', [{ value: '', label: 'All positions' }, ...POSITIONS], UI.rollPos, 'id="roll-pos"'))}
       ${field('Result', selectEl('', [{ value: '', label: 'All results' }, { value: 'broke', label: 'Broke down' }, { value: 'partial', label: 'Partly worked' }, { value: 'worked', label: 'Worked' }, { value: 'open', label: 'Has an untested “try next”' }], UI.rollRes, 'id="roll-res"'))}
     </div>` : ''}
@@ -17,8 +18,8 @@ export function view() {
 }
 
 export function mount() {
-  $('#roll-pos')?.addEventListener('change', e => { UI.rollPos = e.target.value; $('#roll-list').innerHTML = rollList() })
-  $('#roll-res')?.addEventListener('change', e => { UI.rollRes = e.target.value; $('#roll-list').innerHTML = rollList() })
+  $('#roll-pos')?.addEventListener('change', e => { UI.rollPos = e.target.value; UI.more.rolls = 0; $('#roll-list').innerHTML = rollList() })
+  $('#roll-res')?.addEventListener('change', e => { UI.rollRes = e.target.value; UI.more.rolls = 0; $('#roll-list').innerHTML = rollList() })
 }
 
 const isOpenExperiment = r => r.tryNext && (r.tryStatus || 'open') === 'open'
@@ -28,7 +29,7 @@ function rollList() {
   const list = [...S.roll].sort(byDateDesc)
     .filter(r => !UI.rollPos || r.position === UI.rollPos)
     .filter(r => !UI.rollRes || (UI.rollRes === 'open' ? isOpenExperiment(r) : r.result === UI.rollRes))
-  return list.length ? `<div class="stack">${list.map(rollCard).join('')}</div>` : '<p class="muted">No rolls match these filters.</p>'
+  return list.length ? `<div class="stack">${more('rolls', list, 6, rollCard)}</div>` : '<p class="muted">No rolls match these filters.</p>'
 }
 
 export function rollCard(r) {

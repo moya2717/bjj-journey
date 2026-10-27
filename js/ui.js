@@ -18,4 +18,6 @@ export const UI = {
   libGroup: '',
   libScope: 'mine',
   loadBy: 'week',
+  sub: {}, // the sub-screen each screen shows, '' for its tiles
+  more: {}, // how many items each long list shows
 }

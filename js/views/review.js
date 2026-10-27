@@ -4,14 +4,18 @@ import { $, esc, fmtDate, hrs, pct, plural, toast, today, trunc } from '../util.
 import { field, openSheet } from '../sheet.js'
 import { fmtDist } from '../load.js'
 import { logMode } from '../model.js'
+import { fold } from './hub.js'
 import { focusIdeas, openCoachQs, reviewWeek, todaysFocus, weekFocus, weekReview } from '../loop.js'
 
 const figure = (big, lbl) => `<div class="figure"><div class="big">${big}</div><div class="lbl">${lbl}</div></div>`
 const moveList = list => list.length ? `<ul class="list">${list.map(m => `<li class="move-line"><span>${esc(m.tech.name)}</span><span class="muted">× ${m.n}</span></li>`).join('')}</ul>` : '<p class="small muted">None logged this week.</p>'
 
+// The week at a glance and the one job (pick next week's focus) up top; the detail folds away.
 export function view() {
   // A simple log has no rolls, moves or plans to count, so those panels give way to your notes.
   const w = weekReview(), done = S.settings.reviewedWeek === w.from, detailed = logMode() === 'detailed'
+  const part = (key, title, peek, body) => body ? fold('week-' + key, `<b>${title}</b><span class="small muted">${peek}</span>`, body) : ''
+  const notes = notesPanel(w, detailed), qs = openCoachQs().length
   return `<div class="page-head"><div><h1>Week in review</h1><p class="lede">${fmtDate(w.from)} – ${fmtDate(w.to)}${w.back ? '' : ', so far'}. Filled in from your log; finish by picking one focus for next week.</p></div></div>
   <div class="stat-grid">
     <section class="panel"><h2>Training</h2><div class="figures tight">
@@ -20,19 +24,21 @@ export function view() {
       ${figure(w.ratio == null ? w.load : pct(w.ratio), w.ratio == null ? 'training load' : 'of your 4-week load')}
       ${figure(`${fmtDist(w.runs.dist)}<small> ${w.runs.unit}</small>`, plural(w.runs.n, 'run'))}
     </div>${w.ratio > 1.4 ? '<p class="small muted">Load was well above your average. Plan an easier start to next week.</p>' : ''}</section>
-    ${notesPanel(w, detailed)}
-    ${w.rolls.n || detailed ? `<section class="panel"><h2>Rolls</h2>${w.rolls.n ? `<div class="figures tight">
+    ${focusPanel(done)}
+    <div class="wide">
+    ${part('notes', 'From your notes', '', notes)}
+    ${part('rolls', 'Rolls', w.rolls.n ? `${w.rolls.worked} worked · ${w.rolls.broke} broke down` : 'none this week', w.rolls.n || detailed ? `<section class="panel"><h2>Rolls</h2>${w.rolls.n ? `<div class="figures tight">
       ${figure(w.rolls.worked, 'worked')}${figure(w.rolls.partial, 'partly')}${figure(w.rolls.broke, 'broke down')}</div>
       ${w.causes.length ? `<p class="sub">Top causes of breakdowns</p><div class="tags">${w.causes.map(([k, n]) => `<span class="tag bad">${esc(k)} · ${n}</span>`).join('')}</div>` : ''}`
-      : '<p class="small muted">No rolls logged this week.</p>'}</section>` : ''}
-    ${w.landed.length || w.caught.length || detailed ? `<section class="panel"><h2>Moves</h2><div class="trend-grid">
-      <div><p class="sub">Landed</p>${moveList(w.landed)}</div><div><p class="sub">Caught by</p>${moveList(w.caught)}</div></div></section>` : ''}
-    ${w.plan.n || w.plan.unrated || detailed ? `<section class="panel"><h2>Plan hit rate</h2>${w.plan.n
+      : '<p class="small muted">No rolls logged this week.</p>'}</section>` : '')}
+    ${part('moves', 'Moves', `${w.landed.length} landed · ${w.caught.length} caught by`, w.landed.length || w.caught.length || detailed ? `<section class="panel"><h2>Moves</h2><div class="trend-grid">
+      <div><p class="sub">Landed</p>${moveList(w.landed)}</div><div><p class="sub">Caught by</p>${moveList(w.caught)}</div></div></section>` : '')}
+    ${part('plan', 'Plan hit rate', w.plan.n ? pct(w.plan.hit / w.plan.n) : 'no plans rated', w.plan.n || w.plan.unrated || detailed ? `<section class="panel"><h2>Plan hit rate</h2>${w.plan.n
       ? `<div class="figures tight">${figure(pct(w.plan.hit / w.plan.n), `of ${plural(w.plan.n, 'planned session')} went to plan`)}</div><p class="small muted">Stuck to it counts 1, partly ½.</p>`
       : '<p class="small muted">No sessions with a plan and an answer this week. Pick one from Today’s focus on Home before class.</p>'}
-      ${w.plan.unrated ? `<p class="small muted">${plural(w.plan.unrated, 'session')} had a plan but no answer to “Did you stick to it?”.</p>` : ''}</section>` : ''}
-    ${coachPanel()}
-    ${focusPanel(done)}
+      ${w.plan.unrated ? `<p class="small muted">${plural(w.plan.unrated, 'session')} had a plan but no answer to “Did you stick to it?”.</p>` : ''}</section>` : '')}
+    ${part('coach', 'Questions for your coach', qs ? `${qs} open` : 'none open', coachPanel())}
+    </div>
   </div>`
 }
 

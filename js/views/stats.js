@@ -2,47 +2,73 @@ import { S } from '../store.js'
 import { ACTIVITY_TYPES, FEELS, POSITIONS } from '../vocab.js'
 import { dayPart, daysAgo, esc, hrs, monthLabel, pct, plural, rate, sum, ym } from '../util.js'
 import { areaCounts, bodyInsights, monthlySeries, moveTrends, problemTrends, weeklyStreak } from '../analysis.js'
-import { butterfly, heatmap, lineChart, spark, stackedBars } from '../charts.js'
+import { butterfly, heatmap, lineChart, spark, sparkBars, stackedBars } from '../charts.js'
+import { subHead, subOf, tile } from './hub.js'
 
+// A hero with this month's numbers and the calendar heatmap, then a tile per panel.
+// Each tile shows one number and opens the full panel as a sub-screen.
 export function view() {
   const month = ym(new Date()), thisMonth = S.session.filter(s => s.date.startsWith(month))
-  const series = monthlySeries(6), from = daysAgo(89)
-  const focus = {}, rolled = {}
-  S.session.filter(s => s.date >= from).forEach(s => (s.focus || []).forEach(p => focus[p] = (focus[p] || 0) + 1))
-  S.roll.filter(r => r.date >= from).forEach(r => rolled[r.position] = (rolled[r.position] || 0) + 1)
-  const positions = POSITIONS.map(p => ({ p, f: focus[p] || 0, r: rolled[p] || 0, rate: rate(S.roll.filter(r => r.date >= from && r.position === p)) }))
-    .filter(x => x.f || x.r).sort((a, b) => (b.f + b.r) - (a.f + a.r))
-  const maxAttention = Math.max(1, ...positions.map(x => x.f + x.r))
-
+  const sub = SUBS[subOf('stats')]
+  if (sub) return `<h1 class="sr">Stats</h1>${subHead(sub[0], 'Stats')}<div class="stat-grid">${sub[1]()}</div>`
   return `<h1 class="sr">Stats</h1>
-  <div class="stat-grid">
-    <h2 class="section-title wide">Training</h2>
-    <section class="panel wide"><h2>Consistency</h2>
-      <div class="figures">
+    <section class="panel stats-hero"><h2>Consistency</h2>
+      <div class="figures tight">
         <div class="figure"><div class="big">${thisMonth.length}</div><div class="lbl">sessions this month</div></div>
         <div class="figure"><div class="big">${hrs(sum(thisMonth, 'minutes'))}</div><div class="lbl">mat hours this month</div></div>
-        <div class="figure"><div class="big">${weeklyStreak()}</div><div class="lbl">week streak at ${S.settings.weeklyTarget || 3}+ sessions</div></div>
-        <div class="figure"><div class="big">${hrs(sum(S.session, 'minutes'))}</div><div class="lbl">mat hours logged in total</div></div>
+        <div class="figure"><div class="big">${weeklyStreak()}</div><div class="lbl">week streak at ${S.settings.weeklyTarget || 3}+</div></div>
+        <div class="figure"><div class="big">${hrs(sum(S.session, 'minutes'))}</div><div class="lbl">mat hours in total</div></div>
       </div>
       ${heatmap(26)}
     </section>
-    <section class="panel"><h2>Roll success by month</h2>${series.some(s => s.rate != null) ? lineChart(series, { w: 420, h: 170 }) : '<p class="muted">Log rolls to see this trend.</p>'}</section>
-    <section class="panel"><h2>Where your attention went, last 90 days</h2>
-      ${positions.length ? `<div class="bars">${positions.slice(0, 8).map(x => `<div class="bar-row"><span>${esc(x.p)}</span><div class="meter mat"><span style="width:${(x.f + x.r) / maxAttention * 100}%"></span></div><span class="n">${x.f + x.r}</span></div>`).join('')}</div>
-        <p class="small muted" style="margin-top:10px">Counts session focus plus roll notes from each position.</p>` : '<p class="muted">Nothing logged in the last 90 days.</p>'}
-    </section>
-    <h2 class="section-title wide">Your game</h2>
-    ${areasPanel()}
-    ${movesPanel()}
-    ${timeOfDayPanel()}
-    ${bodyPanel()}
-    ${otherTrainingPanel()}
-    ${trendsPanel()}
-    <section class="panel wide"><h2>Month by month</h2><div class="table-scroll"><table>
+    <div class="dojo-tiles">${Object.keys(TILES).map(k => statTile(k)).join('')}</div>`
+}
+
+// [label, () => [big number, short line, sparkline values]]
+export const TILES = {
+  success: ['Roll success', () => { const s = monthlySeries(6), cur = s.at(-1).rate ?? s.filter(x => x.rate != null).at(-1)?.rate; return [pct(cur), 'by month', s.map(x => x.rate)] }],
+  attention: ['Attention', () => { const p = attention(); return [p.length, p[0] ? esc(p[0].p) + ' most' : 'positions, 90 days'] }],
+  areas: ['Problem areas', () => { const bad = areaCounts('trouble', daysAgo(59)); return [bad.length, bad[0] ? esc(bad[0][0]) + ' most' : 'nothing flagged'] }],
+  moves: ['Moves in rolls', () => { const t = moveTrends(6); return [sum(t.months.at(-1).counts, x => x), t.topLanded[0] ? 'landed · ' + esc(t.topLanded[0].tech.name) : 'landed this month', t.months.map(m => sum(m.counts, x => x))] }],
+  body: ['Energy & sleep', () => { const f = bodyInsights().findings; return [f.length, f[0] ? esc(f[0].text) : 'no pattern yet'] }],
+  time: ['Time of day', () => { const t = S.session.filter(s => s.time), best = ['Morning', 'Afternoon', 'Evening'].map(p => [p, t.filter(s => dayPart(s.time) === p).length]).sort((a, b) => b[1] - a[1])[0]; return [t.length, t.length ? `timed · mostly ${best[0].toLowerCase()}` : 'add class times'] }],
+  other: ['Other training', () => { const r = S.activity.filter(a => a.date >= daysAgo(29)); return [hrs(sum(r, 'minutes')) + '<small>h</small>', 'outside BJJ, 30 days'] }],
+  problems: ['Problems over time', () => { const c = problemTrends().causes, g = c.filter(t => t.state === 'growing' || t.state === 'new'); return [g.length, g[0] ? 'growing · ' + esc(g[0].label) : c.length ? 'none growing' : 'tick causes', c[0]?.months.map(m => m.v)] }],
+  months: ['Month by month', () => { const s = monthlySeries(6); return [s.at(-1).sessions, 'sessions this month', s.map(x => x.sessions)] }],
+}
+export function statTile(k, view = '') {
+  const [label, f] = TILES[k], [big, small, values] = f()
+  return tile(k, label, big, small, { view, spark: values?.some(v => v) ? sparkBars(values) : '' })
+}
+
+const SUBS = {
+  success: ['Roll success by month', () => { const series = monthlySeries(6); return `<section class="panel wide">${series.some(s => s.rate != null) ? lineChart(series, { w: 420, h: 170 }) : '<p class="muted">Log rolls to see this trend.</p>'}</section>` }],
+  attention: ['Where your attention went', attentionPanel],
+  areas: ['Strengths and trouble areas', () => areasPanel()],
+  moves: ['Moves in your rolls', () => movesPanel()],
+  body: ['Energy, sleep and injuries', () => bodyPanel()],
+  time: ['Morning or evening?', () => timeOfDayPanel()],
+  other: ['Other training', () => otherTrainingPanel()],
+  problems: ['Problems over time', () => trendsPanel()],
+  months: ['Month by month', () => { const series = monthlySeries(6); return `<section class="panel wide"><div class="table-scroll"><table>
       <thead><tr><th scope="col">Month</th><th scope="col">Sessions</th><th scope="col">Mat hours</th><th scope="col">Rolls logged</th><th scope="col">Broke down</th><th scope="col">Success</th></tr></thead>
       <tbody>${series.slice().reverse().map(s => `<tr><td>${monthLabel(s.m)}</td><td>${s.sessions}</td><td>${hrs(s.minutes)}</td><td>${s.n}</td><td>${s.broke}</td><td>${pct(s.rate)}</td></tr>`).join('')}</tbody></table></div>
-    </section>
-  </div>`
+    </section>` }],
+}
+
+function attention() {
+  const from = daysAgo(89), focus = {}, rolled = {}
+  S.session.filter(s => s.date >= from).forEach(s => (s.focus || []).forEach(p => focus[p] = (focus[p] || 0) + 1))
+  S.roll.filter(r => r.date >= from).forEach(r => rolled[r.position] = (rolled[r.position] || 0) + 1)
+  return POSITIONS.map(p => ({ p, f: focus[p] || 0, r: rolled[p] || 0 })).filter(x => x.f || x.r).sort((a, b) => (b.f + b.r) - (a.f + a.r))
+}
+
+function attentionPanel() {
+  const positions = attention(), maxAttention = Math.max(1, ...positions.map(x => x.f + x.r))
+  return `<section class="panel wide"><h2>Last 90 days</h2>
+      ${positions.length ? `<div class="bars">${positions.slice(0, 8).map(x => `<div class="bar-row"><span>${esc(x.p)}</span><div class="meter mat"><span style="width:${(x.f + x.r) / maxAttention * 100}%"></span></div><span class="n">${x.f + x.r}</span></div>`).join('')}</div>
+        <p class="small muted" style="margin-top:10px">Counts session focus plus roll notes from each position.</p>` : '<p class="muted">Nothing logged in the last 90 days.</p>'}
+    </section>`
 }
 
 // ---------- Strengths and trouble areas ----------

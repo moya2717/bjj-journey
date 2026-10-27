@@ -3,17 +3,23 @@ import { POSITIONS, RESULTS } from '../vocab.js'
 import { byDateAsc, byDateDesc, cap, daysAgo, isoDate, parseD, esc, fmtDate, hrs, plural, pct, posRole, rate, span, sum, toast, today, topKeys, trunc, weekStart } from '../util.js'
 import { MOVE_OUTCOMES, allTechs, currentRank, nodePath, rankName, rollTechId, seqById, techById } from '../model.js'
 import { areaCounts, badSpots, bodyInsights, hardestMatchup, monthlySeries, moveTrends, problemTrends, techStats, unpromoted, weakestStep } from '../analysis.js'
-import { lineChart } from '../charts.js'
+import { lineChart, sparkBars } from '../charts.js'
+import { fold, moreButton, subHead, subOf, tile } from './hub.js'
+import { UI } from '../ui.js'
+import { questsOn } from '../game.js'
 import { thisWeek as scenarioWeek } from '../scenarios.js'
 import { computeAchievements, goalStatus, progressOf } from '../achievements.js'
 import { activeInjuries, duration, injuriesOf, injuryName } from '../body.js'
 import { fmtDist, loadTrend, runStats } from '../load.js'
 import { WIDGETS, homeWidgets } from './athlete.js'
-import { questBoard } from './character.js'
 import { TAG_LABELS, nextPlan, readiness, recentNotes, reviewDue, todaysFocus } from '../loop.js'
 
+// Above the fold: this week, quick actions and today's focus. Everything else is a compact
+// tile or a swipe row; the three questions open as sub-screens.
 export function view() {
-  const fresh = !S.session.length && !S.roll.length
+  const fresh = !S.session.length && !S.roll.length, sub = QUESTIONS[subOf('overview')]
+  if (sub && !fresh) return `<h1 class="sr">Home</h1>${subHead(sub[0], 'Home')}<article class="q q-${subOf('overview')}">${sub[1]()}${sub[2]}</article>`
+  const quests = questsOn(today()), done = quests.filter(q => q.done).length
   return `<h1 class="sr">Home</h1>
     ${thisWeek()}
     <div class="quick">
@@ -22,24 +28,34 @@ export function view() {
       <button class="btn ghost" data-act="new-roll">Log a roll</button>
       <button class="btn ghost" data-act="tab" data-view="sim">Live roll</button>
     </div>
-    ${questBoard()}
     ${fresh ? `<div class="empty-state">
       <h2>Start with one session</h2>
       <p>Log what you trained and how your rolls went. After a few weeks, Home answers three questions: what keeps going wrong, what to work on next, and whether your game is improving.</p>
       <div class="head-actions"><button class="btn ghost" data-act="load-examples">Load example entries</button></div>
-    </div>` : `${nudges()}
-    <div class="loop">${readinessCard()}${focusCard()}</div>
+    </div>` : `${focusCard()}
+    ${nudges()}
+    ${readinessCard()}
+    <button class="dojo-row" data-act="tab" data-view="quests"><span><b>Today’s quests</b><span class="small muted">${done} of ${quests.length} done</span></span><span aria-hidden="true">›</span></button>
     ${widgets()}
-    ${insights()}
     <h2 class="section-title">Your game, last 60 days</h2>
-    <div class="questions">
-      <article class="q q-wrong"><h2>What keeps going wrong?</h2>${whatGoesWrong()}<button class="card-link" data-act="tab" data-view="rolls">All your rolls</button></article>
-      <article class="q q-next"><h2>What should I work on next?</h2>${whatNext()}<button class="card-link" data-act="tab" data-view="sequences">Your sequences</button></article>
-      <article class="q q-improve"><h2>Is my game actually improving?</h2>${isImproving()}<button class="card-link" data-act="tab" data-view="stats">All your stats</button></article>
-    </div>
-    <section class="review" aria-labelledby="rv-h"><div class="review-head">
-      <div><h2 id="rv-h">Coaching review with Claude</h2><p class="lede">Packs your last 60 days of notes with a coaching prompt. Paste it into the Claude app for patterns, blind spots and questions to test on the mat.</p></div>
-      <div class="head-actions"><button class="btn" data-act="review">Copy for Claude</button></div></div></section>`}`
+    <div class="dojo-tiles">${gameTiles()}</div>
+    ${insights()}
+    <button class="dojo-row" data-act="review"><span><b>Coaching review with Claude</b><span class="small muted">Copy your last 60 days with a coaching prompt</span></span><span aria-hidden="true">›</span></button>`}`
+}
+
+// [title, body, link to the screen with more]
+const QUESTIONS = {
+  wrong: ['What keeps going wrong?', () => whatGoesWrong(), '<button class="card-link" data-act="tab" data-view="rolls">All your rolls</button>'],
+  next: ['What should I work on next?', () => whatNext(), '<button class="card-link" data-act="tab" data-view="sequences">Your sequences</button>'],
+  improve: ['Is my game actually improving?', () => isImproving(), '<button class="card-link" data-act="tab" data-view="stats">All your stats</button>'],
+}
+
+function gameTiles() {
+  const { bad, groups } = badSpots(daysAgo(59)), n = nextLists(), todo = n.experiments.length + n.proven.length + n.unanswered.length + n.coachQs.length
+  const v = verdictOf(), cur = rate(S.roll.filter(r => r.date >= daysAgo(29)))
+  return tile('wrong', 'Going wrong', bad.length, groups[0] ? posRole(groups[0].position, groups[0].role) : 'breakdowns')
+    + tile('next', 'Work on next', todo, todo ? 'to test or answer' : 'nothing open')
+    + tile('improve', 'Improving?', pct(cur), esc(v[1]), { spark: sparkBars(monthlySeries(6).map(s => s.rate)) })
 }
 
 // The hero: this week's sessions against your target, mat hours, run distance and load.
@@ -76,8 +92,8 @@ function insights() {
     spot && ['rolls', '', 'Keeps going wrong', `${posRole(spot.position, spot.role)}: ${plural(spot.n, 'breakdown')} in 60 days${topKeys(spot.reasons, 1)[0] ? `, mostly ${esc(topKeys(spot.reasons, 1)[0].toLowerCase())}` : ''}.`],
     body && !shown.includes('sleep') && ['stats', 'body', 'Energy, sleep and injuries', esc(body.text)],
     landed && !shown.includes('moves') && ['stats', 'moves', 'Your best move', `${esc(landed.tech.name)} is your most landed move, ${plural(landed.n, 'time')} so far.`],
-  ].filter(Boolean).slice(0, 2)
-  return list.length ? `<div class="insights">${list.map(([view, anchor, lbl, text]) => `<button class="insight-card" data-act="goto" data-view="${view}" data-anchor="${anchor}"><span class="w-lbl">${lbl}</span><span>${text}</span></button>`).join('')}</div>` : ''
+  ].filter(Boolean)
+  return list.length ? `<div class="insights swipe">${list.map(([view, anchor, lbl, text]) => `<button class="insight-card" data-act="goto" data-view="${view}" data-anchor="${anchor}"><span class="w-lbl">${lbl}</span><span>${text}</span></button>`).join('')}</div>` : ''
 }
 
 // ---------- Learning loop: readiness, today's focus ----------
@@ -85,24 +101,21 @@ function insights() {
 function readinessCard() {
   const r = readiness(), t = r.tags, checked = t.from === 'check-in'
   const pick = (k, v, l) => `<button class="pill" data-act="checkin" data-k="${k}" data-v="${v}" aria-pressed="${checked && t[k] === v}">${l}</button>`
-  return `<section class="ready ready-${r.level}" aria-labelledby="ready-h">
-    <p class="w-lbl" id="ready-h">Readiness</p>
-    <p class="ready-verdict">${r.known ? r.label : 'Check in to get a suggestion'}</p>
-    ${r.known ? `<p class="small">${r.why.length ? esc(cap(r.why.join(', '))) + '.' : 'Nothing in your log says to change course.'}</p>` : ''}
+  return `<div class="ready ready-${r.level}">${fold('ready', `<span><span class="w-lbl">Readiness</span><span class="ready-verdict">${r.known ? r.label : 'Check in'}</span></span>`, `<div class="ready-body">
+    ${r.known ? `<p class="small">${r.why.length ? esc(cap(r.why.join(', '))) + '.' : 'Nothing in your log says to change course.'}</p>` : '<p class="small">Tap how you feel to get a suggestion for today.</p>'}
     <div class="checkin">${Object.entries(TAG_LABELS).map(([k, opts]) => `<div class="checkin-row"><span class="small muted">${cap(k)}</span>${Object.entries(opts).map(([v, l]) => pick(k, v, l)).join('')}</div>`).join('')}</div>
-    <p class="small muted">A suggestion from your log, not medical advice. Listen to your body and your coach.</p>
-  </section>`
+    <p class="small muted">A suggestion from your log, not medical advice. Listen to your body and your coach.</p></div>`)}</div>`
 }
 
 function focusCard() {
-  const list = todaysFocus(), plan = nextPlan()
+  const list = todaysFocus(), plan = nextPlan(), items = list.filter(f => f.text !== plan?.text)
   return `<section class="focus" aria-labelledby="focus-h">
     <div class="history-head"><h2 id="focus-h">Today’s focus</h2><button class="card-link" data-act="tab" data-view="review">Week in review</button></div>
     ${plan ? `<div class="callout"><p class="small muted">Planned for your next session</p><p><strong>${esc(plan.text)}</strong></p>
       <div class="row-actions"><button class="btn sm" data-act="new-session">Log it</button><button class="btn sm ghost" data-act="clear-plan">Clear</button></div></div>` : ''}
     ${list.length ? '' : '<p class="small muted">After class, write down something to fix. It shows up here as one thing to bring to your next class. Rolls, sequences and drills add more ideas.</p>'}
-    <ul class="list">${list.filter(f => f.text !== plan?.text).map(f => `<li class="focus-item"><span><b>${esc(f.text)}</b><span class="small muted">${esc(f.why)}</span></span>
-      <span class="row-actions">${f.seqId ? `<button class="btn sm ghost" data-act="open-seq" data-id="${esc(f.seqId)}">Open</button>` : ''}<button class="btn sm" data-act="plan-focus" data-i="${list.indexOf(f)}">Plan it</button></span></li>`).join('')}</ul>
+    <ul class="list">${items.slice(0, UI.more.focus || 2).map(f => `<li class="focus-item"><span><b>${esc(f.text)}</b><span class="small muted">${esc(f.why)}</span></span>
+      <span class="row-actions">${f.seqId ? `<button class="btn sm ghost" data-act="open-seq" data-id="${esc(f.seqId)}">Open</button>` : ''}<button class="btn sm" data-act="plan-focus" data-i="${list.indexOf(f)}">Plan it</button></span></li>`).join('')}</ul>${moreButton('focus', items.length, 2)}
   </section>`
 }
 
@@ -168,14 +181,20 @@ function whatGoesWrong() {
 // Your own words from recent logs, for a journal that doesn't track rolls in detail.
 const noteList = (key, title) => `<p class="sub">${title}</p><ul class="list">${recentNotes(key, 59).slice(0, 3).map(s => `<li><p>${esc(s[key])}</p><p class="small muted">${fmtDate(s.date)}</p></li>`).join('')}</ul>`
 
-function whatNext() {
+function nextLists() {
   const { groups } = badSpots(daysAgo(59))
   const frequency = Object.fromEntries(groups.map(g => [g.position + '|' + (g.role || ''), g.n]))
   const spotOf = r => frequency[r.position + '|' + (r.role || '')] || 0
-  const experiments = S.roll.filter(r => r.tryNext && (r.tryStatus || 'open') === 'open').sort((a, b) => spotOf(b) - spotOf(a) || a.date.localeCompare(b.date))
-  const proven = unpromoted()
-  const unanswered = S.seq.flatMap(s => s.nodes.filter(n => n.who === 'them' && !s.nodes.some(c => c.parentId === n.id)).map(node => ({ seq: s, node })))
-  const coachQs = S.session.filter(s => s.coachQ && !s.coachAsked).sort(byDateDesc)
+  return {
+    experiments: S.roll.filter(r => r.tryNext && (r.tryStatus || 'open') === 'open').sort((a, b) => spotOf(b) - spotOf(a) || a.date.localeCompare(b.date)),
+    proven: unpromoted(),
+    unanswered: S.seq.flatMap(s => s.nodes.filter(n => n.who === 'them' && !s.nodes.some(c => c.parentId === n.id)).map(node => ({ seq: s, node }))),
+    coachQs: S.session.filter(s => s.coachQ && !s.coachAsked).sort(byDateDesc),
+  }
+}
+
+function whatNext() {
+  const { experiments, proven, unanswered, coachQs } = nextLists()
   const behind = S.goal.map(g => ({ g, ...goalStatus(g) })).filter(x => x.state === 'behind')
   const almost = computeAchievements().filter(a => !a.unlockedOn && progressOf(a) >= 0.7).sort((a, b) => progressOf(b) - progressOf(a)).slice(0, 2)
   const struggling = allTechs().map(t => ({ t, ...techStats(t.id) })).filter(x => x.n >= 3 && x.rate < 0.4).sort((a, b) => a.rate - b.rate).slice(0, 2)
@@ -200,15 +219,20 @@ function whatNext() {
   return html
 }
 
+// The headline answer: comparing the last 30 days of rolls with the 30 before.
+function verdictOf() {
+  const a = daysAgo(29), b = daysAgo(59)
+  const cur = S.roll.filter(r => r.date >= a), prev = S.roll.filter(r => r.date >= b && r.date < a)
+  if (cur.length < 5 || prev.length < 5) return ['na', 'Not enough rolls logged yet to tell']
+  const d = Math.round((rate(cur) - rate(prev)) * 100)
+  return d >= 5 ? ['up', `Yes. Up ${d} points this month`] : d <= -5 ? ['down', `Not right now. Down ${-d} points`] : ['flat', 'Holding steady']
+}
+
 function isImproving() {
   const a = daysAgo(29), b = daysAgo(59)
   const cur = S.roll.filter(r => r.date >= a), prev = S.roll.filter(r => r.date >= b && r.date < a)
   const rc = rate(cur), rp = rate(prev)
-  let verdict = ['na', 'Not enough rolls logged yet to tell']
-  if (cur.length >= 5 && prev.length >= 5) {
-    const d = Math.round((rc - rp) * 100)
-    verdict = d >= 5 ? ['up', `Yes. Up ${d} points this month`] : d <= -5 ? ['down', `Not right now. Down ${-d} points`] : ['flat', 'Holding steady']
-  }
+  let verdict = verdictOf()
   const sc = S.session.filter(s => s.date >= a), sp = S.session.filter(s => s.date >= b && s.date < a)
   const bc = cur.filter(r => r.result === 'broke').length, bp = prev.filter(r => r.result === 'broke').length
   const byPosition = POSITIONS.flatMap(p => ['Top', 'Bottom', 'Neutral'].map(role => {

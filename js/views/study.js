@@ -10,6 +10,7 @@ import { FIXES } from '../fixes.js'
 import { ANSWERS, PER_WEEK, scenarioLog, thisWeek } from '../scenarios.js'
 import { hydratePhotos } from '../photos.js'
 import { masteryButton } from './library.js'
+import { fold, more } from './hub.js'
 
 export function view() {
   return `<div class="page-head"><div><h1>Study</h1><p class="lede">Think through the rounds that went wrong, keep notes from what you watch, and fix what keeps going wrong.</p></div>
@@ -85,7 +86,7 @@ function videoPanel() {
   const month = S.study.filter(v => v.date >= daysAgo(29))
   return `<section class="panel wide"><div class="history-head"><h2 style="margin:0">Video study</h2><button class="btn sm ghost" data-act="new-study">Log video study</button></div>
     <p class="small muted" style="margin:6px 0 12px">${hrs(sum(month, 'minutes'))} hours of study in the last 30 days. Notes tied to a move are added to that move’s notes under Game → Moves.</p>
-    ${S.study.length ? `<div class="res-grid">${[...S.study].sort(byDateDesc).slice(0, 12).map(videoCard).join('')}</div>` : '<p class="muted">Log an instructional or match you watched, with timestamped notes like “4:32 knee shield counter”.</p>'}
+    ${S.study.length ? `<div class="res-grid">${more('videos', [...S.study].sort(byDateDesc), 3, videoCard)}</div>` : '<p class="muted">Log an instructional or match you watched, with timestamped notes like “4:32 knee shield counter”.</p>'}
   </section>`
 }
 
@@ -151,12 +152,12 @@ function fixesPanel() {
   const counts = {}
   S.roll.filter(r => r.date >= daysAgo(59)).forEach(r => (r.reasons || []).forEach(x => counts[x] = (counts[x] || 0) + 1))
   const order = [...REASONS].sort((a, b) => (counts[b] || 0) - (counts[a] || 0))
-  return `<section class="panel wide"><h2>Mistakes and fixes</h2>
-    <p class="small muted" style="margin:-6px 0 12px;max-width:70ch">The causes you tick when a roll goes wrong, most frequent first. Each one has the usual errors behind it, cues to fix it and a drill.</p>
+  return fold('fixes', `<b>Mistakes and fixes</b><span class="small muted">${counts[order[0]] ? esc(order[0]) + ' most often' : 'cues and a drill for each'}</span>`, `<section class="panel wide">
+    <p class="small muted" style="margin:0 0 12px;max-width:70ch">The causes you tick when a roll goes wrong, most frequent first. Each one has the usual errors behind it, cues to fix it and a drill.</p>
     <div class="stack">${order.map(reason => `<details class="map-card">
       <summary><span class="map-title">${esc(reason)}</span><span class="small muted">${counts[reason] ? `ticked ${plural(counts[reason], 'time')} in the last 60 days` : 'not ticked recently'}</span></summary>
       ${fixBody(reason)}</details>`).join('')}</div>
-  </section>`
+  </section>`)
 }
 
 export const actions = {

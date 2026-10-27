@@ -23,6 +23,7 @@ import * as athlete from './views/athlete.js'
 import * as review from './views/review.js'
 import * as character from './views/character.js'
 import * as dojo from './views/dojo.js'
+import * as hub from './views/hub.js'
 
 const VIEWS = {
   overview: ['Home', overview],
@@ -64,23 +65,20 @@ if (SECTIONS.dojo.views.includes(saved.view)) { lastIn.dojo = saved.view; UI.doj
 
 const actions = Object.assign(
   {
-    tab: el => { UI.view = el.dataset.view; scrollTo(0, 0) },
-    // Home cards open their screen, scrolled to the panel they summarize.
-    goto: el => {
-      UI.view = el.dataset.view
-      scrollTo(0, 0)
-      if (el.dataset.anchor) requestAnimationFrame(() => document.getElementById(el.dataset.anchor)?.scrollIntoView({ block: 'start' }))
-    },
+    tab: el => { UI.view = el.dataset.view; UI.sub[UI.view] = ''; scrollTo(0, 0) },
+    // Home cards and tiles open their screen at the sub-screen they summarize.
+    goto: el => { UI.view = el.dataset.view; UI.sub[UI.view] = el.dataset.anchor || ''; scrollTo(0, 0) },
     // Tapping the section you're in goes back to its first screen, like any iPhone tab bar.
     section: el => {
       const key = el.dataset.section, s = SECTIONS[key]
-      if (sectionOf(UI.view) === key) UI.dojoSub = ''
+      if (sectionOf(UI.view) === key) { UI.dojoSub = ''; UI.sub = {} }
       UI.view = sectionOf(UI.view) === key ? s.views[0] : lastIn[key] || s.views[0]
       scrollTo(0, 0)
     },
   },
   ...Object.values(VIEWS).map(([, view]) => view.actions),
   character.actions,
+  hub.actions,
 )
 
 let shownView

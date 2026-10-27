@@ -7,6 +7,7 @@ import { MASTERY, allTechs, isCustom, masteryOf, masteryPips, myTechs, techById 
 import { videoSearch } from '../catalog.js'
 import { hydratePhotos } from '../photos.js'
 import { techStats } from '../analysis.js'
+import { moreButton } from './hub.js'
 
 export function view() {
   const scope = UI.libScope === 'mine' && !myTechs().length ? 'all' : UI.libScope
@@ -19,7 +20,7 @@ export function view() {
         <button data-act="lib-scope" data-scope="all" aria-pressed="${scope === 'all'}">All moves</button>
       </div>
     </div>
-    <div class="pos-filter" role="group" aria-label="Filter by position">
+    <div class="pos-filter sticky-chips" role="group" aria-label="Filter by position">
       <button class="pill" data-act="lib-group" data-group="" aria-pressed="${!UI.libGroup}">All positions</button>
       ${LIBRARY_GROUPS.map(g => `<button class="pill" data-act="lib-group" data-group="${esc(g)}" aria-pressed="${UI.libGroup === g}">${esc(g)}</button>`).join('')}
     </div>
@@ -29,6 +30,7 @@ export function view() {
 export function mount(root) {
   $('#lib-search')?.addEventListener('input', e => {
     UI.libQ = e.target.value
+    UI.more.moves = 0
     $('#lib-list').innerHTML = list(UI.libScope === 'mine' && !myTechs().length ? 'all' : UI.libScope)
     hydratePhotos(root)
   })
@@ -43,9 +45,11 @@ function list(scope) {
   if (!moves.length) return scope === 'mine' && !q
     ? '<div class="empty-state"><h2>No moves here yet</h2><p>Star moves in “All moves”, or log them in your training. They collect here.</p></div>'
     : '<p class="muted">No moves match. Try another word, or add it as a new move.</p>'
-  const groups = LIBRARY_GROUPS.filter(g => moves.some(t => t.position === g))
-  return groups.map(g => `<section class="pos-group"><h2>${esc(g)}</h2><div class="tech-grid">
-    ${moves.filter(t => t.position === g).sort((a, b) => a.name.localeCompare(b.name)).map(card).join('')}</div></section>`).join('')
+  // The first six, in position order; "Show more" adds six more.
+  const ordered = LIBRARY_GROUPS.flatMap(g => moves.filter(t => t.position === g).sort((a, b) => a.name.localeCompare(b.name)))
+  const shown = ordered.slice(0, UI.more.moves || 6)
+  return LIBRARY_GROUPS.filter(g => shown.some(t => t.position === g)).map(g => `<section class="pos-group"><h2>${esc(g)}</h2><div class="tech-grid">
+    ${shown.filter(t => t.position === g).map(card).join('')}</div></section>`).join('') + moreButton('moves', ordered.length, 6)
 }
 
 function card(t) {
@@ -114,6 +118,6 @@ export const actions = {
     delete rec.learned
     save(rec)
   },
-  'lib-scope': el => { UI.libScope = el.dataset.scope },
-  'lib-group': el => { UI.libGroup = el.dataset.group },
+  'lib-scope': el => { UI.libScope = el.dataset.scope; UI.more.moves = 0 },
+  'lib-group': el => { UI.libGroup = el.dataset.group; UI.more.moves = 0 },
 }

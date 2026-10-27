@@ -1235,8 +1235,8 @@ dialog.levelup::backdrop{background:rgba(0,0,0,.55)}
 .fold{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r);margin-top:8px}
 .fold>summary{display:flex;align-items:center;gap:10px;min-height:52px;padding:6px 14px;cursor:pointer;list-style:none}
 .fold>summary::-webkit-details-marker{display:none}
-.fold>summary span:last-child{margin-left:auto;transition:transform .2s}
-.fold[open]>summary span:last-child{transform:rotate(90deg)}
+.fold>summary>span:last-child{margin-left:auto;transition:transform .2s}
+.fold[open]>summary>span:last-child{transform:rotate(90deg)}
 .fold>:not(summary){margin:0 12px 12px}
 .fold .panel{border:0;padding:0;box-shadow:none;background:none}
 .fold .panel h2{display:none}
@@ -1254,3 +1254,59 @@ dialog.levelup::backdrop{background:rgba(0,0,0,.55)}
 .quest{padding:6px 10px;min-height:48px}
 /* Dojo tap targets are at least 44px tall */
 .dojo .btn,.inv-preview .btn,.fold .btn,.dojo-id-row .btn,.inv-slots .pill,.inv-filters .pill{min-height:44px}
+/* Summary first, app-wide: tile hubs and sub-screens like the Dojo, swipe rows, sticky chips, "Show more" */
+#app>.dojo-tiles,#app>.dojo-row,#app>.fighter-card,#app>.stats-hero,#app>.ready{margin-bottom:12px}
+.dojo-tile.warn{border-color:var(--partial)}
+.tile-spark{display:block;width:100%;height:20px;margin:3px 0 1px}
+.tile-spark rect{fill:var(--line-strong)}
+.tile-spark rect.last{fill:var(--neon)}
+.sub-head+.stat-grid>.panel>h2:first-child,.sub-head+.stat-grid>.panel>.history-head>h2{display:none}
+.sub-head+.stat-grid>.panel>.history-head{justify-content:flex-end}
+.stats-hero .figures{margin-bottom:10px}
+.swipe{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:0 -16px 12px;padding:2px 16px 4px;scroll-padding-inline:16px}
+.swipe::-webkit-scrollbar,.nudges::-webkit-scrollbar,.sticky-chips::-webkit-scrollbar{display:none}
+.swipe>*{flex:0 0 min(82%,340px);scroll-snap-align:start}
+.nudges{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -16px 12px;padding:2px 16px}
+.nudges>*{flex:none;max-width:86%}
+.nudge.backup{display:flex;flex-direction:column;gap:6px;border-radius:var(--r)}
+.sticky-chips{position:sticky;top:var(--top-h,110px);z-index:6;background:var(--paper);margin-inline:-16px;padding:8px 16px}
+.pos-filter.sticky-chips,div.sticky-chips[role=group]{display:flex;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:6px}
+.sticky-chips .pill{flex:none;min-height:44px}
+.show-more{width:100%;min-height:48px;grid-column:1/-1;margin-top:4px}
+.badge-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:6px}
+@media (min-width:720px){.badge-tiles{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}}
+.badge-tile{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;min-height:100px;padding:8px 4px;border-radius:12px;background:var(--surface);border:1px dashed var(--line-strong);cursor:pointer;color:var(--ink)}
+.badge-tile.won{border-style:solid;border-color:var(--line)}
+.badge-tile:hover{border-color:color-mix(in srgb,var(--neon) 55%,transparent)}
+.badge-tile .ach-mark{width:44px;height:44px;font-size:.9rem;flex:none}
+.badge-tile.won .ach-mark{background:var(--belt);color:var(--belt-ink);box-shadow:inset -11px 0 0 var(--bar)}
+.badge-name{font-size:.68rem;font-weight:700;line-height:1.15;text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.badge-tile .meter{width:80%;height:4px;margin:auto 0 2px}
+.fighter-card .fold{border:0;border-radius:0;margin:0;background:none}
+.fighter-card .fold>.fc-body{margin:0;padding-top:0}
+.fold .tape h3{display:none}
+.fold>summary>.small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ready{padding:0}
+.ready .fold{border:0;margin:0;background:none}
+.ready .fold>summary>span:first-child{display:flex;flex-direction:column}
+.ready-body{display:flex;flex-direction:column;gap:6px}
+.focus{margin-bottom:12px}
+#app>.q{margin-bottom:12px}
+/* Home cards as compact tiles: three across on a phone, two lines of text at most */
+@media (max-width:719px){
+  .widgets{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+  .widget{padding:10px;min-height:92px}
+  .widget .w-lbl{font-size:.64rem;letter-spacing:.04em}
+  .widget .w-num{font-size:1.5rem}
+  .widget .w-sub{font-size:.74rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .widget.char-widget{padding:8px 12px;min-height:0}
+  .widget.char-widget .char-av.sm{width:56px}
+}
+.stats-hero .figures.tight{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.stats-hero .figures.tight .big{font-size:1.6rem}
+.stats-hero .figures.tight .lbl{font-size:.74rem}
+.filters.sticky-chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.filters.sticky-chips .field{min-width:0}
+.filters.sticky-chips .field-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.filters.sticky-chips select{min-height:44px}
+@media (prefers-reduced-motion:reduce){.fold>summary>span:last-child{transition:none}.swipe{scroll-snap-type:none}}

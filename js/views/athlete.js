@@ -1,5 +1,5 @@
 // Athlete profile: who you are, how much you're training, your running, and what Home shows.
-// The first screen under You. Belt history, competition and backups live further down.
+// The first screen under You: the fighter card, then tiles that open each part as a sub-screen.
 import { S, allRecords, eraseEverything, removeMany, save, saveMany } from '../store.js'
 import { UI } from '../ui.js'
 import { BELT_LOOK, RANKS } from '../vocab.js'
@@ -7,7 +7,9 @@ import { $, $$, byDateAsc, esc, fmtDate, fmtMonthY, hrs, newId, pct, plural, spa
 import { field, selectEl, armDelete, openSheet, radioChips } from '../sheet.js'
 import { ageDivision, currentRank, logMode, rankName } from '../model.js'
 import { bodyInsights, moveTrends, weeklyStreak } from '../analysis.js'
-import { stackedBars, trendLine } from '../charts.js'
+import { sparkBars, stackedBars, trendLine } from '../charts.js'
+import { fold, subHead, subOf, tile } from './hub.js'
+import { statTile } from './stats.js'
 import { exportBackup, importBackup } from '../backup.js'
 import { exampleRecords } from '../examples.js'
 import { previewImport } from './importing.js'
@@ -16,21 +18,33 @@ import { activeInjuries, injuryName } from '../body.js'
 import { characterWidget } from './character.js'
 import { LOAD_TYPES, distIn, distUnit, fmtClock, fmtDist, loadMonths, loadTrend, loadWeeks, paceOf, runStats, runs } from '../load.js'
 
+// The fighter card, then a tile per part of your profile. Each tile opens its panel as a
+// sub-screen; the stats tiles open the same sub-screens under Stats.
 export function view() {
+  const sub = SUBS[subOf('athlete')]
+  if (sub) return `<h1 class="sr">Athlete profile</h1>${subHead(sub[0], 'Profile')}<div class="stat-grid">${sub[1]()}</div>`
+  const t = loadTrend(), r = runStats(), rank = currentRank(), P = S.profile, rec = [sum(P.tournaments, 'wins'), sum(P.tournaments, 'losses')], last = S.settings.lastBackup
   return `<h1 class="sr">Athlete profile</h1>
-  <div class="stat-grid">
-    ${profilePanel()}
-    <h2 class="section-title wide">Training load</h2>
-    ${loadPanel()}
-    ${runsPanel()}
-    <h2 class="section-title wide">Home screen</h2>
-    ${widgetPanel()}
-    <h2 class="section-title wide">Belt and competition</h2>
-    ${rankPanel(S.profile)}
-    ${tournamentPanel(S.profile)}
-    <h2 class="section-title wide">Settings</h2>
-    ${dataPanel()}
+  ${profilePanel()}
+  <div class="dojo-tiles">
+    ${tile('load', 'Training load', t.now, t.ratio == null ? 'this week so far' : `${pct(t.ratio)} of usual`, { spark: sparkBars(loadWeeks(8).map(w => w.total)), cls: t.spike ? 'warn' : '' })}
+    ${tile('runs', 'Running', `${fmtDist(r.week.dist)}<small> ${r.unit}</small>`, r.n ? `this week · ${plural(r.month.n, 'run')} this month` : 'log a run', { spark: r.n ? sparkBars(r.weeks.slice(-8).map(w => w.counts[0])) : '' })}
+    ${statTile('moves', 'stats')}
+    ${statTile('body', 'stats')}
+    ${statTile('problems', 'stats')}
+    ${statTile('time', 'stats')}
+    ${tile('belts', 'Belt history', P.promotions.length ? `${esc(rank.belt)}` : '—', P.promotions.length ? `${plural(rank.stripes, 'stripe')} · ${rank.since ? span(rank.since) : ''}` : 'add your belt')}
+    ${tile('comp', 'Competition', P.tournaments.length ? `${rec[0]}–${rec[1]}` : '—', P.tournaments.length ? plural(P.tournaments.length, 'event') : 'add a tournament')}
+    ${tile('settings', 'Settings', homeWidgets().length + '<small> cards</small>', last ? `backed up ${fmtDate(last)}` : 'no backup yet', { cls: last ? '' : 'warn' })}
   </div>`
+}
+
+const SUBS = {
+  load: ['Training load', () => loadPanel()],
+  runs: ['Running', () => runsPanel()],
+  belts: ['Belt history', () => rankPanel(S.profile)],
+  comp: ['Competition', () => tournamentPanel(S.profile)],
+  settings: ['Settings and backups', () => widgetPanel() + dataPanel()],
 }
 
 // Up is good unless lower is better (pace).
@@ -162,11 +176,11 @@ function profilePanel() {
       </div>
     </div>
     <div class="fc-tiles">${tiles.map(([v, l]) => `<div><span class="fc-num">${esc(v)}</span><span class="fc-lbl">${esc(l)}</span></div>`).join('')}</div>
-    <div class="fc-body">
+    ${fold('tape', '<b>Tale of the tape</b>' + (P.goal ? `<span class="small muted fold-peek">“${esc(P.goal)}”</span>` : ''), `<div class="fc-body">
       ${taleOfTheTape(P, rank, sinceRank)}
       ${P.goal ? `<p class="profile-goal">“${esc(P.goal)}”</p>` : ''}
       ${medals('Gold') + medals('Silver') + medals('Bronze') ? `<div class="fc-medals">${[['Gold', 'gold'], ['Silver', 'silver'], ['Bronze', 'bronze']].filter(([k]) => medals(k)).map(([k, c]) => `<span class="medal ${c}">${medals(k)} × ${k}</span>`).join('')}</div>` : ''}
-    </div>
+    </div>`)}
   </section>`
 }
 

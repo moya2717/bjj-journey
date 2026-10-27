@@ -121,3 +121,12 @@ export function trendLine(points, { w = 340, h = 120, fmt = String, what = '' } 
     ${dots.map(d => `<circle class="dot" cx="${d[0].toFixed(1)}" cy="${d[1].toFixed(1)}" r="3.5"><title>${esc(d[2].label)}: ${esc(fmt(d[2].v))}</title></circle>`).join('')}
   </svg>`
 }
+
+// A tile's sparkline: small bars, the latest one lit. Decorative; the tile says the number.
+export function sparkBars(values) {
+  const max = Math.max(1e-9, ...values.map(v => v || 0)), w = 100 / values.length
+  return `<svg class="tile-spark" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">${values.map((v, i) => {
+    const h = v ? Math.max(2, v / max * 22) : 1
+    return `<rect class="${i === values.length - 1 ? 'last' : ''}" x="${(i * w + w * 0.15).toFixed(1)}" y="${(24 - h).toFixed(1)}" width="${(w * 0.7).toFixed(1)}" height="${h.toFixed(1)}" rx="1"></rect>`
+  }).join('')}</svg>`
+}

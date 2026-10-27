@@ -7,6 +7,7 @@ import { field, openSheet, radioChips, techSelect } from '../sheet.js'
 import { ageDivision, currentRank, seqById, techById } from '../model.js'
 import { badSpots, hardestMatchup } from '../analysis.js'
 import { POINTS } from '../resources.js'
+import { fold, more } from './hub.js'
 
 const PREP = [
   ['registered', 'Registered and paid'],
@@ -51,8 +52,8 @@ export function view() {
     <div class="head-actions"><button class="btn" data-act="new-comp">Add tournament</button></div></div>
     <div class="stat-grid">
       ${next ? prepPanel(next) : `<section class="panel wide"><h2>No tournament coming up</h2><p class="muted" style="margin-bottom:12px">Add the next event you’re entering. You get a countdown, a prep checklist and a game plan built from your sequences.</p><button class="btn" data-act="new-comp">Add tournament</button></section>`}
-      ${rulesPanel()}
-      ${pastPanel(past)}
+      <div class="wide">${fold('rules', `<b>Rules for your division</b><span class="small muted">${MATCH_MINUTES[currentRank().belt]}-minute matches</span>`, rulesPanel())}
+      ${fold('past', `<b>Past events</b><span class="small muted">${plural(past.length, 'event')}</span>`, pastPanel(past), true)}</div>
     </div>`
 }
 
@@ -117,7 +118,7 @@ function pastPanel(past) {
   const all = past.map(recordOf), wins = all.reduce((n, r) => n + r.wins, 0), losses = all.reduce((n, r) => n + r.losses, 0)
   return `<section class="panel"><h2>Past events</h2>
     ${past.length ? `<p class="muted" style="margin-bottom:10px">${plural(past.length, 'event')} · ${wins}–${losses} in matches</p>
-      <div class="stack">${past.map(eventCard).join('')}</div>` : '<p class="muted">Tournaments you’ve entered show up here, with each match you log.</p>'}
+      <div class="stack">${more('events', past, 3, eventCard)}</div>` : '<p class="muted">Tournaments you’ve entered show up here, with each match you log.</p>'}
   </section>`
 }
 
