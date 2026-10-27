@@ -6,8 +6,8 @@ import { BELT_LOOK } from '../vocab.js'
 import { esc, plural, today, toast } from '../util.js'
 import { field, openSheet } from '../sheet.js'
 import { currentRank } from '../model.js'
-import { ACTIVE_REST_DAYS, BOSS_REWARD, KEEP_QUESTS, SHOP, SLOT_NAMES, STAT_HINTS, archetype, balance, cantBuy, equipped, freezeOffer, freezesLeft, game, hurtOn, legsHurt, levelOf, owns,
-  fighterName, questsOn, run, saveGame, stats, story, tierOf, title, totalXp, xpBreakdown } from '../game.js'
+import { ACTIVE_REST_DAYS, BOSS_REWARD, KEEP_QUESTS, SHOP, archetype, balance, cantBuy, equipped, fighterName, freezeOffer, game, hurtOn, legsHurt, levelOf, owns,
+  questsOn, run, saveGame, story, title, totalXp } from '../game.js'
 import { chronicle } from '../chronicle.js'
 
 // ---------- The avatar, drawn from parts ----------
@@ -127,37 +127,10 @@ export function avatar({ items = equipped(), skin = game().skin, hair = game().h
 
 const nameOf = fighterName
 const labelOf = (lv, arch) => `${nameOf()}, level ${lv.level} ${arch.name.toLowerCase()}`
-const xpBar = pct => `<div class="xpbar" aria-hidden="true"><span style="width:${Math.round(pct * 100)}%"></span></div>`
-const coin = n => `<span class="tokens"><i aria-hidden="true"></i>${n.toLocaleString()} ${n === 1 ? 'token' : 'tokens'}</span>`
+export const xpBar = pct => `<div class="xpbar" aria-hidden="true"><span style="width:${Math.round(pct * 100)}%"></span></div>`
+export const coin = n => `<span class="tokens"><i aria-hidden="true"></i>${n.toLocaleString()} ${n === 1 ? 'token' : 'tokens'}</span>`
 
 // ---------- In the Dojo ----------
-
-export function characterPanel() {
-  const lv = levelOf(), arch = archetype(), st = stats(), top = Math.max(25, ...st.map(s => s.value))
-  return `<section class="panel wide char-card" id="character">
-    <div class="char-top">
-      <div class="char-avatar">${avatar({ label: labelOf(lv, arch) })}</div>
-      <div class="char-info">
-        <p class="w-lbl">Level ${lv.level}</p>
-        <h2>${esc(nameOf())}</h2>
-        <p class="char-title">${esc(title())}</p>
-        <p><span class="tag pos">${esc(arch.name)}</span></p>
-        ${xpBar(lv.pct)}
-        <p class="small muted">${lv.into.toLocaleString()} / ${lv.need.toLocaleString()} XP to level ${lv.level + 1} · ${lv.xp.toLocaleString()} XP in all</p>
-        <p class="small">${esc(arch.why)}</p>
-        <div class="row-actions"><button class="btn sm ghost" data-act="game-edit">Edit character</button>${coin(balance())}</div>
-      </div>
-    </div>
-    <h3 style="margin-top:14px">Stats</h3>
-    <div class="char-stats">${st.map(s => `<div class="char-stat"><span>${s.name}</span><div class="meter mat"><span style="width:${s.value / top * 100}%"></span></div><b>${s.value}</b><small>${esc(STAT_HINTS[s.name])}</small></div>`).join('')}</div>
-    <details class="explain"><summary>How you earn XP and stats</summary>
-      <table class="xp-table"><thead><tr><th>From</th><th>Each</th><th>You</th><th>XP</th></tr></thead><tbody>
-        ${xpBreakdown().map(r => `<tr class="${r.xp ? '' : 'muted'}"><td>${esc(r.what)}</td><td>${r.each ?? '—'}</td><td>${r.n ?? '—'}</td><td>${r.xp.toLocaleString()}</td></tr>`).join('')}
-      </tbody></table>
-      <p class="small muted">Everything is counted from your journal, so editing or deleting an entry changes it too. Every level also earns 10 tokens.</p>
-    </details>
-  </section>`
-}
 
 // Missions: short objectives with a bit of story, opened by level. The Story tab is the chronicle.
 export function missionsPanel() {
@@ -174,30 +147,6 @@ export function missionsPanel() {
   </section>`
 }
 
-// One shelf at a time: abilities, or one slot of cosmetics. Locked items say how to unlock them.
-export function itemTile(id, eq = equipped(), lv = levelOf().level) {
-    const it = SHOP[id], have = game().owned[id] || 0, no = cantBuy(id), on = !it.ability && eq[it.slot] === id
-    const preview = it.ability ? `<span class="ability-icon" aria-hidden="true">${{ reshuffle: '↻', scout: '◎', freeze: '❄' }[id]}</span>` : avatar({ items: { ...eq, [it.slot]: id }, cls: 'mini', label: it.name })
-    const btn = !it.ability && owns(id)
-      ? `<button class="btn sm ${on ? '' : 'ghost'}" data-act="game-equip" data-id="${id}" aria-pressed="${on}">${on ? 'Wearing' : 'Wear'}</button>`
-      : no ? `<button class="btn sm ghost" disabled>${it.unlock ? '<span aria-hidden="true">🔒 </span>' : ''}${esc(no)}</button>` : `<button class="btn sm" data-act="game-buy" data-id="${id}">Buy · ${it.price}</button>`
-    const tier = it.ability ? '' : `<span class="tier ${tierOf(it)}">${tierOf(it)}${it.unlock ? ' · unlock' : !it.price ? ' · free' : ''}</span>`
-    return `<li class="shop-item ${on ? 'on' : ''} ${it.level > lv || (it.unlock && !owns(id)) ? 'locked' : ''}">${preview}${tier}<span class="shop-name">${esc(it.name)}${id === 'freeze' && have ? ` <span class="small muted">(${freezesLeft()} held)</span>` : ''}</span>
-      <span class="small muted">${esc(it.desc)}</span>${btn}</li>`
-}
-
-export function shopPanel() {
-  const eq = equipped(), lv = levelOf().level, shelf = UI.shopSlot || 'kit'
-  const tile = id => itemTile(id, eq, lv)
-  const shelves = ['abilities', ...Object.keys(SLOT_NAMES)]
-  const ids = Object.keys(SHOP).filter(id => shelf === 'abilities' ? SHOP[id].ability : SHOP[id].slot === shelf)
-  return `<section class="panel shop" id="shop"><div class="history-head"><h2 style="margin:0">Shop</h2>${coin(balance())}</div>
-    <p class="small muted">Earn tokens from quests, bosses, missions, Live roll wins and levels. Some pieces can’t be bought: they unlock from the story, achievements, running and levels. Perks are just for the game: they never change your journal.</p>
-    <div class="shop-shelves" role="group" aria-label="Shop shelf">${shelves.map(k => `<button class="pill" data-act="shop-slot" data-slot="${k}" aria-pressed="${k === shelf}">${k === 'abilities' ? 'Abilities' : SLOT_NAMES[k]}${eq[k] && k !== 'kit' ? ' •' : ''}</button>`).join('')}</div>
-    <ul class="shop-grid">${ids.map(tile).join('')}</ul>
-  </section>`
-}
-
 // ---------- Home ----------
 
 export function questBoard() {
@@ -208,14 +157,14 @@ export function questBoard() {
     ${hurtOn(t) ? '<p class="small muted">Injury-friendly quests while you heal. Rest is training too.</p>' : legsHurt(t) ? '<p class="small muted">Running is on pause while your legs heal. Upper-body and mobility quests stand in.</p>' : ''}
     <ul class="quest-list">${quests.map(q => `<li class="quest ${q.done ? 'done' : ''}">
       <span class="q-check" aria-hidden="true"></span>
-      <span class="q-text"><b>${esc(q.text)}</b><span class="small muted">+${q.tokens} tokens · +${q.xp} XP${q.done ? ' · done' : q.self ? ' · tick it when you’ve done it' : ''}</span></span>
+      <span class="q-text"><b>${esc(q.text)}</b><span class="small muted">+${q.tokens} tokens · +${q.xp} XP${q.done ? ' · done' : q.self ? ' · tick it yourself' : ''}</span></span>
       ${q.self ? `<button class="btn sm ${q.done ? 'ghost' : ''}" data-act="game-self" data-id="${q.id}" aria-pressed="${q.done}">${q.done ? 'Undo' : 'Done'}</button>` : ''}</li>`).join('')}</ul>
     ${boss ? `<div class="boss ${boss.done ? 'beaten' : ''}"><p class="w-lbl">Weekly boss${boss.done ? ' · beaten' : ''}</p>
-      <p><b>${esc(boss.name)}</b> <span class="small muted">+${BOSS_REWARD.tokens} tokens · +${BOSS_REWARD.xp} XP</span></p>
+      <p><b>${esc(boss.name)}</b> <span class="small muted">+${BOSS_REWARD.tokens} · +${BOSS_REWARD.xp} XP</span></p>
       ${boss.parts.map(([label, have, need]) => `<div class="boss-part"><span class="small">${esc(label)}</span><span class="small muted">${Math.min(have, need)} / ${need}</span><div class="meter ${have >= need ? 'good' : 'mat'}"><span style="width:${Math.min(1, have / need) * 100}%"></span></div></div>`).join('')}</div>` : ''}
     ${offer ? `<div class="callout"><p>Last week slipped by. A streak freeze keeps your streak going.</p><div class="row-actions"><button class="btn sm" data-act="game-freeze" data-week="${offer}">Use a streak freeze</button></div></div>` : ''}
     <div class="quest-foot">${UI.view === 'quests' ? '<span></span>' : '<button class="card-link" data-act="tab" data-view="quests">All quests and missions</button>'}${coin(balance())}</div>
-    <p class="small muted">${week?.rest >= ACTIVE_REST_DAYS ? 'Active recovery bonus: +10% tokens this week.' : `Move on ${ACTIVE_REST_DAYS} days off the mat this week (a run, a ride, yoga) for +10% tokens.`} Quests tick themselves off from what you log. Rest days never cost you anything.</p>
+    <p class="small muted">${week?.rest >= ACTIVE_REST_DAYS ? 'Active recovery bonus: +10% tokens this week.' : `Move on ${ACTIVE_REST_DAYS} days off the mat for +10% tokens.`} Rest days never cost you anything.</p>
   </section>`
 }
 
@@ -289,7 +238,6 @@ export const actions = {
     const G = game(), t = today(), list = G.self[t] || [], id = el.dataset.id
     saveGame({ self: { ...G.self, [t]: list.includes(id) ? list.filter(x => x !== id) : [...list, id] } })
   },
-  'shop-slot': el => { UI.shopSlot = el.dataset.slot },
   'game-chapter': el => { saveGame({ story: { ...game().story, [el.dataset.id]: today() } }); toast('Chapter started. Your mission counts from today.') },
   'game-freeze': el => { saveGame({ frozen: [...game().frozen, el.dataset.week] }); toast('Streak saved. Back at it this week.') },
 }

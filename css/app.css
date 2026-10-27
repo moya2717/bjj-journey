@@ -1185,3 +1185,72 @@ dialog.levelup::backdrop{background:rgba(0,0,0,.55)}
 .chapter-body p{margin:0;line-height:1.55}
 .chapter-end{font-style:italic;color:var(--neon-2)}
 .lu-chapter{font-size:1.4rem!important}
+/* Dojo, one screen per tab: a hub of tiles, sub-screens, an icon-grid inventory and shop */
+.dojo{display:flex;flex-direction:column;gap:10px}
+.dojo-hero{display:flex;gap:14px;align-items:center;padding:12px;border-radius:var(--r-lg);border:1px solid color-mix(in srgb,var(--neon) 40%,transparent);box-shadow:var(--glow);
+  background:linear-gradient(135deg,color-mix(in srgb,var(--neon) 10%,var(--surface)),var(--surface) 60%,color-mix(in srgb,var(--neon-2) 8%,var(--surface)))}
+.dojo-av{flex:none;width:96px}
+.dojo-av .char-av{border-radius:14px}
+.dojo-id{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
+.dojo-id p{margin:0}
+.dojo-id h1{font-stretch:118%;font-weight:820;font-size:1.45rem;line-height:1.1;overflow-wrap:anywhere}
+.dojo-id .xpbar{margin:3px 0 1px}
+.dojo-id-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px}
+.dojo-id-row .btn{min-height:36px}
+.dojo-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.dojo-tile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:92px;padding:10px;border-radius:var(--r);background:var(--surface);border:1px solid var(--edge);box-shadow:var(--shadow-1);text-align:left;cursor:pointer;min-width:0;color:var(--ink)}
+.dojo-tile:hover,.dojo-row:hover,.story-row:hover{border-color:color-mix(in srgb,var(--neon) 55%,transparent);box-shadow:var(--glow)}
+.dojo-tile .w-lbl{font-size:.64rem;letter-spacing:.04em}
+.dojo-big{font-stretch:80%;font-weight:800;font-size:1.6rem;line-height:1.1;font-variant-numeric:tabular-nums;margin-top:auto}
+.dojo-big small{font-size:.6em;color:var(--muted)}
+.dojo-small{font-size:.76rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.dojo-row{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:52px;padding:8px 14px;border-radius:var(--r);background:var(--surface);border:1px solid var(--edge);text-align:left;cursor:pointer;width:100%;color:var(--ink)}
+.dojo-row>span:first-child{display:flex;flex-direction:column}
+.sub-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.sub-head h1{font-size:1.3rem;font-stretch:112%;flex:1}
+.sub-head .btn{min-height:44px}
+.inv-preview{position:sticky;top:calc(var(--top-h,110px) + 6px);z-index:5;display:flex;gap:12px;align-items:center;padding:8px 10px;border-radius:var(--r);background:var(--surface);border:1px solid color-mix(in srgb,var(--neon) 45%,transparent);box-shadow:var(--glow)}
+.inv-av{flex:none;width:72px;border-radius:12px}
+.ability-icon.big{width:72px;height:84px;font-size:2.2rem}
+.inv-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.inv-info .small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.inv-info .btn{align-self:flex-start;min-height:40px;margin-top:2px}
+.inv-slots,.inv-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -4px;padding:2px 4px}
+.inv-slots::-webkit-scrollbar,.inv-filters::-webkit-scrollbar{display:none}
+.inv-slots .pill,.inv-filters .pill{flex:none;min-height:40px}
+.inv-filters .pill{font-size:.84rem}
+.inv-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.inv-tile{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 3px;border-radius:12px;background:var(--surface-2);border:1.5px solid var(--edge);cursor:pointer;min-width:0;color:var(--ink)}
+.inv-tile.sel{border-color:var(--neon);box-shadow:var(--glow)}
+.inv-tile.locked .tile-av,.inv-tile.locked .ability-icon{opacity:.45}
+.tile-av{width:100%;max-width:58px;border-radius:9px}
+.inv-tile .ability-icon{width:52px;height:60px;font-size:1.5rem}
+.inv-name{font-size:.66rem;font-weight:700;line-height:1.15;text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.3em;overflow-wrap:anywhere}
+.inv-tag{font-size:.62rem;color:var(--muted);font-weight:700;white-space:nowrap}
+.stat-rows{display:flex;flex-direction:column;gap:4px;margin:6px 0}
+.stat-row{display:grid;grid-template-columns:86px minmax(0,1fr) 30px;align-items:center;gap:10px;min-height:48px;padding:6px 10px;border-radius:var(--r-sm);background:var(--surface);border:1px solid var(--edge);text-align:left;cursor:pointer;color:var(--ink);font-size:.92rem}
+.stat-row .meter{margin:0}
+.stat-row b{text-align:right;font-variant-numeric:tabular-nums}
+.stat-row small{grid-column:1/-1;color:var(--muted);font-size:.8rem}
+.fold{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r);margin-top:8px}
+.fold>summary{display:flex;align-items:center;gap:10px;min-height:52px;padding:6px 14px;cursor:pointer;list-style:none}
+.fold>summary::-webkit-details-marker{display:none}
+.fold>summary span:last-child{margin-left:auto;transition:transform .2s}
+.fold[open]>summary span:last-child{transform:rotate(90deg)}
+.fold>:not(summary){margin:0 12px 12px}
+.fold .panel{border:0;padding:0;box-shadow:none;background:none}
+.fold .panel h2{display:none}
+.story-rows{display:flex;flex-direction:column;gap:8px}
+.story-row{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;min-height:64px;padding:9px 14px;border-radius:var(--r);background:var(--surface);border:1px solid var(--edge);box-shadow:var(--shadow-1);text-align:left;cursor:pointer;color:var(--ink)}
+.story-row.current{border-color:color-mix(in srgb,var(--neon) 55%,transparent);box-shadow:var(--glow)}
+.story-title{font-stretch:112%;font-weight:800;font-size:1rem;line-height:1.2}
+.story-teaser{font-size:.84rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.ability-row{display:flex;gap:10px;align-items:flex-start}
+.ability-row .ability-icon{width:44px;height:44px;font-size:1.3rem;flex:none}
+.dojo .badge-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.dojo .badge{padding:7px 9px;min-height:48px}
+.dojo .track li{min-height:40px}
+.quests{gap:6px}
+.quest{padding:6px 10px;min-height:48px}
+/* Dojo tap targets are at least 44px tall */
+.dojo .btn,.inv-preview .btn,.fold .btn,.dojo-id-row .btn,.inv-slots .pill,.inv-filters .pill{min-height:44px}

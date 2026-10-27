@@ -58,7 +58,9 @@ const SECTIONS = {
   you: { label: 'You', views: ['athlete', 'stats', 'injuries', 'compete', 'achievements'], icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>' },
 }
 const sectionOf = view => Object.keys(SECTIONS).find(k => SECTIONS[k].views.includes(view))
-const lastIn = {}
+// The Dojo opens where you left it last time, even after the app restarts.
+const lastIn = {}, saved = dojo.lastDojo()
+if (SECTIONS.dojo.views.includes(saved.view)) { lastIn.dojo = saved.view; UI.dojoSub = saved.sub || '' }
 
 const actions = Object.assign(
   {
@@ -72,6 +74,7 @@ const actions = Object.assign(
     // Tapping the section you're in goes back to its first screen, like any iPhone tab bar.
     section: el => {
       const key = el.dataset.section, s = SECTIONS[key]
+      if (sectionOf(UI.view) === key) UI.dojoSub = ''
       UI.view = sectionOf(UI.view) === key ? s.views[0] : lastIn[key] || s.views[0]
       scrollTo(0, 0)
     },
@@ -108,6 +111,8 @@ function renderHeader() {
   }
   const current = sectionOf(UI.view)
   lastIn[current] = UI.view
+  if (current === 'dojo') dojo.remember(UI.view)
+  document.documentElement.style.setProperty('--top-h', $('.top').offsetHeight + 'px')
   $('#bottombar').innerHTML = `<div class="bottombar-inner">${Object.entries(SECTIONS).map(([key, s]) =>
     `<button data-act="section" data-section="${key}" ${key === current ? 'aria-current="page"' : ''}>
       <svg viewBox="0 0 24 24" aria-hidden="true">${s.icon}</svg><span>${s.label}</span></button>`).join('')}</div>`
