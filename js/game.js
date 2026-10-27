@@ -13,6 +13,7 @@ import { isoDate, parseD, sum, today, weekStart } from './util.js'
 
 export const game = () => ({ name: '', skin: 0, hair: 0, owned: {}, equipped: {}, spent: 0, frozen: [], self: {}, story: {}, ...S.settings.game })
 export const saveGame = patch => save({ ...S.settings, game: { ...game(), ...patch } })
+export const fighterName = () => game().name || S.profile.name?.split(/\s+/)[0] || 'Your fighter'
 
 // ---------- What happened each day ----------
 
@@ -158,7 +159,7 @@ const weekKey = d => isoDate(weekStart(d))
 
 export const run = () => cached('gameRun', () => {
   const now = today(), start = firsts().start || now, G = game(), weeks = []
-  let xp = 0, tokens = 0, streak = 0
+  let xp = 0, tokens = 0, streak = 0, best = 0
   for (let w = weekStart(parseD(start)); isoDate(w) <= now; w.setDate(w.getDate() + 7)) {
     const from = isoDate(w), dates = Array.from({ length: 7 }, (_, i) => isoDate(new Date(w.getFullYear(), w.getMonth(), w.getDate() + i))).filter(d => d >= start && d <= now)
     const daily = dates.map(questsOn), done = daily.flat().filter(q => q.done)
@@ -170,11 +171,11 @@ export const run = () => cached('gameRun', () => {
     tokens += earned
     const kept = done.length >= KEEP_QUESTS || boss.done, current = from === weekKey(new Date())
     const frozen = G.frozen.includes(from)
-    if (kept) streak++
+    if (kept) best = Math.max(best, ++streak)
     else if (!hurt && !frozen && !current) streak = 0
     weeks.push({ from, done: done.length, boss, kept, hurt, frozen, rest, mult, earned })
   }
-  return { weeks, xp, tokens, streak }
+  return { weeks, xp, tokens, streak, best, bosses: weeks.filter(w => w.boss.done).length }
 })
 
 // Last week missed the mark with no injury: a freeze can save the streak, if you have one.
@@ -187,6 +188,15 @@ export function freezeOffer() {
 export const freezesLeft = () => (game().owned.freeze || 0) - game().frozen.length
 
 // ---------- XP ----------
+
+// Live roll can be replayed forever, so only the first few games a day earn anything.
+export const SIM_DAILY = { played: 5, won: 3 }
+export const simCounted = () => cached('simCounted', () => {
+  const byDay = {}
+  ;(S.settings.simLog || []).forEach(r => { const d = byDay[r.date] ||= { played: 0, won: 0 }; d.played++; if (r.result === 'win') d.won++ })
+  const days = Object.values(byDay)
+  return { played: sum(days, d => Math.min(SIM_DAILY.played, d.played)), won: sum(days, d => Math.min(SIM_DAILY.won, d.won)), today: byDay[today()] || { played: 0, won: 0 } }
+})
 
 // Every row is [what, XP each, how many]. Change the numbers here to tune the game.
 export const xpBreakdown = () => cached('xpBreakdown', () => {
@@ -212,8 +222,8 @@ export const xpBreakdown = () => cached('xpBreakdown', () => {
     ['Study notes and videos', 8, S.study.length],
     ['Sequences', 10, S.seq.length],
     ['Sequence steps', 2, sum(S.seq, s => s.nodes.length)],
-    ['Live rolls played', 2, sim.length],
-    ['Live rolls won', 6, sim.filter(r => r.result === 'win').length],
+    ['Live rolls played (first 5 a day)', 2, simCounted().played],
+    ['Live rolls won (first 3 a day)', 6, simCounted().won],
     ['Weekly reviews done', 30, reviewed.size],
     ['Plans stuck to', 15, planned.filter(s => s.planHit === 'Stuck to it').length],
     ['Plans partly kept', 8, planned.filter(s => s.planHit === 'Partly').length],
@@ -271,15 +281,17 @@ const ARCHETYPES = [
   ['Escape artist', ['Escape'], 'Escapes'],
   ['Pressure rider', ['Control', 'Transition'], 'Top control and transitions'],
 ]
-export const archetype = () => cached('archetype', () => {
+export const archetype = () => cached('archetype', () => styleOf(S.roll))
+// The style a set of rolls shows. The story uses it chapter by chapter.
+export function styleOf(rolls) {
   const counts = {}
-  S.roll.forEach(r => landedIds(r).forEach(id => { const t = techById(id); if (t) counts[t.type] = (counts[t.type] || 0) + 1 }))
+  rolls.forEach(r => landedIds(r).forEach(id => { const t = techById(id); if (t) counts[t.type] = (counts[t.type] || 0) + 1 }))
   const total = sum(Object.values(counts), x => x)
   if (total < 5) return { name: 'Fresh recruit', why: `Land ${5 - total} more ${total === 4 ? 'move' : 'moves'} in your rolls to find your style.` }
   const ranked = ARCHETYPES.map(([name, types, what]) => ({ name, what, share: sum(types, t => counts[t] || 0) / total })).sort((a, b) => b.share - a.share)
   if (ranked[0].share < 0.3) return { name: 'All-rounder', why: 'No one kind of move is more than 30% of what you land.' }
   return { name: ranked[0].name, why: `${ranked[0].what}: ${Math.round(ranked[0].share * 100)}% of the ${total} moves you’ve landed.` }
-})
+}
 
 // ---------- Story: The Open Mat Chronicles ----------
 
@@ -333,7 +345,8 @@ export const story = () => cached('gameStory', () => {
 // ---------- Tokens and the shop ----------
 
 export const LEVEL_TOKENS = 10
-export const tokensEarned = () => run().tokens + LEVEL_TOKENS * (levelOf().level - 1) + sum(story().filter(c => c.state === 'done'), 'tokens')
+export const SIM_WIN_TOKENS = 3
+export const tokensEarned = () => run().tokens + LEVEL_TOKENS * (levelOf().level - 1) + sum(story().filter(c => c.state === 'done'), 'tokens') + SIM_WIN_TOKENS * simCounted().won
 export const balance = () => Math.max(0, tokensEarned() - game().spent)
 
 // Some things can't be bought: they unlock from the story, achievements, running or your level.
@@ -359,6 +372,7 @@ export const SHOP = {
   'gi-armbar': { slot: 'kit', name: 'Armbar Armor', tier: 'epic', price: 280, level: 12, plated: true, color: '#9AA3AD', trim: '#5D6670', desc: 'Hyperextension-proof. Elbows sold separately.' },
   'gi-gold': { slot: 'kit', name: 'Golden gi', tier: 'legendary', price: 0, color: '#E0B84A', trim: '#9A7A1F', unlock: unlock(() => 'Reach level 30', () => levelOf().level >= 30), desc: 'Thirty levels of showing up, woven in gold.' },
 
+  'cap-cucuruco': { slot: 'band', name: 'Cucuruco Cap', price: 0, bald: true, desc: 'Smooth, shiny and aerodynamic. Nothing to grab, nothing to pull. Every fighter starts with one.' },
   'band-red': { slot: 'band', name: 'Red headband', price: 35, color: '#C9333A', desc: 'Adds 10% fighting spirit. Not measurable.' },
   'band-neon': { slot: 'band', name: 'Neon headband', price: 50, color: '#22D3EE', desc: 'Keeps the sweat out and the vibes in.' },
   'band-ninja': { slot: 'band', name: '“Ninja Choke” headband', tier: 'common', price: 60, color: '#1B1B1B', plate: true, desc: 'Not an official choke. Still gets taps in the locker room.' },
@@ -430,4 +444,50 @@ export function cantBuy(id) {
   if (item.level && levelOf().level < item.level) return `Level ${item.level}`
   if (balance() < item.price) return `${item.price - balance()} more tokens`
   return ''
+}
+
+// ---------- Badges and titles ----------
+
+// Earned from milestones in the journal. The one you pick shows under your name.
+const landedOf = type => sum(S.roll, r => landedIds(r).filter(id => techById(id)?.type === type).length)
+const runTotal = () => sum(S.activity.filter(isRun), r => distIn(r, distUnit()))
+export const BADGES = [
+  ['first-steps', 'First Steps', 'Log your first session', () => S.session.length >= 1],
+  ['mat-rat', 'Mat Rat', 'Log 50 sessions', () => S.session.length >= 50],
+  ['centurion', 'Centurion', 'Log 100 sessions', () => S.session.length >= 100],
+  ['first-tap', 'First Tap', 'Land a submission in a roll', () => landedOf('Submission') >= 1],
+  ['sub-hunter', 'Submission Hunter', 'Land 25 submissions', () => landedOf('Submission') >= 25],
+  ['broom', 'Broom Master', 'Land 15 sweeps', () => landedOf('Sweep') >= 15],
+  ['guard-breaker', 'Guard Breaker', 'Land 15 passes', () => landedOf('Pass') >= 15],
+  ['houdini', 'Houdini', 'Land 10 escapes', () => landedOf('Escape') >= 10],
+  ['strategist', 'Strategist', 'Build 5 sequences', () => S.seq.length >= 5],
+  ['scroll-keeper', 'Scroll Keeper', 'Think through 25 scenarios', () => (S.settings.scenarioLog || []).length >= 25],
+  ['shadow', 'Shadow Boxer', 'Win 10 Live rolls', () => (S.settings.simLog || []).filter(r => r.result === 'win').length >= 10],
+  ['road-runner', 'Road Runner', () => `Run ${distUnit() === 'km' ? 50 : 30} ${distUnit()} in total`, () => runTotal() >= (distUnit() === 'km' ? 50 : 30)],
+  ['iron-lungs', 'Iron Lungs', 'Beat the Iron Lungs boss', () => run().weeks.some(w => w.boss.name === 'Iron Lungs' && w.boss.done)],
+  ['boss-slayer', 'Boss Slayer', 'Beat 10 weekly bosses', () => run().bosses >= 10],
+  ['unbreakable', 'Unbreakable', 'Keep an 8-week quest streak', () => run().best >= 8],
+  ['comeback', 'Comeback Kid', 'Heal an injury and get back on the mat', () => S.injury.some(i => i.endDate && S.session.some(s => s.date > i.endDate))],
+  ['competitor', 'Competitor', 'Enter a tournament', () => S.profile.tournaments.length > 0],
+  ['medalist', 'Medalist', 'Win a medal', () => S.profile.tournaments.some(t => ['Gold', 'Silver', 'Bronze'].includes(t.place))],
+].map(([id, name, how, test]) => ({ id, name, get how() { return typeof how === 'function' ? how() : how }, test }))
+
+export const badges = () => cached('badges', () => BADGES.map(b => ({ ...b, how: b.how, earned: !!b.test() })))
+export function title() {
+  const earned = badges().filter(b => b.earned), pick = earned.find(b => b.id === game().title)
+  return (pick || earned.at(-1))?.name || 'Fresh Recruit'
+}
+
+// ---------- Level rewards ----------
+
+// What each level brings: shop items and abilities it opens, missions and the golden gi. Every level also gives tokens.
+export function levelRewards(upTo = 30) {
+  return Array.from({ length: upTo - 1 }, (_, i) => i + 2).map(level => ({
+    level,
+    rewards: [
+      ...Object.values(SHOP).filter(it => it.level === level).map(it => it.ability ? `${it.name} ability` : `${it.name} in the shop`),
+      ...CHAPTERS.filter(c => c.level === level).map(c => `Mission: ${c.title}`),
+      ...(level === 30 ? ['Golden gi'] : []),
+    ],
+  }))
 }

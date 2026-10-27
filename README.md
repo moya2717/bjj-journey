@@ -39,8 +39,8 @@ The bar at the bottom has five sections. Each one holds a few screens, shown as 
 |---|---|
 | **Home** | Your overview: what keeps going wrong, what to work on next, whether you’re improving |
 | **Journal** | Calendar · Rolls · Matchups |
-| **Game** | Sequences (with the quiz) · Moves · Live roll |
-| **Learn** | Resources · Study (scenario review, video study, fixes) |
+| **Learn** | Sequences (with the quiz) · Moves · Study (scenario review, video study, fixes) · Resources |
+| **Dojo** | Character (stats, inventory, titles, level rewards) · Quests (daily quests, weekly boss, missions) · Story (The Story So Far, written from your journal) · Shop · Live roll |
 | **You** | Profile & stats · Compete · Achievements |
 
 Tap a section twice to go back to its first screen. The round **+** button logs training from anywhere.

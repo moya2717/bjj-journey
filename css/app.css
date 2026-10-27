@@ -1158,3 +1158,30 @@ dialog.levelup::backdrop{background:rgba(0,0,0,.55)}
 .grade-row.three{grid-template-columns:repeat(3,minmax(0,1fr))}
 .grade.got{border-color:var(--worked)}.grade.drill{border-color:var(--partial)}.grade.coach{border-color:var(--mat)}
 .grade .small{text-align:center}
+/* Dojo: titles, badges, level track, recent weeks, the story chronicle */
+.char-title{font-weight:750;color:var(--neon-2);font-size:.95rem}
+.char-stat small{grid-column:1/-1;margin-top:-4px;font-size:.78rem;color:var(--muted)}
+.badge-grid{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+.badge{display:flex;flex-direction:column;gap:2px;text-align:left;padding:10px;border-radius:var(--r-sm);background:var(--surface-2);border:1px dashed var(--line-strong);color:var(--muted);min-width:0}
+.badge b{font-size:.9rem}
+.badge span{font-size:.78rem}
+.badge.on{border-style:solid;border-color:color-mix(in srgb,var(--neon) 50%,transparent);color:var(--ink);cursor:pointer}
+.badge.on[aria-pressed="true"]{box-shadow:var(--glow);border-color:var(--neon-2)}
+.track{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.track li{display:flex;align-items:center;gap:10px;font-size:.9rem;color:var(--muted)}
+.track li.got,.track li.next{color:var(--ink)}
+.track-lv{flex:none;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-variant-numeric:tabular-nums;border:2px solid var(--line-strong)}
+.track li.got .track-lv{background:var(--worked);border-color:var(--worked);color:#fff}
+.track li.next .track-lv{border-color:var(--neon);box-shadow:var(--glow)}
+.week-list li{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.week-list li>span:first-child{display:flex;flex-direction:column;min-width:0}
+.chronicle{display:flex;flex-direction:column;gap:10px}
+.chapter{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r);box-shadow:var(--shadow-1)}
+.chapter.current{border-color:color-mix(in srgb,var(--neon) 50%,transparent);box-shadow:var(--glow)}
+.chapter summary{display:flex;flex-direction:column;gap:2px;padding:14px 16px;cursor:pointer;list-style:none}
+.chapter summary::-webkit-details-marker{display:none}
+.chapter-title{font-stretch:112%;font-weight:820;font-size:1.15rem;line-height:1.2}
+.chapter-body{padding:0 16px 14px;display:flex;flex-direction:column;gap:8px}
+.chapter-body p{margin:0;line-height:1.55}
+.chapter-end{font-style:italic;color:var(--neon-2)}
+.lu-chapter{font-size:1.4rem!important}

@@ -22,6 +22,7 @@ import * as injuries from './views/injuries.js'
 import * as athlete from './views/athlete.js'
 import * as review from './views/review.js'
 import * as character from './views/character.js'
+import * as dojo from './views/dojo.js'
 
 const VIEWS = {
   overview: ['Home', overview],
@@ -32,6 +33,10 @@ const VIEWS = {
   sequences: ['Sequences', sequences],
   library: ['Moves', library],
   sim: ['Live roll', sim],
+  character: ['Character', dojo.character],
+  quests: ['Quests', dojo.quests],
+  story: ['Story', dojo.story],
+  shop: ['Shop', dojo.shop],
   resources: ['Resources', resources],
   study: ['Study', study],
   athlete: ['Profile', athlete],
@@ -46,8 +51,10 @@ const VIEWS = {
 const SECTIONS = {
   home: { label: 'Home', views: ['overview'], icon: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>' },
   journal: { label: 'Journal', views: ['journal', 'rolls', 'matchups', 'review'], icon: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
-  game: { label: 'Game', views: ['sequences', 'library', 'sim'], icon: '<circle cx="5" cy="12" r="2.2"/><circle cx="19" cy="5" r="2.2"/><circle cx="19" cy="19" r="2.2"/><path d="M7 11l10-5M7 13l10 5"/>' },
-  learn: { label: 'Learn', views: ['resources', 'study'], icon: '<path d="M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M9 7h7"/>' },
+  // Your game plan and what you study, together: sequences, moves, scenarios and resources.
+  learn: { label: 'Learn', views: ['sequences', 'library', 'study', 'resources'], icon: '<path d="M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M9 7h7"/>' },
+  // The game side: your character, quests, story, shop and Live roll.
+  dojo: { label: 'Dojo', views: ['character', 'quests', 'story', 'shop', 'sim'], icon: '<path d="M3 6.5c6 1.6 12 1.6 18 0M5 10.5h14M7.5 7.2V21M16.5 7.2V21"/>' },
   you: { label: 'You', views: ['athlete', 'stats', 'injuries', 'compete', 'achievements'], icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>' },
 }
 const sectionOf = view => Object.keys(SECTIONS).find(k => SECTIONS[k].views.includes(view))

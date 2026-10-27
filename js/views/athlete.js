@@ -13,17 +13,13 @@ import { exampleRecords } from '../examples.js'
 import { previewImport } from './importing.js'
 import { addPhotos, hydratePhotos, photoURL, removePhotos } from '../photos.js'
 import { activeInjuries, injuryName } from '../body.js'
-import { characterPanel, characterWidget, shopPanel, storyPanel } from './character.js'
+import { characterWidget } from './character.js'
 import { LOAD_TYPES, distIn, distUnit, fmtClock, fmtDist, loadMonths, loadTrend, loadWeeks, paceOf, runStats, runs } from '../load.js'
 
 export function view() {
   return `<h1 class="sr">Athlete profile</h1>
   <div class="stat-grid">
     ${profilePanel()}
-    <h2 class="section-title wide">Character</h2>
-    ${characterPanel()}
-    ${storyPanel()}
-    ${shopPanel()}
     <h2 class="section-title wide">Training load</h2>
     ${loadPanel()}
     ${runsPanel()}

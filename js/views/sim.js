@@ -5,7 +5,7 @@ import { cap, esc, newId, plural, posRole, toast, today } from '../util.js'
 import { masteryOf, masteryPips, techById } from '../model.js'
 import { videoSearch } from '../catalog.js'
 import { PARTNERS, STARTS, TURNS, describe, newRoll, optionsFor, play, scout } from '../sim.js'
-import { hasAbility } from '../game.js'
+import { SHOP, SIM_DAILY, SIM_WIN_TOKENS, hasAbility, simCounted } from '../game.js'
 
 export function view() {
   const g = UI.sim
@@ -29,6 +29,8 @@ function setup() {
       <li>Some options are moves for the other person, like a sweep when you’re on top. Spot them, or pay for it.</li>
       <li>Raise a move’s mastery in your journal and it lands more often here.</li>
     </ul>
+    <p class="small" style="margin-top:10px">${['reshuffle', 'scout'].some(hasAbility) ? `Your abilities: ${['reshuffle', 'scout'].filter(hasAbility).map(id => SHOP[id].name).join(', ')}. Each works once per roll.` : 'Unlock Reshuffle and Scout in the Dojo shop for a little extra help.'}
+      Your first ${SIM_DAILY.won} wins each day earn XP and ${SIM_WIN_TOKENS} tokens apiece.</p>
     ${log.length ? `<p class="small muted">${plural(log.length, 'roll')} played · ${wins} won · ${log.filter(r => r.how?.startsWith('Submission')).length} by submission</p>` : ''}`
 }
 
@@ -64,7 +66,7 @@ function results(g) {
   const failed = [...new Set(g.log.filter(e => !e.worked).map(e => e.id))].map(techById).filter(Boolean)
   const worked = [...new Set(g.log.filter(e => e.worked).map(e => e.id))].map(techById).filter(Boolean)
   return `<div class="scoreboard final ${g.over.result}"><div><span class="lbl">You</span><span class="big">${g.me}</span>${adv(g.advMe)}</div>
-      <div class="clock"><span class="verdict ${g.over.result === 'win' ? 'up' : g.over.result === 'loss' ? 'down' : 'flat'}">${label}</span><span class="small">${esc(g.over.how)}</span></div>
+      <div class="clock"><span class="verdict ${g.over.result === 'win' ? 'up' : g.over.result === 'loss' ? 'down' : 'flat'}">${label}</span><span class="small">${esc(g.over.how)}</span>${g.over.result === 'win' ? `<span class="small">${simCounted().today.won <= SIM_DAILY.won ? `+6 XP · +${SIM_WIN_TOKENS} tokens` : 'Today’s rewards are in. Still counts for practice.'}</span>` : ''}</div>
       <div><span class="lbl">Them</span><span class="big">${g.them}</span>${adv(g.advThem)}</div></div>
     ${worked.length ? `<h3 style="margin-top:14px">What worked</h3><div class="tags">${worked.map(t => `<span class="tag good">${esc(t.name)}</span>`).join('')}</div>` : ''}
     ${failed.length ? `<h3 style="margin-top:14px">Worth studying</h3><ul class="list">${failed.map(t => `<li><p>${esc(t.name)} <span class="small muted">${esc(t.position)} · ${esc(t.type)}</span></p>

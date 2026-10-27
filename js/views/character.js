@@ -7,7 +7,8 @@ import { esc, plural, today, toast } from '../util.js'
 import { field, openSheet } from '../sheet.js'
 import { currentRank } from '../model.js'
 import { ACTIVE_REST_DAYS, BOSS_REWARD, KEEP_QUESTS, SHOP, SLOT_NAMES, STAT_HINTS, archetype, balance, cantBuy, equipped, freezeOffer, freezesLeft, game, hurtOn, legsHurt, levelOf, owns,
-  questsOn, run, saveGame, stats, story, tierOf, totalXp, xpBreakdown } from '../game.js'
+  fighterName, questsOn, run, saveGame, stats, story, tierOf, title, totalXp, xpBreakdown } from '../game.js'
+import { chronicle } from '../chronicle.js'
 
 // ---------- The avatar, drawn from parts ----------
 
@@ -70,6 +71,7 @@ function auraOf(it, id) {
 function headOf(it) {
   if (!it) return ''
   const c = it.color
+  if (it.bald) return ''
   if (it.crown) return '<path d="M45 22l3-12 6 7 6-10 6 10 6-7 3 12z" fill="#F5B301" stroke="#B45309" stroke-width=".8"/><circle cx="60" cy="18" r="1.6" fill="#C9333A"/>'
   if (it.hood) return `<path d="M43 34q1-18 17-18t17 18q-5-6-17-6t-17 6z" fill="${c}"/>`
   if (it.bandana) return `<path d="M42 34q1-19 18-19t18 19q-8-5-18-5t-18 5z" fill="${c}"/>${[[51, 23], [60, 19], [69, 23], [56, 27], [65, 27]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#FDE68A"/>`).join('')}<path d="M76 30l9 4M76 31l6 7" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/>`
@@ -81,7 +83,7 @@ const bubble = say => { const w = say.length * 5.4 + 12; return `<rect x="3" y="
 export function avatar({ items = equipped(), skin = game().skin, hair = game().hair, cls = '', label } = {}) {
   const id = 'av' + ++uid, kit = SHOP[items.kit], rank = currentRank(), look = BELT_LOOK[rank.belt] || BELT_LOOK.White
   const skinC = SKINS[skin] || SKINS[0], kitC = kit.color, sleeve = kit.sleeve || kitC, dark = ['gi-black', 'gi-shinobi', 'gi-kimura'].includes(items.kit)
-  const head = SHOP[items.band], hooded = kit.hood || head?.hood, hoodC = head?.hood ? head.color : kitC
+  const head = SHOP[items.band], hooded = kit.hood || head?.hood, hoodC = head?.hood ? head.color : kitC, bald = head?.bald
   const legs = kit.nogi
     ? `<rect x="46" y="106" width="11" height="24" rx="5" fill="${skinC}"/><rect x="63" y="106" width="11" height="24" rx="5" fill="${skinC}"/><rect x="41" y="96" width="38" height="17" rx="6" fill="#1F2329"/>`
     : `<rect x="44" y="97" width="15" height="34" rx="6" fill="${kitC}"/><rect x="61" y="97" width="15" height="34" rx="6" fill="${kitC}"/>`
@@ -99,8 +101,10 @@ export function avatar({ items = equipped(), skin = game().skin, hair = game().h
     : `<path d="${jacket}" fill="${kitC}"/><path d="M49 55l11 27 11-27" stroke="${kit.trim || (dark ? 'rgba(255,255,255,.16)' : 'rgba(0,0,0,.16)')}" stroke-width="5" fill="none"/>
        ${kit.plated ? `<path d="M40 66q20 5 40 0M40 78q20 5 40 0" stroke="${kit.trim}" stroke-width="1.4" fill="none"/>` : ''}
        ${kit.long ? `<path d="M64 74l3 5h-6zM64 104l3 5h-6z" fill="${kit.trim}"/>` : ''}${belt}`
-  const hairBack = hair === 3 && !hooded ? `<rect x="42" y="28" width="36" height="30" rx="11" fill="${HAIR}"/>` : ''
-  const hairTop = `<path d="M43 35q1-18 17-18t17 18q-5-9-17-9t-17 9z" fill="${HAIR}" ${hair === 1 ? 'opacity=".5"' : ''}/>${hair === 2 && !hooded ? `<circle cx="60" cy="16" r="6" fill="${HAIR}"/>` : ''}`
+  const hairBack = hair === 3 && !hooded && !bald ? `<rect x="42" y="28" width="36" height="30" rx="11" fill="${HAIR}"/>` : ''
+  // The Cucuruco Cap: no hair, a shiny skin-toned dome with a highlight and a faint seam.
+  const hairTop = bald ? `<path d="M43 36q0-19 17-19t17 19q-8-4-17-4t-17 4z" fill="#fff" opacity=".1"/><ellipse cx="53" cy="24" rx="5.5" ry="3" fill="#fff" opacity=".55" transform="rotate(-25 53 24)"/><circle cx="62" cy="21" r="1.2" fill="#fff" opacity=".5"/><path d="M44.5 33q15.5-5 31 0" stroke="rgba(0,0,0,.12)" stroke-width=".8" fill="none"/>`
+    : `<path d="M43 35q1-18 17-18t17 18q-5-9-17-9t-17 9z" fill="${HAIR}" ${hair === 1 ? 'opacity=".5"' : ''}/>${hair === 2 && !hooded ? `<circle cx="60" cy="16" r="6" fill="${HAIR}"/>` : ''}`
   const hood = hooded ? `<path d="M39 48q-3-35 21-35t21 35z" fill="${hoodC}"/>` : ''
   return `<svg class="char-av ${cls}" viewBox="0 0 120 140" role="img" aria-label="${esc(label || 'Your character')}">
     ${(MATS[items.mat] || MATS[''])(id)}
@@ -121,12 +125,12 @@ export function avatar({ items = equipped(), skin = game().skin, hair = game().h
   </svg>`
 }
 
-const nameOf = () => game().name || S.profile.name?.split(/\s+/)[0] || 'Your fighter'
+const nameOf = fighterName
 const labelOf = (lv, arch) => `${nameOf()}, level ${lv.level} ${arch.name.toLowerCase()}`
 const xpBar = pct => `<div class="xpbar" aria-hidden="true"><span style="width:${Math.round(pct * 100)}%"></span></div>`
 const coin = n => `<span class="tokens"><i aria-hidden="true"></i>${n.toLocaleString()} ${n === 1 ? 'token' : 'tokens'}</span>`
 
-// ---------- On the Athlete Profile ----------
+// ---------- In the Dojo ----------
 
 export function characterPanel() {
   const lv = levelOf(), arch = archetype(), st = stats(), top = Math.max(25, ...st.map(s => s.value))
@@ -136,6 +140,7 @@ export function characterPanel() {
       <div class="char-info">
         <p class="w-lbl">Level ${lv.level}</p>
         <h2>${esc(nameOf())}</h2>
+        <p class="char-title">${esc(title())}</p>
         <p><span class="tag pos">${esc(arch.name)}</span></p>
         ${xpBar(lv.pct)}
         <p class="small muted">${lv.into.toLocaleString()} / ${lv.need.toLocaleString()} XP to level ${lv.level + 1} · ${lv.xp.toLocaleString()} XP in all</p>
@@ -143,35 +148,34 @@ export function characterPanel() {
         <div class="row-actions"><button class="btn sm ghost" data-act="game-edit">Edit character</button>${coin(balance())}</div>
       </div>
     </div>
-    <div class="char-stats">${st.map(s => `<div class="char-stat" title="${esc(STAT_HINTS[s.name])}"><span>${s.name}</span><div class="meter mat"><span style="width:${s.value / top * 100}%"></span></div><b>${s.value}</b></div>`).join('')}</div>
+    <h3 style="margin-top:14px">Stats</h3>
+    <div class="char-stats">${st.map(s => `<div class="char-stat"><span>${s.name}</span><div class="meter mat"><span style="width:${s.value / top * 100}%"></span></div><b>${s.value}</b><small>${esc(STAT_HINTS[s.name])}</small></div>`).join('')}</div>
     <details class="explain"><summary>How you earn XP and stats</summary>
       <table class="xp-table"><thead><tr><th>From</th><th>Each</th><th>You</th><th>XP</th></tr></thead><tbody>
         ${xpBreakdown().map(r => `<tr class="${r.xp ? '' : 'muted'}"><td>${esc(r.what)}</td><td>${r.each ?? '—'}</td><td>${r.n ?? '—'}</td><td>${r.xp.toLocaleString()}</td></tr>`).join('')}
       </tbody></table>
-      <ul class="small muted fix-list">${Object.entries(STAT_HINTS).map(([k, v]) => `<li><b>${k}</b>: ${esc(v)}.</li>`).join('')}</ul>
       <p class="small muted">Everything is counted from your journal, so editing or deleting an entry changes it too. Every level also earns 10 tokens.</p>
     </details>
   </section>`
 }
 
-export function storyPanel() {
+// Missions: short objectives with a bit of story, opened by level. The Story tab is the chronicle.
+export function missionsPanel() {
   const chapters = story(), cur = chapters.find(c => c.state !== 'done'), done = chapters.filter(c => c.state === 'done')
   const n = cur ? chapters.indexOf(cur) + 1 : chapters.length
-  return `<section class="panel story" id="story"><h2>The Open Mat Chronicles</h2>
-    ${!cur ? '<p>You’ve finished every chapter. The story goes on in your journal.</p>'
-      : cur.state === 'locked' ? `<p class="w-lbl">Chapter ${n}</p><h3>${esc(cur.title)}</h3><p class="small muted">Unlocks at level ${cur.level}. You’re level ${levelOf().level}.</p>`
-      : `<p class="w-lbl">Chapter ${n}</p><h3>${esc(cur.title)}</h3><p class="story-text">${esc(cur.text)}</p>
+  return `<section class="panel story" id="missions"><h2>Missions: The Open Mat Chronicles</h2>
+    ${!cur ? '<p>You’ve finished every mission. The story goes on in your journal.</p>'
+      : cur.state === 'locked' ? `<p class="w-lbl">Mission ${n}</p><h3>${esc(cur.title)}</h3><p class="small muted">Unlocks at level ${cur.level}. You’re level ${levelOf().level}.</p>`
+      : `<p class="w-lbl">Mission ${n}</p><h3>${esc(cur.title)}</h3><p class="story-text">${esc(cur.text)}</p>
         <p class="small"><b>Mission:</b> ${esc(cur.what)} · +${cur.tokens} tokens</p>
-        ${cur.state === 'ready' ? '<div class="row-actions"><button class="btn sm" data-act="game-chapter" data-id="' + cur.id + '">Start chapter</button></div>'
+        ${cur.state === 'ready' ? '<div class="row-actions"><button class="btn sm" data-act="game-chapter" data-id="' + cur.id + '">Start mission</button></div>'
           : `<div class="meter good"><span style="width:${cur.have / cur.need * 100}%"></span></div><p class="small muted">${cur.have} of ${cur.need}, counting from ${esc(cur.from)}</p>`}`}
     ${done.length ? `<p class="small muted" style="margin-top:10px">Done: ${done.map(c => esc(c.title)).join(' · ')}</p>` : ''}
   </section>`
 }
 
 // One shelf at a time: abilities, or one slot of cosmetics. Locked items say how to unlock them.
-export function shopPanel() {
-  const eq = equipped(), lv = levelOf().level, shelf = UI.shopSlot || 'kit'
-  const tile = id => {
+export function itemTile(id, eq = equipped(), lv = levelOf().level) {
     const it = SHOP[id], have = game().owned[id] || 0, no = cantBuy(id), on = !it.ability && eq[it.slot] === id
     const preview = it.ability ? `<span class="ability-icon" aria-hidden="true">${{ reshuffle: '↻', scout: '◎', freeze: '❄' }[id]}</span>` : avatar({ items: { ...eq, [it.slot]: id }, cls: 'mini', label: it.name })
     const btn = !it.ability && owns(id)
@@ -180,11 +184,15 @@ export function shopPanel() {
     const tier = it.ability ? '' : `<span class="tier ${tierOf(it)}">${tierOf(it)}${it.unlock ? ' · unlock' : !it.price ? ' · free' : ''}</span>`
     return `<li class="shop-item ${on ? 'on' : ''} ${it.level > lv || (it.unlock && !owns(id)) ? 'locked' : ''}">${preview}${tier}<span class="shop-name">${esc(it.name)}${id === 'freeze' && have ? ` <span class="small muted">(${freezesLeft()} held)</span>` : ''}</span>
       <span class="small muted">${esc(it.desc)}</span>${btn}</li>`
-  }
+}
+
+export function shopPanel() {
+  const eq = equipped(), lv = levelOf().level, shelf = UI.shopSlot || 'kit'
+  const tile = id => itemTile(id, eq, lv)
   const shelves = ['abilities', ...Object.keys(SLOT_NAMES)]
   const ids = Object.keys(SHOP).filter(id => shelf === 'abilities' ? SHOP[id].ability : SHOP[id].slot === shelf)
   return `<section class="panel shop" id="shop"><div class="history-head"><h2 style="margin:0">Shop</h2>${coin(balance())}</div>
-    <p class="small muted">Earn tokens from quests, bosses, story chapters and levels. Some pieces can’t be bought: they unlock from the story, achievements, running and levels. Perks are just for the game: they never change your journal.</p>
+    <p class="small muted">Earn tokens from quests, bosses, missions, Live roll wins and levels. Some pieces can’t be bought: they unlock from the story, achievements, running and levels. Perks are just for the game: they never change your journal.</p>
     <div class="shop-shelves" role="group" aria-label="Shop shelf">${shelves.map(k => `<button class="pill" data-act="shop-slot" data-slot="${k}" aria-pressed="${k === shelf}">${k === 'abilities' ? 'Abilities' : SLOT_NAMES[k]}${eq[k] && k !== 'kit' ? ' •' : ''}</button>`).join('')}</div>
     <ul class="shop-grid">${ids.map(tile).join('')}</ul>
   </section>`
@@ -206,16 +214,16 @@ export function questBoard() {
       <p><b>${esc(boss.name)}</b> <span class="small muted">+${BOSS_REWARD.tokens} tokens · +${BOSS_REWARD.xp} XP</span></p>
       ${boss.parts.map(([label, have, need]) => `<div class="boss-part"><span class="small">${esc(label)}</span><span class="small muted">${Math.min(have, need)} / ${need}</span><div class="meter ${have >= need ? 'good' : 'mat'}"><span style="width:${Math.min(1, have / need) * 100}%"></span></div></div>`).join('')}</div>` : ''}
     ${offer ? `<div class="callout"><p>Last week slipped by. A streak freeze keeps your streak going.</p><div class="row-actions"><button class="btn sm" data-act="game-freeze" data-week="${offer}">Use a streak freeze</button></div></div>` : ''}
-    <div class="quest-foot"><button class="card-link" data-act="goto" data-view="athlete" data-anchor="character">Character and shop</button>${coin(balance())}</div>
+    <div class="quest-foot">${UI.view === 'quests' ? '<span></span>' : '<button class="card-link" data-act="tab" data-view="quests">All quests and missions</button>'}${coin(balance())}</div>
     <p class="small muted">${week?.rest >= ACTIVE_REST_DAYS ? 'Active recovery bonus: +10% tokens this week.' : `Move on ${ACTIVE_REST_DAYS} days off the mat this week (a run, a ride, yoga) for +10% tokens.`} Quests tick themselves off from what you log. Rest days never cost you anything.</p>
   </section>`
 }
 
 export function characterWidget() {
   const lv = levelOf(), arch = archetype()
-  return `<button class="widget char-widget" data-act="goto" data-view="athlete" data-anchor="character">
+  return `<button class="widget char-widget" data-act="tab" data-view="character">
     ${avatar({ cls: 'sm', label: labelOf(lv, arch) })}
-    <span class="cw-body"><span class="w-lbl">Level ${lv.level} · ${esc(arch.name)}</span><span class="cw-name">${esc(nameOf())}</span>${xpBar(lv.pct)}<span class="w-sub">${lv.into.toLocaleString()} / ${lv.need.toLocaleString()} XP · ${balance().toLocaleString()} tokens</span></span>
+    <span class="cw-body"><span class="w-lbl">Level ${lv.level} · ${esc(arch.name)}</span><span class="cw-name">${esc(nameOf())}</span><span class="w-sub">${esc(title())}</span>${xpBar(lv.pct)}<span class="w-sub">${lv.into.toLocaleString()} / ${lv.need.toLocaleString()} XP · ${balance().toLocaleString()} tokens</span></span>
   </button>`
 }
 
@@ -223,28 +231,30 @@ export function characterWidget() {
 
 const CHEERS = ['Every round adds up.', 'Showing up is the technique.', 'Slow is smooth, smooth is fast.', 'The mat remembers.', 'Small wins, stacked.']
 
-export function celebrate(level) {
+// A level-up, or a new chapter of the story when level is 0.
+export function celebrate(level, chapter = '') {
   const dlg = document.createElement('dialog')
   dlg.className = 'levelup'
   dlg.setAttribute('aria-labelledby', 'lu-h')
   dlg.innerHTML = `<form method="dialog" class="levelup-card">
     <div class="burst" aria-hidden="true">${'<i></i>'.repeat(12)}</div>
     ${avatar({ label: nameOf() })}
-    <p class="w-lbl">Level up</p><h2 id="lu-h">Level ${level}</h2>
-    <p>${esc(CHEERS[level % CHEERS.length])} +10 tokens.</p>
-    <button class="btn">Keep training</button></form>`
+    ${level ? `<p class="w-lbl">Level up</p><h2 id="lu-h">Level ${level}</h2>
+    <p>${esc(CHEERS[level % CHEERS.length])} +10 tokens.</p>` : `<p class="w-lbl">New story chapter</p><h2 id="lu-h" class="lu-chapter">${esc(chapter)}</h2><p>A new page of your story is written. Read it in the Dojo.</p>`}
+    <button class="btn">${level ? 'Keep training' : 'Onward'}</button></form>`
   dlg.addEventListener('close', () => dlg.remove())
   document.body.append(dlg)
   dlg.showModal()
 }
 
 // What a save earned: XP, quests finished today and any new level.
-export const snapshot = () => ({ xp: totalXp(), level: levelOf().level, done: questsOn(today()).filter(q => q.done).map(q => q.id), story: story().filter(c => c.state === 'done').map(c => c.id), unlocks: Object.keys(SHOP).filter(id => SHOP[id].unlock && owns(id)) })
+export const snapshot = () => ({ xp: totalXp(), level: levelOf().level, done: questsOn(today()).filter(q => q.done).map(q => q.id), story: story().filter(c => c.state === 'done').map(c => c.id), unlocks: Object.keys(SHOP).filter(id => SHOP[id].unlock && owns(id)), chapters: chronicle().length })
 export function announceGains(before, after) {
   const gained = after.xp - before.xp, quests = questsOn(today()).filter(q => q.done && !before.done.includes(q.id))
   const chapters = story().filter(c => after.story.includes(c.id) && !before.story.includes(c.id))
-  const parts = [gained > 0 && `+${gained.toLocaleString()} XP`, ...quests.map(q => `Quest done: ${q.text}`), ...chapters.map(c => `Chapter done: ${c.title}, +${c.tokens} tokens`), ...after.unlocks.filter(id => !before.unlocks.includes(id)).map(id => `Unlocked in the shop: ${SHOP[id].name}`)].filter(Boolean)
+  const parts = [gained > 0 && `+${gained.toLocaleString()} XP`, ...quests.map(q => `Quest done: ${q.text}`), ...chapters.map(c => `Chapter done: ${c.title}, +${c.tokens} tokens`), ...after.unlocks.filter(id => !before.unlocks.includes(id)).map(id => `Unlocked in the shop: ${SHOP[id].name}`), after.chapters > before.chapters && `New story chapter: ${chronicle().at(-1).title}`].filter(Boolean)
   if (after.level > before.level) setTimeout(() => celebrate(after.level), 700)
+  else if (after.chapters > before.chapters) setTimeout(() => celebrate(0, chronicle().at(-1).title), 700)
   return parts.length ? parts.join(' · ') : ''
 }
 
