@@ -1,8 +1,10 @@
 import { S } from '../store.js'
 import { ACTIVITY_TYPES, FEELS, POSITIONS } from '../vocab.js'
 import { dayPart, daysAgo, esc, hrs, monthLabel, pct, plural, rate, sum, ym } from '../util.js'
-import { areaCounts, bodyInsights, monthlySeries, moveTrends, problemTrends, weeklyStreak } from '../analysis.js'
-import { butterfly, heatmap, lineChart, spark, sparkBars, stackedBars } from '../charts.js'
+import { areaCounts, bodyInsights, gameMap, monthlySeries, moveTrends, problemTrends, weeklyStreak } from '../analysis.js'
+import { butterfly, heatmap, lineChart, radar, spark, sparkBars, stackedBars } from '../charts.js'
+import { UI } from '../ui.js'
+import { MASTERY } from '../model.js'
 import { subHead, subOf, tile } from './hub.js'
 
 // A hero with this month's numbers and the calendar heatmap, then a tile per panel.
@@ -26,6 +28,7 @@ export function view() {
 
 // [label, () => [big number, short line, sparkline values]]
 export const TILES = {
+  radar: ['Game map', () => { const g = gameMap(), best = [...g.axes].sort((a, b) => b.v - a.v)[0]; return [g.empty ? '—' : Math.round(sum(g.axes, 'v') / g.axes.length), g.empty ? 'log moves to grow it' : 'strongest · ' + best.label, null, radar(g.axes, { mini: true })] }],
   success: ['Roll success', () => { const s = monthlySeries(6), cur = s.at(-1).rate ?? s.filter(x => x.rate != null).at(-1)?.rate; return [pct(cur), 'by month', s.map(x => x.rate)] }],
   attention: ['Attention', () => { const p = attention(); return [p.length, p[0] ? esc(p[0].p) + ' most' : 'positions, 90 days'] }],
   areas: ['Problem areas', () => { const bad = areaCounts('trouble', daysAgo(59)); return [bad.length, bad[0] ? esc(bad[0][0]) + ' most' : 'nothing flagged'] }],
@@ -37,11 +40,12 @@ export const TILES = {
   months: ['Month by month', () => { const s = monthlySeries(6); return [s.at(-1).sessions, 'sessions this month', s.map(x => x.sessions)] }],
 }
 export function statTile(k, view = '') {
-  const [label, f] = TILES[k], [big, small, values] = f()
-  return tile(k, label, big, small, { view, spark: values?.some(v => v) ? sparkBars(values) : '' })
+  const [label, f] = TILES[k], [big, small, values, art] = f()
+  return tile(k, label, big, small, { view, spark: art || (values?.some(v => v) ? sparkBars(values) : ''), cls: art ? 'radar-tile' : '' })
 }
 
 const SUBS = {
+  radar: ['Your game map', () => gameMapPanel()],
   success: ['Roll success by month', () => { const series = monthlySeries(6); return `<section class="panel wide">${series.some(s => s.rate != null) ? lineChart(series, { w: 420, h: 170 }) : '<p class="muted">Log rolls to see this trend.</p>'}</section>` }],
   attention: ['Where your attention went', attentionPanel],
   areas: ['Strengths and trouble areas', () => areasPanel()],
@@ -54,6 +58,26 @@ const SUBS = {
       <thead><tr><th scope="col">Month</th><th scope="col">Sessions</th><th scope="col">Mat hours</th><th scope="col">Rolls logged</th><th scope="col">Broke down</th><th scope="col">Success</th></tr></thead>
       <tbody>${series.slice().reverse().map(s => `<tr><td>${monthLabel(s.m)}</td><td>${s.sessions}</td><td>${hrs(s.minutes)}</td><td>${s.n}</td><td>${s.broke}</td><td>${pct(s.rate)}</td></tr>`).join('')}</tbody></table></div>
     </section>` }],
+}
+
+// The radar, then a row per axis: tap one for the moves that feed it.
+function gameMapPanel() {
+  const g = gameMap(), open = UI.radarTip
+  return `<section class="panel wide game-map">
+    ${radar(g.axes, { then: g.grew, caught: g.axes.some(a => a.caught) })}
+    <p class="key" aria-hidden="true"><span><i class="rk-now"></i>Now</span>${g.grew ? '<span><i class="rk-then"></i>3 months ago</span>' : ''}${g.axes.some(a => a.caught) ? '<span><i class="rk-caught"></i>Where partners catch you</span>' : ''}</p>
+    ${g.empty ? '<p class="callout small">Log moves in your rolls, and what you drill, to grow your game map. Every move you land pushes its side out.</p>' : ''}
+    <div class="stat-rows">${g.axes.map(a => `<button class="stat-row" data-act="radar-tip" data-k="${a.label}" aria-expanded="${open === a.label}">
+      <span>${a.label}</span><span class="meter mat"><span style="width:${a.v}%"></span></span><b>${a.v}</b>
+      ${open === a.label ? `<small>${a.top.length ? a.top.map(m => `${esc(m.tech.name)} (${MASTERY[m.level].toLowerCase()}${m.landed ? `, landed ${m.landed}×` : ''})`).join(' · ') : 'Nothing logged here yet.'}</small>` : ''}</button>`).join('')}</div>
+    <p class="small muted">Each move adds its mastery level, and more each time you land it in a roll. Scores grow fast at first, then slower, out of 100. Tap a side for the moves behind it.</p>
+    <div class="row-actions"><button class="btn sm ghost" data-act="dojo-stats">Your fighter’s stats in the Dojo</button></div>
+  </section>`
+}
+
+export const actions = {
+  'radar-tip': el => { UI.radarTip = UI.radarTip === el.dataset.k ? '' : el.dataset.k },
+  'dojo-stats': () => { UI.view = 'character'; UI.dojoSub = 'stats'; scrollTo(0, 0) },
 }
 
 function attention() {

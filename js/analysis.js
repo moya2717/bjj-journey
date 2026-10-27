@@ -2,7 +2,7 @@ import { S, cached } from './store.js'
 import { BELTS, ENERGY, REASONS, SIZES, SLEEP, STYLES } from './vocab.js'
 import { byDateDesc, daysAgo, isoDate, posRole, rate, score, sum, topKeys, weekStart, ym } from './util.js'
 import { MOVE_GROUPS, groupOf } from './catalog.js'
-import { rollMoves, seqById, sizeLabel, techById } from './model.js'
+import { allTechs, masteryOf, rollMoves, seqById, sizeLabel, techById } from './model.js'
 import { activeOn } from './body.js'
 
 const notWorked = r => r.result !== 'worked'
@@ -234,4 +234,41 @@ export const bodyInsights = () => cached('bodyInsights', () => {
     return { key: dim.key, title: dim.title, tagged: tagged.length, rows, finding: best || null }
   })
   return { dims, findings: dims.map(d => d.finding).filter(Boolean).sort((a, b) => b.z - a.z), min: { sessions: MIN_SESSIONS, rolls: MIN_ROLLS } }
+})
+
+// ---------- Game map: how built out each part of your game is ----------
+
+// Six axes from the move types. Each move adds its mastery level (seen 1 … hit on a higher belt 4);
+// each time you land it in a roll adds 2 and each try ½. Moves that caught you are kept apart,
+// as pressure. The total grows a score of 0–100 with diminishing returns, so early logging shows
+// right away and no axis tops out quickly.
+export const GAME_AXES = [['Takedowns', ['Takedown']], ['Guard', ['Sweep', 'Retention']], ['Passing', ['Pass']],
+  ['Control', ['Control', 'Transition']], ['Submissions', ['Submission']], ['Escapes', ['Escape']]]
+const growth = points => Math.round(100 * (1 - Math.exp(-points / 40)))
+
+// Now uses each move's full mastery; `before` a date counts only what the log shows by then.
+function mapAt(before) {
+  const level = {}, landed = {}, tried = {}, caught = {}
+  const add = (o, id, n = 1) => o[id] = (o[id] || 0) + n
+  const raise = (id, n) => { if (id && (level[id] || 0) < n) level[id] = n }
+  if (before) S.session.filter(s => s.date < before).forEach(s => (s.drilled || []).forEach(id => raise(id, 2)))
+  S.roll.filter(r => !before || r.date < before).forEach(r => rollMoves(r).forEach(m => {
+    if (m.outcome === 'landed') { add(landed, m.techId); if (before) raise(m.techId, 3) }
+    else if (m.outcome === 'tried') add(tried, m.techId)
+    else add(caught, m.techId)
+  }))
+  const techs = allTechs()
+  return GAME_AXES.map(([label, types]) => {
+    const moves = techs.filter(t => types.includes(t.type)).map(t => {
+      const lv = before ? level[t.id] || 0 : masteryOf(t).level
+      return { tech: t, level: lv, landed: landed[t.id] || 0, points: lv + 2 * (landed[t.id] || 0) + (tried[t.id] || 0) / 2, caught: caught[t.id] || 0 }
+    })
+    return { label, v: growth(sum(moves, 'points')), caught: growth(2 * sum(moves, 'caught')),
+      top: moves.filter(m => m.points).sort((a, b) => b.points - a.points).slice(0, 3) }
+  })
+}
+
+export const gameMap = () => cached('gameMap', () => {
+  const now = mapAt(''), then = mapAt(daysAgo(90))
+  return { axes: now.map((a, i) => ({ ...a, then: then[i].v })), empty: now.every(a => !a.v), grew: now.some((a, i) => a.v > then[i].v) && then.some(a => a.v) }
 })

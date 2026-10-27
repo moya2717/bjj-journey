@@ -1310,3 +1310,21 @@ dialog.levelup::backdrop{background:rgba(0,0,0,.55)}
 .filters.sticky-chips .field-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .filters.sticky-chips select{min-height:44px}
 @media (prefers-reduced-motion:reduce){.fold>summary>span:last-child{transition:none}.swipe{scroll-snap-type:none}}
+/* Game map: a radar of your game by move type */
+.radar{display:block;width:100%;max-width:360px;height:auto;margin:0 auto;overflow:visible}
+.radar .ring{fill:none;stroke:var(--line)}
+.radar .spoke{stroke:var(--line)}
+.radar .now{fill:color-mix(in srgb,var(--neon) 30%,transparent);stroke:var(--neon);stroke-width:2;stroke-linejoin:round;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--neon) 60%,transparent))}
+.radar .then{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-dasharray:4 3}
+.radar .caught{fill:color-mix(in srgb,var(--broke) 14%,transparent);stroke:color-mix(in srgb,var(--broke) 45%,transparent);stroke-width:1}
+.radar text{font-size:12px;font-weight:700;fill:var(--ink)}
+.radar text .v{font-weight:800;fill:var(--neon-2)}
+.radar.mini{width:100%;height:56px;margin:2px 0}
+.radar.mini .now{stroke-width:1.5}
+.radar-tile .dojo-big{margin-top:0}
+.key .rk-now,.key .rk-then,.key .rk-caught{display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.key .rk-now{background:color-mix(in srgb,var(--neon) 45%,transparent);border:1.5px solid var(--neon)}
+.key .rk-then{border:1.5px dashed var(--muted)}
+.key .rk-caught{background:color-mix(in srgb,var(--broke) 20%,transparent)}
+.widget.radar-widget{flex-direction:row;align-items:center;gap:10px;grid-column:span 2}
+.widget.radar-widget .radar.mini{width:96px;height:68px;flex:none}

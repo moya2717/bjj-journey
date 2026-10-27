@@ -130,3 +130,22 @@ export function sparkBars(values) {
     return `<rect class="${i === values.length - 1 ? 'last' : ''}" x="${(i * w + w * 0.15).toFixed(1)}" y="${(24 - h).toFixed(1)}" width="${(w * 0.7).toFixed(1)}" height="${h.toFixed(1)}" rx="1"></rect>`
   }).join('')}</svg>`
 }
+
+// A radar of your game: one spoke per axis (values 0–100), a lit shape for now, an optional dashed
+// shape from before and a faint one for where partners catch you. A tiny starter shape shows
+// before there's anything logged, so the chart always reads as something to grow.
+export function radar(axes, { mini = false, then = false, caught = false } = {}) {
+  const W = mini ? 100 : 340, H = mini ? 72 : 300, cx = W / 2, cy = H / 2 + (mini ? 0 : 4), R = mini ? 32 : 88, n = axes.length
+  const at = (i, v) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n, r = R * Math.max(v, 0) / 100; return [cx + r * Math.cos(a), cy + r * Math.sin(a)] }
+  const shape = f => axes.map((a, i) => at(i, f(a)).map(x => x.toFixed(1)).join(',')).join(' ')
+  const label = axes.map(a => `${a.label} ${a.v}`).join(', ')
+  return `<svg class="radar ${mini ? 'mini' : ''}" viewBox="0 0 ${W} ${H}" ${mini ? 'aria-hidden="true"' : `role="img" aria-label="${esc('Your game, out of 100: ' + label)}"`}>
+    ${[25, 50, 75, 100].map(v => `<polygon class="ring" points="${shape(() => v)}"></polygon>`).join('')}
+    ${axes.map((a, i) => { const [x, y] = at(i, 100); return `<line class="spoke" x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}"></line>` }).join('')}
+    ${caught ? `<polygon class="caught" points="${shape(a => a.caught)}"></polygon>` : ''}
+    ${then ? `<polygon class="then" points="${shape(a => a.then)}"></polygon>` : ''}
+    <polygon class="now" points="${shape(a => Math.max(10, a.v))}"></polygon>
+    ${mini ? '' : axes.map((a, i) => { const [x, y] = at(i, 116), anchor = Math.abs(x - cx) < 4 ? 'middle' : x > cx ? 'start' : 'end', top = y < cy - 4
+      return `<text x="${x.toFixed(1)}" y="${(y + (top ? -6 : 4)).toFixed(1)}" text-anchor="${anchor}">${esc(a.label)}<tspan class="v" x="${x.toFixed(1)}" dy="14">${a.v}</tspan></text>` }).join('')}
+  </svg>`
+}

@@ -6,8 +6,8 @@ import { BELT_LOOK, RANKS } from '../vocab.js'
 import { $, $$, byDateAsc, esc, fmtDate, fmtMonthY, hrs, newId, pct, plural, span, sum, toast, today, trunc, ym } from '../util.js'
 import { field, selectEl, armDelete, openSheet, radioChips } from '../sheet.js'
 import { ageDivision, currentRank, logMode, rankName } from '../model.js'
-import { bodyInsights, moveTrends, weeklyStreak } from '../analysis.js'
-import { sparkBars, stackedBars, trendLine } from '../charts.js'
+import { bodyInsights, gameMap, moveTrends, weeklyStreak } from '../analysis.js'
+import { radar, sparkBars, stackedBars, trendLine } from '../charts.js'
 import { fold, subHead, subOf, tile } from './hub.js'
 import { statTile } from './stats.js'
 import { exportBackup, importBackup } from '../backup.js'
@@ -29,6 +29,7 @@ export function view() {
   <div class="dojo-tiles">
     ${tile('load', 'Training load', t.now, t.ratio == null ? 'this week so far' : `${pct(t.ratio)} of usual`, { spark: sparkBars(loadWeeks(8).map(w => w.total)), cls: t.spike ? 'warn' : '' })}
     ${tile('runs', 'Running', `${fmtDist(r.week.dist)}<small> ${r.unit}</small>`, r.n ? `this week · ${plural(r.month.n, 'run')} this month` : 'log a run', { spark: r.n ? sparkBars(r.weeks.slice(-8).map(w => w.counts[0])) : '' })}
+    ${statTile('radar', 'stats')}
     ${statTile('moves', 'stats')}
     ${statTile('body', 'stats')}
     ${statTile('problems', 'stats')}
@@ -113,6 +114,8 @@ export const WIDGETS = {
   mat: ['Mat hours', () => { const m = S.session.filter(s => s.date.startsWith(ym(new Date()))); return card('journal', '', 'Mat hours', hrs(sum(m, 'minutes')), `this month, ${plural(m.length, 'session')}`) }],
   injuries: ['Active injuries', () => { const hurt = activeInjuries(); return card('injuries', '', 'Injuries', hurt.length || 'None', hurt.length ? esc(trunc(hurt.map(injuryName).join(', '), 40)) : 'nothing active right now', hurt.length ? 'hurt' : '') }],
   moves: ['Moves landed', () => { const t = moveTrends(12), n = sum(t.months.at(-1)?.counts || [], x => x); return card('stats', 'moves', 'Moves landed', n, t.topLanded[0] ? `this month. Most landed: ${esc(trunc(t.topLanded[0].tech.name, 24))}` : 'this month') }],
+  radar: ['Game map', () => { const g = gameMap(), best = [...g.axes].sort((a, b) => b.v - a.v)[0]
+    return `<button class="widget radar-widget" data-act="goto" data-view="stats" data-anchor="radar">${radar(g.axes, { mini: true })}<span><span class="w-lbl">Game map</span><span class="w-sub">${g.empty ? 'Log moves to grow it' : `Strongest: ${esc(best.label.toLowerCase())}`}</span></span></button>` }],
   sleep: ['Sleep and energy', () => { const f = bodyInsights().findings[0]; return card('stats', 'body', 'Sleep and energy', '', f ? esc(f.text) : 'No clear pattern yet. Tag energy and sleep when you log.', 'text') }],
 }
 export const homeWidgets = () => (S.settings.homeWidgets || ['character', 'load', 'runs', 'streak', 'injuries']).filter(k => WIDGETS[k])
