@@ -5,6 +5,7 @@ import { $, byDateDesc, esc, fmtDate, fmtDateLong, newId, posRole, toast, today,
 import { field, selectEl, chipsEl, techSelect, openSheet } from '../sheet.js'
 import { more } from './hub.js'
 import { chainBuilder, readChain, rollFlow, setChainStart } from '../picker.js'
+import { describeBox } from '../describe.js'
 import { MOVE_OUTCOMES, logMode, nodeDepth, nodePath, partnerNames, partnerProfile, rollTechId, seqById, sizeLabel, techById, treeOrder } from '../model.js'
 
 export function view() {
@@ -96,7 +97,7 @@ function rollForm(id, preset = {}) {
   const detailed = id && (r.position || r.reasons?.length || r.tryNext || r.seqId || r.techId || r.styles?.length || r.size)
 
   const partnerName = field(simple ? 'Who did you roll with? (optional)' : 'Partner (optional)', `<input type="text" name="partner" id="r-partner" list="partner-list" autocomplete="off" value="${esc(r.partner)}" placeholder="Name or nickname">`)
-  const where = `<fieldset><legend>What happened, move by move</legend>${chainBuilder('', r, last?.position)}</fieldset>`
+  const where = `<fieldset><legend>What happened, move by move</legend>${describeBox('')}${chainBuilder('', r, last?.position)}</fieldset>`
   const result = `<fieldset><legend>${simple ? 'How did it go?' : 'Result'}</legend><div class="chips">${Object.entries(RESULTS).map(([k, v]) => `<label class="chip r-${k}"><input type="radio" name="result" value="${k}" ${r.result === k ? 'checked' : ''}><span>${simple ? SIMPLE_RESULTS[k] : v.label}</span></label>`).join('')}</div></fieldset>`
   const why = `<fieldset data-why ${r.result === 'worked' ? 'hidden' : ''}><legend>Why it went wrong</legend>${chipsEl('reasons', REASONS, r.reasons || [])}</fieldset>`
   const what = field(simple ? 'What happened?' : 'What happened', `<textarea name="what" id="r-what" rows="3" placeholder="${simple ? 'They got on top and I couldn’t get them off. I remembered to keep my elbows in.' : 'He got the underhook as soon as I cut, came up, and I ended up on bottom'}">${esc(r.what)}</textarea>`)

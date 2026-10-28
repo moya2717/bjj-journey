@@ -223,6 +223,17 @@ export const attackerOf = pos => pos === 'Standing' ? 'Neutral' : GUARDS.include
 export const TABLE = Object.fromEntries(Object.entries(MENU).map(([k, moves]) => [k, moves.map(([name, pos, role, pts = 0]) =>
   ({ id: idOf(name), to: pos ? { pos, role } : null, pts, after: (AFTER[name] || []).map(idOf) }))]))
 
+// Where a move takes you, in your own terms: the move's landing from here, else from wherever the game
+// lists it. A move with no landing (a grip, a finish, a stall) keeps you where you are.
+export function landing(id, at) {
+  const here = (TABLE[key(at.pos, at.role)] || []).find(m => m.id === id)
+  if (here) return here.to
+  return Object.values(TABLE).flat().find(m => m.id === id && m.to)?.to || null
+}
+
+// Library moves that belong to this side of the position: the attacker sweeps and submits, the other side passes and escapes.
+export const fits = (t, { pos, role }) => t.type !== 'Movement' && (pos === 'Standing' || (role === attackerOf(pos)) !== ['Escape', 'Pass'].includes(t.type))
+
 // Moves you added yourself join in when their type says clearly what they do from here.
 function customMoves({ pos, role }) {
   const guard = GUARDS.includes(pos), move = (id, to, pts = 0) => ({ id, to, pts, after: [] })

@@ -3,11 +3,11 @@
 // the rest grouped by position and type. Every single-move field in the app opens it.
 // The chain builder: tap where a roll started, then the moves as they happened. Each pick moves you
 // to where that move lands (the Live roll game's transitions), so the likely next moves are on screen.
-import { S, cached } from './store.js'
+import { S, cached, save } from './store.js'
 import { LIBRARY_GROUPS, POSITIONS, TECH_TYPES } from './vocab.js'
 import { $, byDateDesc, esc, fmtDate, today, toast } from './util.js'
 import { MOVE_OUTCOMES, allTechs, rollMoves, techById, techUsage } from './model.js'
-import { TABLE, attackerOf, describe, flip, key, menuFor } from './sim.js'
+import { describe, fits, flip, key, landing, menuFor } from './sim.js'
 import { homeFor, saveChain } from './views/sim.js'
 
 // ---------- Search: every word a prefix, initials ("rnc"), squashed ("armbar"), or one typo ----------
@@ -130,13 +130,6 @@ export function wireTechFields(form) {
 
 // ---------- Where moves lead, and what usually comes next ----------
 
-// Where a move takes you, in your own terms: the move's landing from here, else from wherever the game
-// lists it. A move with no landing (a grip, a finish, a stall) keeps you where you are.
-function landing(id, at) {
-  const here = (TABLE[key(at.pos, at.role)] || []).find(m => m.id === id)
-  if (here) return here.to
-  return Object.values(TABLE).flat().find(m => m.id === id && m.to)?.to || null
-}
 const theirs = at => ({ pos: at.pos, role: flip(at.role) })
 
 // What you (or partners, on you) did from each spot, and what followed each move: your rolls and your sequences.
@@ -159,9 +152,6 @@ const history = () => cached('chainHistory', () => {
   }))
   return { at, after }
 })
-
-// Library moves that belong to this side of the position: the attacker sweeps and submits, the other side passes and escapes.
-const fits = (t, { pos, role }) => t.type !== 'Movement' && (pos === 'Standing' || (role === attackerOf(pos)) !== ['Escape', 'Pass'].includes(t.type))
 
 // Most likely moves from a spot, best first: your history here and after the last move,
 // then the game's menu for the spot, then the library's moves for the position.
@@ -189,7 +179,7 @@ export function replay({ pos, role, steps = [] }) {
   const items = steps.map((s, i) => {
     if (!s.techId) return { i, mark: true, from: now, to: now = { pos: s.pos, role: s.role } }
     const to = s.outcome === 'landed' ? landing(s.techId, now) : s.outcome === 'caughtBy' ? landing(s.techId, theirs(now)) && theirs(landing(s.techId, theirs(now))) : null
-    const item = { i, techId: s.techId, outcome: s.outcome, from: now, to: to || now }
+    const item = { i, techId: s.techId, outcome: s.outcome, unsure: s.conf < 0.75, from: now, to: to || now }
     now = item.to
     return item
   })
@@ -216,9 +206,10 @@ function flowHtml(state, edit) {
   const { items } = replay(state)
   let shown = state.pos + '|' + state.role
   const pos = at => { const k = at.pos + '|' + at.role; if (k === shown) return ''; shown = k; return `<li><span class="flow-pos">${esc(label(at.pos, at.role))}</span></li>` }
-  return `<ol class="flow"><li><span class="flow-pos">${esc(label(state.pos, state.role))}</span></li>${items.map(x => x.mark ? pos(x.to) : pos(x.from) + `<li><span class="flow-move o-${x.outcome}">${edit
-    ? `<button type="button" data-ch="cycle" data-i="${x.i}" aria-label="${esc(techById(x.techId)?.name)}: ${MOVE_OUTCOMES[x.outcome]}. Tap to change">${x.outcome === 'caughtBy' ? '<b>They:</b> ' : ''}${esc(techById(x.techId)?.name)} <span class="o-lbl">${MOVE_OUTCOMES[x.outcome]}</span></button><button type="button" class="x" data-ch="drop" data-i="${x.i}" aria-label="Remove">×</button>`
-    : `${x.outcome === 'caughtBy' ? '<b>They:</b> ' : ''}${esc(techById(x.techId)?.name)}${x.outcome === 'tried' ? ' <span class="o-lbl">tried</span>' : ''}`}</span></li>` + pos(x.to)).join('')}</ol>`
+  // A move followed by a position you named shows that position, not the one the move usually lands in.
+  return `<ol class="flow"><li><span class="flow-pos">${esc(label(state.pos, state.role))}</span></li>${items.map((x, n) => x.mark ? pos(x.to) : pos(x.from) + `<li><span class="flow-move o-${x.outcome} ${edit && x.unsure ? 'unsure' : ''}">${edit
+    ? `<button type="button" data-ch="cycle" data-i="${x.i}" aria-label="${esc(techById(x.techId)?.name)}: ${MOVE_OUTCOMES[x.outcome]}. Tap to change">${x.outcome === 'caughtBy' ? '<b>They:</b> ' : ''}${esc(techById(x.techId)?.name)}${x.unsure ? '?' : ''} <span class="o-lbl">${MOVE_OUTCOMES[x.outcome]}</span></button><button type="button" class="x" data-ch="drop" data-i="${x.i}" aria-label="Remove">×</button>`
+    : `${x.outcome === 'caughtBy' ? '<b>They:</b> ' : ''}${esc(techById(x.techId)?.name)}${x.outcome === 'tried' ? ' <span class="o-lbl">tried</span>' : ''}`}</span></li>` + (items[n + 1]?.mark ? '' : pos(x.to))).join('')}</ol>`
 }
 
 // A saved roll's chain, for the journal cards. Rolls logged before chains show nothing here.
@@ -242,7 +233,7 @@ function builderHtml(state) {
   const { now } = replay(state), them = theirs(now)
   const mine = suggest(now, state.steps).map(techById), theirsList = suggest(them, state.steps).slice(0, 6).map(techById)
   const shown = state.more ? 24 : 8, myMoves = state.steps.filter(s => s.techId).length
-  return `${flowHtml(state, true)}
+  return `${flowHtml(state, true)}${unsureHtml(state)}
     <div class="chain-now"><span>${esc(describe(now))}.</span>
       <span class="chain-tools"><button type="button" class="link small" data-ch="change">Change position</button>${state.steps.length ? '<button type="button" class="link small" data-ch="undo">Undo</button>' : ''}</span></div>
     <p class="field-label">${state.steps.length ? 'Then you…' : 'You…'} <span class="hint">Tap to add. Tap a move above to switch landed, tried, caught by.</span></p>
@@ -251,6 +242,20 @@ function builderHtml(state) {
     <div class="chain-search"><input type="search" data-chain-q placeholder="Search any move" autocomplete="off" enterkeyhint="done" aria-label="Search any move"><button type="button" class="btn sm ghost" data-ch="browse">Browse</button></div>
     <div class="chain-hits" data-chain-hits></div>
     ${myMoves >= 2 ? `<div>${state.saved ? '<span class="small muted">Saved to your sequences ✓</span>' : '<button type="button" class="btn sm ghost" data-ch="save-seq">Save this chain as a sequence</button>'}</div>` : ''}`
+}
+
+// Steps the describer guessed at ("trinagle", "underhook") ask once: the guess first, then up to three others.
+// Tapping one settles it and teaches the describer that word.
+function unsureHtml(state) {
+  const rows = state.steps.map((s, i) => [s, i]).filter(([s]) => s.techId && s.conf < 0.75)
+  return rows.length ? `<div class="unsure-list"><p class="field-label">Did you mean… <span class="hint">These were a guess. Tap the right move and it’s remembered.</span></p>
+    ${rows.map(([s, i]) => `<div class="unsure-row"><span class="small muted">“${esc(s.phrase)}”</span><div class="pick-chips">${[s.techId, ...(s.alts || [])].slice(0, 4).map(techById).filter(Boolean).map((t, j) =>
+      `<button type="button" class="pick-chip ${j ? '' : 'me'}" data-ch="swap" data-i="${i}" data-id="${esc(t.id)}">${esc(t.name)}${j ? '' : ' ✓'}</button>`).join('')}<button type="button" class="pick-chip more" data-ch="find" data-i="${i}">Find move</button></div></div>`).join('')}</div>` : ''
+}
+
+// The describer's words for your moves: a phrase you corrected → the move you meant. Kept with your settings, so backups carry it.
+export function learnWord(phrase, techId) {
+  if (phrase && techId && S.settings.moveWords?.[phrase] !== techId) save({ ...S.settings, moveWords: { ...S.settings.moveWords, [phrase]: techId } })
 }
 
 // prefix names the roll in a form with several ("r0_"); hint is the position to suggest first.
@@ -264,6 +269,11 @@ function update(box, state) {
   delete state.pickPos
   box.dataset.state = JSON.stringify(state)
   box.innerHTML = builderHtml(state)
+}
+
+// A chain the describer built from your words replaces what the builder had.
+export function loadChain(box, { pos, role, steps }) {
+  update(box, { ...stateOf(box), pos, role, steps, picking: false, saved: false, more: false })
 }
 
 // A sequence picked elsewhere in the form sets where the chain starts, unless moves are already in.
@@ -289,6 +299,8 @@ function saveAsSequence(box, state) {
   saveChain(c, homeFor(c)?.id, `From your roll on ${fmtDate(state.date || today())}`)
   update(box, { ...state, saved: true })
 }
+
+export const addChainStep = (box, techId, who) => addStep(box, stateOf(box), techId, who)
 
 function addStep(box, state, techId, who) {
   state.steps.push({ techId, outcome: who === 'them' ? 'caughtBy' : 'landed' })
@@ -318,6 +330,8 @@ export function wireChains(form) {
       case 'add': return addStep(box, state, btn.dataset.id, btn.dataset.who)
       case 'browse': return findMove({ title: 'Add a move', near: replay(state).now, onPick: id => id && addStep(box, stateOf(box), id, 'me') })
       case 'save-seq': return saveAsSequence(box, state)
+      case 'swap': return settle(box, state, i, btn.dataset.id)
+      case 'find': return findMove({ title: `“${state.steps[i].phrase}” is…`, near: replay({ ...state, steps: state.steps.slice(0, i) }).now, onPick: id => id && settle(box, stateOf(box), i, id) })
     }
   })
   form.addEventListener('input', e => {
@@ -333,6 +347,15 @@ export function wireChains(form) {
     e.preventDefault()
     e.target.closest('[data-chain]').querySelector('[data-chain-hits] [data-ch]')?.click()
   })
+}
+
+// A different move, or a misspelling confirmed, is learned. Confirming a guess between moves ("triangle") isn't:
+// where you are keeps deciding that one.
+function settle(box, state, i, techId) {
+  const s = state.steps[i]
+  if (techId !== s.techId || s.conf <= 0.6) learnWord(s.phrase, techId)
+  state.steps[i] = { ...state.steps[i], techId, conf: 1 }
+  update(box, { ...state, saved: false })
 }
 
 function finishPosition(box, state, pos, role) {

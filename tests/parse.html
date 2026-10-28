@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Roll describer tests</title>
+<style>
+  body{font:15px/1.5 system-ui,sans-serif;margin:16px;background:#fff;color:#15202A}
+  @media (prefers-color-scheme:dark){body{background:#0E161D;color:#E6ECF0}}
+  .ok{color:#2E8B57}.fail{color:#C0392B}li{margin:0 0 10px}small{opacity:.75}
+</style>
+</head>
+<body>
+<h1>Roll describer tests</h1>
+<p>Each sentence is parsed against the built-in move library. Recall is the share of expected moves found.</p>
+<div id="out">Running…</div>
+<script type="module">
+  import { BLIND, CASES, HELD_OUT, runCases } from './score.js'
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+  document.getElementById('out').innerHTML = [['Tuned suite', CASES], ['Held out', HELD_OUT], ['Blind', BLIND]].map(([title, cases]) => {
+    const { rows, summary: s } = runCases(cases)
+    return `<h2>${title}: ${s.recall}% move recall, ${s.outcomes}% outcomes, ${s.passed}/${s.cases} chains right</h2><ol>${rows.map(r =>
+      `<li class="${r.ok ? 'ok' : 'fail'}">${esc(r.text)}<br><small>want: ${esc(r.want.join(' → '))}<br>got: ${esc(r.got.join(' → '))} [${esc(r.start)}]</small></li>`).join('')}</ol>`
+  }).join('')
+</script>
+</body>
+</html>

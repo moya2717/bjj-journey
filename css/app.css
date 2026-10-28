@@ -1332,3 +1332,23 @@ dialog.levelup::backdrop{background:rgba(0,0,0,.55)}
 /* Simple or Advanced: the quiet switch at the bottom of a screen */
 .mode-link{text-align:center;margin:20px 0 4px}
 .mode-link .link{color:var(--muted);font-weight:500}
+
+/* Describe the roll: your words, then the chain they made. */
+.describe{display:flex;flex-direction:column;gap:8px;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--line)}
+.describe textarea{min-height:84px}
+.describe-go{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.desc-marks{margin:0;padding:10px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-size:.92rem;line-height:1.7;overflow-wrap:anywhere}
+.desc-marks mark{background:none;color:inherit;border-radius:4px;padding:1px 3px}
+.desc-marks mark.o-landed{background:var(--worked-soft);color:var(--worked);font-weight:600}
+.desc-marks mark.o-tried{background:var(--partial-soft);font-weight:600}
+.desc-marks mark.o-caughtBy{background:var(--broke-soft);color:var(--broke);font-weight:600}
+.desc-marks mark.unsure{outline:1.5px dashed currentColor;outline-offset:1px}
+.desc-marks mark.pos{text-decoration:underline 2px var(--mat);text-underline-offset:3px;padding:0}
+.desc-marks mark.miss{text-decoration:underline wavy var(--muted);padding:0}
+.desc-marks sup{font-size:.7em;margin-left:2px;opacity:.8}
+.miss-chips{display:flex;flex-wrap:wrap;gap:8px}
+.miss-chip{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px;max-width:100%;padding:6px 10px;border:1px dashed var(--line-strong);border-radius:12px;font-size:.88rem;overflow-wrap:anywhere}
+.unsure-list{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:10px;background:var(--partial-soft)}
+.unsure-list .field-label{margin:0}
+.unsure-row{display:flex;flex-direction:column;gap:6px}
+.flow-move.unsure{border-style:dashed}

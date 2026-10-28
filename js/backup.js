@@ -3,6 +3,7 @@ import { today } from './util.js'
 import { isZip, makeZip, readZip } from './zip.js'
 
 // A backup is a .zip: backup.json with every record, plus each photo as a real image file.
+// Settings travel as a record too, so the words you taught the roll describer (settings.moveWords) come along.
 // Restoring also reads older backups (one JSON file with photos inside) and exports from the
 // earlier claude.ai version of the journal.
 

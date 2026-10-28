@@ -4,6 +4,7 @@ import { ACTIVITY_TYPES, AREAS, BELTS, ENERGY, FEELS, INTENSITIES, PLAN_HIT, PRO
 import { $, $$, byDateDesc, cap, esc, fmtDateLong, fmtTime, hrs, isoDate, monthLabel, newId, parseD, plural, posRole, shiftMonth, sum, toast, today, weekStart, ym } from '../util.js'
 import { field, selectEl, chipsEl, focusPicker, radioChips, techSelect, openSheet } from '../sheet.js'
 import { chainBuilder, readChain, rollFlow, setChainStart } from '../picker.js'
+import { describeBox } from '../describe.js'
 import { hasDetail, logMode, partnerProfile, rollMoves, seqById, techById } from '../model.js'
 import { heatLevel } from '../charts.js'
 import { addPhotos, removePhotos, hydratePhotos, openViewer, photoURL } from '../photos.js'
@@ -227,7 +228,7 @@ function rollRow(i, preset) {
       ${field('Belt', selectEl(k('level'), BELTS, 'Blue'))}
       ${field('Size', selectEl(k('size'), [{ value: '', label: 'Not noted' }, ...SIZES], ''))}
     </div>
-    <fieldset><legend>What happened, move by move</legend>${chainBuilder(k(''), seq ? { position: seq.position, role: seq.role } : {}, preset.position)}</fieldset>
+    <fieldset><legend>What happened, move by move</legend>${describeBox(k(''))}${chainBuilder(k(''), seq ? { position: seq.position, role: seq.role } : {}, preset.position)}</fieldset>
     <fieldset><legend>Result</legend><div class="chips">${Object.entries(RESULTS).map(([v, o]) => `<label class="chip r-${v}"><input type="radio" name="${k('result')}" value="${v}" data-result><span>${o.label}</span></label>`).join('')}</div></fieldset>
     <details class="more" ${preset.seqId ? 'open' : ''}><summary>Sequence you ran</summary><div class="grid2">${field('Sequence', selectEl(k('seqId'), seqOptions, preset.seqId, 'data-seq'))}${field('Step it reached', `<select name="${k('nodeId')}" data-node>${stepOptions(preset.seqId, '')}</select>`)}</div></details>
     <fieldset data-why hidden><legend>Why it went wrong</legend>${chipsEl(k('reasons'), REASONS, [])}</fieldset>
