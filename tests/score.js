@@ -15,14 +15,15 @@ export function runCases(cases = CASES, techs = CATALOG) {
     const hits = want.filter(([id]) => ids.includes(id))
     expected += want.length; found += hits.length
     outcomes += want.filter(([id, o]) => got.chain.some(m => m.techId === id && m.outcome === o)).length
-    extra += ids.filter(id => !want.some(([w]) => w === id)).length
+    const extras = ids.filter(id => !want.some(([w]) => w === id))
+    extra += extras.length
     const startOk = !c.start || got.position === c.start[0] && got.role === c.start[1]
     starts += startOk
     const order = ids.filter(id => want.some(([w]) => w === id)).join() === want.filter(([id]) => ids.includes(id)).map(([id]) => id).join()
     inOrder += order
     const partnerOk = !c.partner || Object.entries(c.partner).every(([k, v]) => got.partner[k] === v)
     const resultOk = !c.result || got.result === c.result
-    const ok = hits.length === want.length && want.every(([id, o]) => got.chain.some(m => m.techId === id && m.outcome === o)) && startOk && order && partnerOk && resultOk
+    const ok = !extras.length && hits.length === want.length && want.every(([id, o]) => got.chain.some(m => m.techId === id && m.outcome === o)) && startOk && order && partnerOk && resultOk
     return { ok, text: c.text, want: c.chain.map(([n, o]) => n + ' ' + o), got: got.chain.map(m => nameOf(m.techId) + ' ' + m.outcome + (m.confidence < 0.75 ? ' (?)' : '')),
       start: got.position + ' ' + got.role, wantStart: c.start?.join(' '), partner: partnerOk ? '' : JSON.stringify(got.partner), result: resultOk ? '' : got.result + ' ≠ ' + c.result, unmatched: got.unmatched.map(u => u.text) }
   })

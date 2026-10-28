@@ -335,6 +335,10 @@ export function parseRoll(text, { techs = [], personal = {}, partners = [], usag
     mode = has(c, TRIED) || TRIED_PAIRS.some(p => textOf(c).includes(' ' + p + ' ')) ? 'tried' : ownVerb || !['and', 'or', ','].includes(c.conn) ? 'landed' : mode
     const events = [], moves = c.items.filter(x => x.k === 'move')
     c.items.forEach((it, i) => {
+      // "took his back with a seatbelt" is one move; "heel hook from 50/50" says where it happened.
+      const grip = it.k === 'move' && it.entry.ids.every(id => index.byId[id].type === 'Control'), prevW = c.items[i - 1]?.w
+      if (grip && events.some(e => e.t === 'move') && c.items.slice(Math.max(0, i - 3), i).some(x => x.w === 'with')) return
+      if (grip && prevW === 'from') it = { ...it, k: 'pos', pos: index.byId[it.entry.ids[0]].position }
       if (it.k === 'move') {
         const prior = c.items.slice(0, i).filter(x => x.k === 'w').map(x => x.w)
         const mine = it.phrase.startsWith('took my') || prior.slice(-2).includes('me') && prior.includes('caught') || ['ate', 'eat', 'fell'].some(w => prior.slice(-3).includes(w)) ? 'them' : actor
@@ -420,15 +424,16 @@ export function parseRoll(text, { techs = [], personal = {}, partners = [], usag
     }
     const pick = choose(ev, now, index, usage), t = index.byId[pick.techId], home = homeOf(t, ev.who)
     if (ev.t === 'hint') { if (!now && home) goTo(home); return }
+    // "Took the back" right after a move that already got you there says the same thing twice.
+    const ends = now && landing(t.id, home || now)
+    if (ev.ids.some(id => RESTATED.has(index.byId[id]?.name)) && ends && ends.pos === now.pos && rel(ev.who, ends.role) === now.role) return ev.post && goTo(ev.post, ev.post.span)
     if (!now) goTo(home || { pos: 'Standing', role: 'Neutral' })
     else if (home && t.position !== now.pos && !onMenu(t.id, now, ev.who) && !(t.position === 'Standing' && t.type !== 'Takedown' && t.name !== 'Guard pull')) goTo(home)
-    const lands = ev.outcome === 'landed' ? landing(t.id, now) : ev.outcome === 'caughtBy' ? landing(t.id, { ...now, role: flip(now.role) }) : null
-    const to = lands && (ev.outcome === 'caughtBy' ? { pos: lands.pos, role: flip(lands.role) } : lands)
-    // "Took the back" right after a move that already got you there says the same thing twice.
-    if (!(ev.ids.some(id => RESTATED.has(index.byId[id]?.name)) && to && to.pos === now.pos && to.role === now.role)) {
-      steps.push({ techId: t.id, outcome: ev.outcome, conf: pick.conf, alts: pick.alts, phrase: ev.phrase, span: ev.span })
-      now = to || now
-    }
+    steps.push({ techId: t.id, outcome: ev.outcome, conf: pick.conf, alts: pick.alts, phrase: ev.phrase, span: ev.span })
+    // Where it lands, as the chain builder replays it. A back take the game doesn't list still ends on the back.
+    const lands = ev.outcome !== 'tried' && landing(t.id, ev.outcome === 'caughtBy' ? { ...now, role: flip(now.role) } : now)
+    if (lands) now = ev.outcome === 'caughtBy' ? { pos: lands.pos, role: flip(lands.role) } : lands
+    else if (ev.outcome !== 'tried' && RESTATED.has(t.name) && !ev.post) goTo({ pos: 'Back', role: rel(ev.who, 'Top') }, ev.span)
     if (ev.post) goTo(ev.post, ev.post.span)
   })
 

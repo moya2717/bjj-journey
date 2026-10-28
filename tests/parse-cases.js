@@ -28,7 +28,7 @@ export const CASES = [
   { text: 'He went for a darce from half guard top, I escaped and swept him with the old school sweep.', start: ['Half guard', 'Bottom'], chain: [['Old school sweep', 'landed']] },
   { text: 'From knee on belly I hit a far side armbar. Clean tap.', start: ['Knee on belly', 'Top'], chain: [['Far-side armbar from knee on belly', 'landed']], result: 'worked' },
   { text: 'In his guard I stood up to break it, passed with a double under pass, got mount and finished an ezekiel.', start: ['Closed guard', 'Top'],
-    chain: [['Double under pass', 'landed'], ['Ezekiel choke', 'landed']] },
+    chain: [['Double under pass', 'landed'], ['Side control to mount', 'landed'], ['Ezekiel choke', 'landed']] },
   { text: 'He caught me in a guillotine standing, I popped my head out and pulled guard.', start: ['Standing', 'Neutral'], chain: [['Standing guillotine', 'caughtBy'], ['Guard pull', 'landed']] },
   { text: 'Got into single leg x, went for a straight ankle lock, he cleared and I lost position. He passed and got knee on belly.', start: ['Leg entanglement', 'Bottom'],
     chain: [['Single-leg X', 'landed'], ['Straight ankle lock', 'tried']] },
