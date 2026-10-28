@@ -1,10 +1,10 @@
 import { S, save } from '../store.js'
 import { POSITIONS, RESULTS } from '../vocab.js'
 import { byDateAsc, byDateDesc, cap, daysAgo, isoDate, parseD, esc, fmtDate, hrs, plural, pct, posRole, rate, span, sum, toast, today, topKeys, trunc, weekStart } from '../util.js'
-import { MOVE_OUTCOMES, allTechs, currentRank, nodePath, rankName, rollTechId, seqById, techById } from '../model.js'
+import { MOVE_OUTCOMES, allTechs, currentRank, isSimple, nodePath, rankName, rollTechId, seqById, techById } from '../model.js'
 import { areaCounts, badSpots, bodyInsights, hardestMatchup, monthlySeries, moveTrends, problemTrends, techStats, unpromoted, weakestStep } from '../analysis.js'
 import { lineChart, sparkBars } from '../charts.js'
-import { fold, moreButton, subHead, subOf, tile } from './hub.js'
+import { fold, modeLink, moreButton, subHead, subOf, tile } from './hub.js'
 import { UI } from '../ui.js'
 import { questsOn } from '../game.js'
 import { thisWeek as scenarioWeek } from '../scenarios.js'
@@ -16,23 +16,20 @@ import { TAG_LABELS, nextPlan, readiness, recentNotes, reviewDue, todaysFocus } 
 
 // Above the fold: this week, quick actions and today's focus. Everything else is a compact
 // tile or a swipe row; the three questions open as sub-screens.
+// Simple mode keeps this week, today's focus, quick actions, your cards and one insight.
 export function view() {
   const fresh = !S.session.length && !S.roll.length, sub = QUESTIONS[subOf('overview')]
   if (sub && !fresh) return `<h1 class="sr">Home</h1>${subHead(sub[0], 'Home')}<article class="q q-${subOf('overview')}">${sub[1]()}${sub[2]}</article>`
   const quests = questsOn(today()), done = quests.filter(q => q.done).length
+  if (isSimple()) return `<h1 class="sr">Home</h1>
+    ${thisWeek()}
+    ${quick()}
+    ${fresh ? welcome() : `${focusCard()}${nudges()}${widgets()}${insights()}`}
+    ${modeLink()}`
   return `<h1 class="sr">Home</h1>
     ${thisWeek()}
-    <div class="quick">
-      <button class="btn quick-main" data-act="new-session">Log training</button>
-      <button class="btn ghost" data-act="new-run">Log a run</button>
-      <button class="btn ghost" data-act="new-roll">Log a roll</button>
-      <button class="btn ghost" data-act="tab" data-view="sim">Live roll</button>
-    </div>
-    ${fresh ? `<div class="empty-state">
-      <h2>Start with one session</h2>
-      <p>Log what you trained and how your rolls went. After a few weeks, Home answers three questions: what keeps going wrong, what to work on next, and whether your game is improving.</p>
-      <div class="head-actions"><button class="btn ghost" data-act="load-examples">Load example entries</button></div>
-    </div>` : `${focusCard()}
+    ${quick()}
+    ${fresh ? welcome() : `${focusCard()}
     ${nudges()}
     ${readinessCard()}
     <button class="dojo-row" data-act="tab" data-view="quests"><span><b>Today’s quests</b><span class="small muted">${done} of ${quests.length} done</span></span><span aria-hidden="true">›</span></button>
@@ -40,14 +37,29 @@ export function view() {
     <h2 class="section-title">Your game, last 60 days</h2>
     <div class="dojo-tiles">${gameTiles()}</div>
     ${insights()}
-    <button class="dojo-row" data-act="review"><span><b>Coaching review with Claude</b><span class="small muted">Copy your last 60 days with a coaching prompt</span></span><span aria-hidden="true">›</span></button>`}`
+    <button class="dojo-row" data-act="review"><span><b>Coaching review with Claude</b><span class="small muted">Copy your last 60 days with a coaching prompt</span></span><span aria-hidden="true">›</span></button>`}
+    ${modeLink()}`
 }
+
+const quick = () => `<div class="quick">
+      <button class="btn quick-main" data-act="new-session">Log training</button>
+      <button class="btn ghost" data-act="new-run">Log a run</button>
+      <button class="btn ghost" data-act="new-roll">Log a roll</button>
+      <button class="btn ghost" data-act="tab" data-view="sim">Live roll</button>
+    </div>`
+
+const welcome = () => `<div class="empty-state">
+      <h2>Start with one session</h2>
+      <p>Log what you trained and how your rolls went. After a few weeks, Home answers three questions: what keeps going wrong, what to work on next, and whether your game is improving.</p>
+      <div class="head-actions"><button class="btn ghost" data-act="load-examples">Load example entries</button></div>
+    </div>`
 
 // [title, body, link to the screen with more]
 const QUESTIONS = {
   wrong: ['What keeps going wrong?', () => whatGoesWrong(), '<button class="card-link" data-act="tab" data-view="rolls">All your rolls</button>'],
   next: ['What should I work on next?', () => whatNext(), '<button class="card-link" data-act="tab" data-view="sequences">Your sequences</button>'],
   improve: ['Is my game actually improving?', () => isImproving(), '<button class="card-link" data-act="tab" data-view="stats">All your stats</button>'],
+  ready: ['Readiness', () => readinessCard('ready-sub', true), ''],
 }
 
 function gameTiles() {
@@ -70,8 +82,8 @@ function thisWeek() {
       <span class="hero-stats">
         <span><b>${week.length}</b> ${week.length === 1 ? 'session' : 'sessions'}, target ${target}</span>
         <span><b>${hrs(sum(week, 'minutes'))}</b> mat hrs</span>
-        <span><b>${fmtDist(r.week.dist)}</b> ${r.unit} run</span>
-        <span><b>${t.ratio == null ? '—' : pct(t.ratio)}</b> of usual load</span>
+        ${isSimple() ? '' : `<span><b>${fmtDist(r.week.dist)}</b> ${r.unit} run</span>
+        <span><b>${t.ratio == null ? '—' : pct(t.ratio)}</b> of usual load</span>`}
       </span>
     </span>
     ${t.spike ? '<span class="hero-warn">Load is well above your 4-week average. Ease in.</span>' : ''}
@@ -93,18 +105,19 @@ function insights() {
     body && !shown.includes('sleep') && ['stats', 'body', 'Energy, sleep and injuries', esc(body.text)],
     landed && !shown.includes('moves') && ['stats', 'moves', 'Your best move', `${esc(landed.tech.name)} is your most landed move, ${plural(landed.n, 'time')} so far.`],
   ].filter(Boolean)
+  if (isSimple()) list.splice(1)
   return list.length ? `<div class="insights swipe">${list.map(([view, anchor, lbl, text]) => `<button class="insight-card" data-act="goto" data-view="${view}" data-anchor="${anchor}"><span class="w-lbl">${lbl}</span><span>${text}</span></button>`).join('')}</div>` : ''
 }
 
 // ---------- Learning loop: readiness, today's focus ----------
 
-function readinessCard() {
+function readinessCard(key = 'ready', open = false) {
   const r = readiness(), t = r.tags, checked = t.from === 'check-in'
   const pick = (k, v, l) => `<button class="pill" data-act="checkin" data-k="${k}" data-v="${v}" aria-pressed="${checked && t[k] === v}">${l}</button>`
-  return `<div class="ready ready-${r.level}">${fold('ready', `<span><span class="w-lbl">Readiness</span><span class="ready-verdict">${r.known ? r.label : 'Check in'}</span></span>`, `<div class="ready-body">
+  return `<div class="ready ready-${r.level}">${fold(key, `<span><span class="w-lbl">Readiness</span><span class="ready-verdict">${r.known ? r.label : 'Check in'}</span></span>`, `<div class="ready-body">
     ${r.known ? `<p class="small">${r.why.length ? esc(cap(r.why.join(', '))) + '.' : 'Nothing in your log says to change course.'}</p>` : '<p class="small">Tap how you feel to get a suggestion for today.</p>'}
     <div class="checkin">${Object.entries(TAG_LABELS).map(([k, opts]) => `<div class="checkin-row"><span class="small muted">${cap(k)}</span>${Object.entries(opts).map(([v, l]) => pick(k, v, l)).join('')}</div>`).join('')}</div>
-    <p class="small muted">A suggestion from your log, not medical advice. Listen to your body and your coach.</p></div>`)}</div>`
+    <p class="small muted">A suggestion from your log, not medical advice. Listen to your body and your coach.</p></div>`, open)}</div>`
 }
 
 function focusCard() {
@@ -136,6 +149,7 @@ function nudges() {
     due && `<button class="nudge" data-act="tab" data-view="study"><strong>${due}</strong> ${due === 1 ? 'scenario' : 'scenarios'} to think through this week</button>`,
     next && days <= 90 && `<button class="nudge" data-act="tab" data-view="compete"><strong>${days === 0 ? 'Today' : days + (days === 1 ? ' day' : ' days')}</strong> until ${esc(next.name)}</button>`,
   ].filter(Boolean)
+  if (isSimple()) items.splice(1)
   return items.length ? `<div class="nudges">${items.join('')}</div>` : ''
 }
 

@@ -1,7 +1,9 @@
 // Shared layout for screens that open on a summary, like the Dojo: tiles that open sub-screens,
 // lists that show the first few with "Show more", and folds that remember whether they're open.
+import { S, save } from '../store.js'
 import { UI } from '../ui.js'
-import { esc } from '../util.js'
+import { esc, toast } from '../util.js'
+import { isSimple } from '../model.js'
 
 export const subOf = view => UI.sub[view] || ''
 
@@ -34,7 +36,13 @@ document.addEventListener('toggle', e => {
   try { localStorage.setItem(KEY, JSON.stringify(folds)) } catch {}
 }, true)
 
+// Simple mode: a row into the Advanced stats hub, and a quiet link at the bottom of a screen that
+// switches the whole app between Simple and Advanced.
+export const advancedRow = () => isSimple() ? `<button class="dojo-row" data-act="goto" data-view="stats" data-anchor="advanced"><span><b>Advanced stats</b><span class="small muted">Load, matchups, energy and sleep, trends and the rest</span></span><span aria-hidden="true">›</span></button>` : ''
+export const modeLink = () => `<p class="mode-link"><button class="link small" data-act="set-mode" data-mode="${isSimple() ? 'advanced' : 'simple'}">${isSimple() ? 'Show advanced stats' : 'Switch to the simple view'}</button></p>`
+
 export const actions = {
+  'set-mode': el => { save({ ...S.settings, mode: el.dataset.mode }); toast(el.dataset.mode === 'simple' ? 'Simple view: just the essentials' : 'Advanced: every stat and chart'); scrollTo(0, 0) },
   'open-sub': el => { UI.sub[UI.view] = el.dataset.sub; scrollTo(0, 0) },
   'show-more': el => { UI.more[el.dataset.k] = (UI.more[el.dataset.k] || +el.dataset.n) + +el.dataset.n },
 }

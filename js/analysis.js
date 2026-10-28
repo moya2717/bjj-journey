@@ -88,6 +88,12 @@ const sessionsInWeek = start => {
   return S.session.filter(s => s.date >= from && s.date <= to).length
 }
 
+// Sessions per week, oldest first, ending with this week so far.
+export const weeklySessions = n => Array.from({ length: n }, (_, k) => {
+  const w = weekStart(new Date()); w.setDate(w.getDate() - 7 * (n - 1 - k))
+  return { label: w.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }), counts: [sessionsInWeek(w)] }
+})
+
 export function weeksOnTarget() {
   const target = S.settings.weeklyTarget || 3, start = weekStart(new Date())
   return [3, 2, 1, 0].map(i => { const w = new Date(start); w.setDate(w.getDate() - 7 * i); return sessionsInWeek(w) >= target })

@@ -1328,3 +1328,7 @@ dialog.levelup::backdrop{background:rgba(0,0,0,.55)}
 .key .rk-caught{background:color-mix(in srgb,var(--broke) 20%,transparent)}
 .widget.radar-widget{flex-direction:row;align-items:center;gap:10px;grid-column:span 2}
 .widget.radar-widget .radar.mini{width:96px;height:68px;flex:none}
+
+/* Simple or Advanced: the quiet switch at the bottom of a screen */
+.mode-link{text-align:center;margin:20px 0 4px}
+.mode-link .link{color:var(--muted);font-weight:500}

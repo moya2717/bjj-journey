@@ -1,18 +1,22 @@
 import { S } from '../store.js'
 import { ACTIVITY_TYPES, FEELS, POSITIONS } from '../vocab.js'
 import { dayPart, daysAgo, esc, hrs, monthLabel, pct, plural, rate, sum, ym } from '../util.js'
-import { areaCounts, bodyInsights, gameMap, monthlySeries, moveTrends, problemTrends, weeklyStreak } from '../analysis.js'
+import { areaCounts, badSpots, bodyInsights, gameMap, monthlySeries, moveTrends, problemTrends, weeklySessions, weeklyStreak } from '../analysis.js'
 import { butterfly, heatmap, lineChart, radar, spark, sparkBars, stackedBars } from '../charts.js'
 import { UI } from '../ui.js'
-import { MASTERY } from '../model.js'
-import { subHead, subOf, tile } from './hub.js'
+import { MASTERY, currentRank, isSimple, partnerNames } from '../model.js'
+import { readiness } from '../loop.js'
+import { fmtDist, loadTrend, loadWeeks, runStats } from '../load.js'
+import { advancedRow, modeLink, subHead, subOf, tile } from './hub.js'
 
 // A hero with this month's numbers and the calendar heatmap, then a tile per panel.
 // Each tile shows one number and opens the full panel as a sub-screen.
 export function view() {
   const month = ym(new Date()), thisMonth = S.session.filter(s => s.date.startsWith(month))
   const sub = SUBS[subOf('stats')]
+  if (subOf('stats') === 'advanced') return `<h1 class="sr">Stats</h1>${subHead('Advanced stats', 'Stats')}${advancedHub()}`
   if (sub) return `<h1 class="sr">Stats</h1>${subHead(sub[0], 'Stats')}<div class="stat-grid">${sub[1]()}</div>`
+  if (isSimple()) return simpleView()
   return `<h1 class="sr">Stats</h1>
     <section class="panel stats-hero"><h2>Consistency</h2>
       <div class="figures tight">
@@ -23,11 +27,56 @@ export function view() {
       </div>
       ${heatmap(26)}
     </section>
-    <div class="dojo-tiles">${Object.keys(TILES).map(k => statTile(k)).join('')}</div>`
+    <div class="dojo-tiles">${Object.keys(TILES).filter(k => !TILES[k][2]).map(k => statTile(k)).join('')}</div>
+    ${modeLink()}`
 }
 
-// [label, () => [big number, short line, sparkline values]]
+// Simple mode: how consistent you are, your game map and your best moves. The rest is one tap
+// away under Advanced stats.
+function simpleView() {
+  const target = S.settings.weeklyTarget || 3, weeks = weeklySessions(8), g = gameMap(), top = moveTrends(12).topLanded
+  const max = Math.max(1, ...top.map(x => x.n))
+  return `<h1 class="sr">Stats</h1>
+    <section class="panel stats-hero"><h2>Consistency</h2>
+      <div class="figures tight">
+        <div class="figure"><div class="big">${weeklyStreak()}</div><div class="lbl">week streak at ${target}+</div></div>
+        <div class="figure"><div class="big">${weeks.at(-1).counts[0]}/${target}</div><div class="lbl">sessions this week</div></div>
+        <div class="figure"><div class="big">${S.session.filter(s => s.date.startsWith(ym(new Date()))).length}</div><div class="lbl">sessions this month</div></div>
+        <div class="figure"><div class="big">${hrs(sum(S.session, 'minutes'))}</div><div class="lbl">mat hours in total</div></div>
+      </div>
+      ${stackedBars(weeks, ['Sessions'], { what: 'Sessions', by: 'week', classes: ['l1'], h: 110 })}
+    </section>
+    <section class="panel game-map"><div class="history-head"><h2>Game map</h2><button class="card-link" data-act="open-sub" data-sub="radar">Open</button></div>
+      ${radar(g.axes, { then: g.grew })}
+      ${g.empty ? '<p class="small muted">Log moves in your rolls, and what you drill, to grow your game map.</p>' : ''}
+    </section>
+    <section class="panel"><h2>Top moves landed</h2>
+      ${top.length ? `<div class="bars">${top.map(x => `<div class="bar-row"><span>${esc(x.tech.name)}</span><div class="meter good"><span style="width:${x.n / max * 100}%"></span></div><span class="n">${x.n}</span></div>`).join('')}</div>`
+        : '<p class="small muted">Add the moves you used when you log a roll. The ones you land most show up here.</p>'}
+    </section>
+    ${advancedRow()}
+    ${modeLink()}`
+}
+
+// Every panel Simple mode hides, as tiles: anything is two taps from Stats, without switching modes.
+function advancedHub() {
+  const group = (title, tiles) => `<h2 class="section-title">${title}</h2><div class="dojo-tiles">${tiles}</div>`
+  return group('Training', ['load', 'runs', 'months', 'time', 'other'].map(k => statTile(k)).join(''))
+    + group('Rolls', ['success', 'moves', 'attention', 'areas', 'problems', 'body'].map(k => statTile(k)).join(''))
+    + group('Questions from Home', tile('wrong', 'Going wrong', badSpots(daysAgo(59)).bad.length, 'breakdowns, 60 days', { view: 'overview' })
+      + tile('next', 'Work on next', S.roll.filter(r => r.tryNext && (r.tryStatus || 'open') === 'open').length, 'ideas to test', { view: 'overview' })
+      + tile('improve', 'Improving?', pct(rate(S.roll.filter(r => r.date >= daysAgo(29)))), 'roll success, 30 days', { view: 'overview' }))
+    + group('Partners and more', tile('', 'Matchups', partnerNames().length, 'partners logged', { view: 'matchups' })
+      + tile('ready', 'Readiness', readiness().known ? readiness().label.split(' / ')[0] : '—', 'check in for today', { view: 'overview' })
+      + tile('belts', 'Belt history', S.profile.promotions.length ? esc(currentRank().belt) : '—', 'time at each rank', { view: 'athlete' }))
+    + `<button class="dojo-row" data-act="review" style="margin-top:12px"><span><b>Coaching review with Claude</b><span class="small muted">Copy your last 60 days with a coaching prompt</span></span><span aria-hidden="true">›</span></button>`
+    + modeLink()
+}
+
+// [label, () => [big number, short line, sparkline values, art, class], the screen it opens if not Stats]
 export const TILES = {
+  load: ['Training load', () => { const t = loadTrend(); return [t.now, t.ratio == null ? 'this week so far' : `${pct(t.ratio)} of usual`, loadWeeks(8).map(w => w.total), '', t.spike ? 'warn' : ''] }, 'athlete'],
+  runs: ['Running', () => { const r = runStats(); return [`${fmtDist(r.week.dist)}<small> ${r.unit}</small>`, r.n ? `this week · ${plural(r.month.n, 'run')} this month` : 'log a run', r.n ? r.weeks.slice(-8).map(w => w.counts[0]) : null] }, 'athlete'],
   radar: ['Game map', () => { const g = gameMap(), best = [...g.axes].sort((a, b) => b.v - a.v)[0]; return [g.empty ? '—' : Math.round(sum(g.axes, 'v') / g.axes.length), g.empty ? 'log moves to grow it' : 'strongest · ' + best.label, null, radar(g.axes, { mini: true })] }],
   success: ['Roll success', () => { const s = monthlySeries(6), cur = s.at(-1).rate ?? s.filter(x => x.rate != null).at(-1)?.rate; return [pct(cur), 'by month', s.map(x => x.rate)] }],
   attention: ['Attention', () => { const p = attention(); return [p.length, p[0] ? esc(p[0].p) + ' most' : 'positions, 90 days'] }],
@@ -39,9 +88,9 @@ export const TILES = {
   problems: ['Problems over time', () => { const c = problemTrends().causes, g = c.filter(t => t.state === 'growing' || t.state === 'new'); return [g.length, g[0] ? 'growing · ' + esc(g[0].label) : c.length ? 'none growing' : 'tick causes', c[0]?.months.map(m => m.v)] }],
   months: ['Month by month', () => { const s = monthlySeries(6); return [s.at(-1).sessions, 'sessions this month', s.map(x => x.sessions)] }],
 }
-export function statTile(k, view = '') {
-  const [label, f] = TILES[k], [big, small, values, art] = f()
-  return tile(k, label, big, small, { view, spark: art || (values?.some(v => v) ? sparkBars(values) : ''), cls: art ? 'radar-tile' : '' })
+export function statTile(k, view = TILES[k][2] || '') {
+  const [label, f] = TILES[k], [big, small, values, art, cls = ''] = f()
+  return tile(k, label, big, small, { view, spark: art || (values?.some(v => v) ? sparkBars(values) : ''), cls: art ? 'radar-tile' : cls })
 }
 
 const SUBS = {

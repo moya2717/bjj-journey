@@ -45,7 +45,9 @@ The bar at the bottom has five sections. Each one holds a few screens, shown as 
 
 Tap a section twice to go back to its first screen. The round **+** button logs training from anywhere.
 
-**Simple or Detailed logging.** New to jiu-jitsu? Simple asks for the basics, a note about class, and one thing that worked and one to fix. Everything else (plans, energy and sleep, drills, reflection, rolls move by move) waits behind **Add more detail**. Detailed shows it all. Switch at the top of the log form or in **You → Profile**, under Settings.
+**Simple or Advanced.** The whole app starts Simple: Home shows this week, today's focus and one insight; Stats shows your consistency, game map and top moves; Profile your fighter card. Every other chart and analysis is two taps away under **Advanced stats**. Switch to Advanced with the link at the bottom of a screen, or in **You → Profile**, under Settings. Simple only hides things; nothing you log changes.
+
+**Simple or Detailed logging.** The log form follows the mode (Advanced logs in Detailed) until you pick one for it, so you can keep the stats simple and the logs detailed. New to jiu-jitsu? Simple asks for the basics, a note about class, and one thing that worked and one to fix. Everything else (plans, energy and sleep, drills, reflection, rolls move by move) waits behind **Add more detail**. Detailed shows it all. Switch at the top of the log form or in **You → Profile**, under Settings.
 
 ## Moving your entries over from the claude.ai version
 

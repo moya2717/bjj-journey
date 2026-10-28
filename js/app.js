@@ -3,7 +3,7 @@ import { S, load, onChange } from './store.js'
 import { UI } from './ui.js'
 import { BELT_LOOK } from './vocab.js'
 import { $, toast } from './util.js'
-import { currentRank } from './model.js'
+import { currentRank, isSimple } from './model.js'
 import { weeksOnTarget } from './analysis.js'
 import { titleOf, unlockedIds } from './achievements.js'
 import * as overview from './views/overview.js'
@@ -114,7 +114,8 @@ function renderHeader() {
   $('#bottombar').innerHTML = `<div class="bottombar-inner">${Object.entries(SECTIONS).map(([key, s]) =>
     `<button data-act="section" data-section="${key}" ${key === current ? 'aria-current="page"' : ''}>
       <svg viewBox="0 0 24 24" aria-hidden="true">${s.icon}</svg><span>${s.label}</span></button>`).join('')}</div>`
-  const subviews = SECTIONS[current].views
+  // Simple mode hides Matchups from the Journal tabs; Advanced stats still opens it.
+  const subviews = SECTIONS[current].views.filter(k => k !== 'matchups' || !isSimple() || k === UI.view)
   $('#subnav').hidden = subviews.length < 2
   $('#subnav').innerHTML = `<div class="subnav-inner">${subviews.map(key =>
     `<button data-act="tab" data-view="${key}" ${key === UI.view ? 'aria-current="page"' : ''}>${VIEWS[key][0]}</button>`).join('')}</div>`

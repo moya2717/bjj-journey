@@ -146,13 +146,19 @@ export function ageDivision(birthday) {
   return { age, label }
 }
 
-// Simple or Detailed logging. Your pick wins. Otherwise a journal that already has detail stays
-// detailed, unless you've recorded a white belt; everyone else starts simple.
+// Simple or Advanced, for the whole app. Simple shows the essentials and Advanced every chart and
+// analysis. Everyone starts Simple, journals from before this setting too: the stats were what crowded.
+export const isSimple = () => (S.settings.mode || 'simple') === 'simple'
+
+// The log form follows the mode: Simple asks for a note, Detailed (Advanced) opens everything.
+// Your own pick for the form wins, so you can keep stats simple and logs detailed. Before there was
+// a mode, a journal that already had detail stayed detailed, unless you'd recorded a white belt.
 export const hasDetail = s => !!(s.plan || s.feel || s.energy || s.sleep || s.lesson || s.reflectA || s.coachQ
   || [s.drilled, s.reps, s.focus, s.wentWell, s.trouble, s.injuryIds].some(x => (x || []).length))
 
 export function logMode() {
   if (S.settings.logMode) return S.settings.logMode
+  if (S.settings.mode) return S.settings.mode === 'advanced' ? 'detailed' : 'simple'
   const white = S.profile.promotions.length && currentRank().belt === 'White'
   return !white && (S.roll.length || S.session.some(hasDetail)) ? 'detailed' : 'simple'
 }

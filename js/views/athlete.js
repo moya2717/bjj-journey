@@ -5,10 +5,10 @@ import { UI } from '../ui.js'
 import { BELT_LOOK, RANKS } from '../vocab.js'
 import { $, $$, byDateAsc, esc, fmtDate, fmtMonthY, hrs, newId, pct, plural, span, sum, toast, today, trunc, ym } from '../util.js'
 import { field, selectEl, armDelete, openSheet, radioChips } from '../sheet.js'
-import { ageDivision, currentRank, logMode, rankName } from '../model.js'
+import { ageDivision, currentRank, isSimple, logMode, rankName } from '../model.js'
 import { bodyInsights, gameMap, moveTrends, weeklyStreak } from '../analysis.js'
-import { radar, sparkBars, stackedBars, trendLine } from '../charts.js'
-import { fold, subHead, subOf, tile } from './hub.js'
+import { radar, stackedBars, trendLine } from '../charts.js'
+import { advancedRow, fold, modeLink, subHead, subOf, tile } from './hub.js'
 import { statTile } from './stats.js'
 import { exportBackup, importBackup } from '../backup.js'
 import { exampleRecords } from '../examples.js'
@@ -19,25 +19,22 @@ import { characterWidget } from './character.js'
 import { LOAD_TYPES, distIn, distUnit, fmtClock, fmtDist, loadMonths, loadTrend, loadWeeks, paceOf, runStats, runs } from '../load.js'
 
 // The fighter card, then a tile per part of your profile. Each tile opens its panel as a
-// sub-screen; the stats tiles open the same sub-screens under Stats.
+// sub-screen; the stats tiles open the same sub-screens under Stats. Simple mode keeps the card,
+// your game map and the parts you fill in yourself.
 export function view() {
   const sub = SUBS[subOf('athlete')]
   if (sub) return `<h1 class="sr">Athlete profile</h1>${subHead(sub[0], 'Profile')}<div class="stat-grid">${sub[1]()}</div>`
-  const t = loadTrend(), r = runStats(), rank = currentRank(), P = S.profile, rec = [sum(P.tournaments, 'wins'), sum(P.tournaments, 'losses')], last = S.settings.lastBackup
+  const rank = currentRank(), P = S.profile, rec = [sum(P.tournaments, 'wins'), sum(P.tournaments, 'losses')], last = S.settings.lastBackup
   return `<h1 class="sr">Athlete profile</h1>
   ${profilePanel()}
   <div class="dojo-tiles">
-    ${tile('load', 'Training load', t.now, t.ratio == null ? 'this week so far' : `${pct(t.ratio)} of usual`, { spark: sparkBars(loadWeeks(8).map(w => w.total)), cls: t.spike ? 'warn' : '' })}
-    ${tile('runs', 'Running', `${fmtDist(r.week.dist)}<small> ${r.unit}</small>`, r.n ? `this week · ${plural(r.month.n, 'run')} this month` : 'log a run', { spark: r.n ? sparkBars(r.weeks.slice(-8).map(w => w.counts[0])) : '' })}
-    ${statTile('radar', 'stats')}
-    ${statTile('moves', 'stats')}
-    ${statTile('body', 'stats')}
-    ${statTile('problems', 'stats')}
-    ${statTile('time', 'stats')}
+    ${isSimple() ? statTile('radar', 'stats') : statTile('load') + statTile('runs') + ['radar', 'moves', 'body', 'problems', 'time'].map(k => statTile(k, 'stats')).join('')}
     ${tile('belts', 'Belt history', P.promotions.length ? `${esc(rank.belt)}` : '—', P.promotions.length ? `${plural(rank.stripes, 'stripe')} · ${rank.since ? span(rank.since) : ''}` : 'add your belt')}
     ${tile('comp', 'Competition', P.tournaments.length ? `${rec[0]}–${rec[1]}` : '—', P.tournaments.length ? plural(P.tournaments.length, 'event') : 'add a tournament')}
-    ${tile('settings', 'Settings', homeWidgets().length + '<small> cards</small>', last ? `backed up ${fmtDate(last)}` : 'no backup yet', { cls: last ? '' : 'warn' })}
-  </div>`
+    ${tile('settings', 'Settings', isSimple() ? 'Simple' : 'Advanced', last ? `backed up ${fmtDate(last)}` : 'no backup yet', { cls: last ? '' : 'warn' })}
+  </div>
+  ${advancedRow()}
+  ${modeLink()}`
 }
 
 const SUBS = {
@@ -118,13 +115,19 @@ export const WIDGETS = {
     return `<button class="widget radar-widget" data-act="goto" data-view="stats" data-anchor="radar">${radar(g.axes, { mini: true })}<span><span class="w-lbl">Game map</span><span class="w-sub">${g.empty ? 'Log moves to grow it' : `Strongest: ${esc(best.label.toLowerCase())}`}</span></span></button>` }],
   sleep: ['Sleep and energy', () => { const f = bodyInsights().findings[0]; return card('stats', 'body', 'Sleep and energy', '', f ? esc(f.text) : 'No clear pattern yet. Tag energy and sleep when you log.', 'text') }],
 }
-export const homeWidgets = () => (S.settings.homeWidgets || ['character', 'load', 'runs', 'streak', 'injuries']).filter(k => WIDGETS[k])
+// Until you pick, Simple mode shows only your character on Home.
+export const homeWidgets = () => (S.settings.homeWidgets || (isSimple() ? ['character'] : ['character', 'load', 'runs', 'streak', 'injuries'])).filter(k => WIDGETS[k])
+const ESSENTIAL = ['character', 'streak', 'mat', 'radar', 'moves']
 
+// Simple mode lists the essential cards first and folds the rest under More.
 function widgetPanel() {
-  const on = homeWidgets()
+  const on = homeWidgets(), chip = k => `<label class="chip"><input type="checkbox" value="${k}" ${on.includes(k) ? 'checked' : ''}><span>${WIDGETS[k][0]}</span></label>`
+  const rest = Object.keys(WIDGETS).filter(k => !ESSENTIAL.includes(k))
   return `<section class="panel wide" id="widgets"><h2>Show on Home</h2>
     <p class="small muted" style="margin:-6px 0 10px">Pick the cards that appear on Home under “This week”.</p>
-    <div class="chips" id="home-widgets">${Object.entries(WIDGETS).map(([k, [label]]) => `<label class="chip"><input type="checkbox" value="${k}" ${on.includes(k) ? 'checked' : ''}><span>${label}</span></label>`).join('')}</div>
+    <div id="home-widgets">${isSimple()
+      ? `<div class="chips">${ESSENTIAL.map(chip).join('')}</div>${fold('widgets-more', `<span>More <span class="small muted">${rest.filter(k => on.includes(k)).length} on</span></span>`, `<div class="chips">${rest.map(chip).join('')}</div>`)}`
+      : `<div class="chips">${Object.keys(WIDGETS).map(chip).join('')}</div>`}</div>
   </section>`
 }
 
@@ -133,6 +136,7 @@ export function mount(root) {
   $('#home-widgets')?.addEventListener('change', () => save({ ...S.settings, homeWidgets: $$('#home-widgets input:checked').map(i => i.value) }))
   $('#dist-unit')?.addEventListener('change', e => save({ ...S.settings, distUnit: e.target.value }))
   $('#theme')?.addEventListener('change', e => save({ ...S.settings, theme: e.target.value }))
+  $('#app-mode')?.addEventListener('change', e => save({ ...S.settings, mode: e.target.value }))
   $('#log-mode')?.addEventListener('change', e => save({ ...S.settings, logMode: e.target.value }))
   $('#weekly-target')?.addEventListener('change', e => save({ ...S.settings, weeklyTarget: Math.max(1, Math.min(14, parseInt(e.target.value, 10) || 3)) }))
   $('#import-file')?.addEventListener('change', async e => {
@@ -317,9 +321,10 @@ function dataPanel() {
   const last = S.settings.lastBackup, hasExamples = allRecords().some(r => r.example)
   return `<section class="panel wide"><h2>Settings and backups</h2>
     <div class="settings-list">
+      <label class="setting"><span>Mode <span class="hint">Simple shows the essentials; Advanced adds every chart and analysis. Nothing is deleted either way.</span></span>${selectEl('', [{ value: 'simple', label: 'Simple' }, { value: 'advanced', label: 'Advanced' }], isSimple() ? 'simple' : 'advanced', 'id="app-mode"')}</label>
+      <label class="setting"><span>Log form <span class="hint">Simple asks for a note; Detailed adds plans, drills and rolls move by move</span></span>${selectEl('', [{ value: 'simple', label: 'Simple' }, { value: 'detailed', label: 'Detailed' }], logMode(), 'id="log-mode"')}</label>
       <label class="setting"><span>Weekly session target</span><input type="number" id="weekly-target" min="1" max="14" inputmode="numeric" value="${esc(S.settings.weeklyTarget || 3)}"></label>
       <label class="setting"><span>Run distances in</span>${selectEl('', [{ value: 'mi', label: 'Miles' }, { value: 'km', label: 'Kilometers' }], distUnit(), 'id="dist-unit"')}</label>
-      <label class="setting"><span>Training log <span class="hint">Simple asks for a note; Detailed adds plans, drills and rolls move by move</span></span>${selectEl('', [{ value: 'simple', label: 'Simple' }, { value: 'detailed', label: 'Detailed' }], logMode(), 'id="log-mode"')}</label>
       <label class="setting"><span>Look</span>${selectEl('', [{ value: '', label: 'Match my phone' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], S.settings.theme || '', 'id="theme"')}</label>
     </div>
     <p class="small muted" style="margin-top:10px;max-width:70ch">Your journal lives only on this device and works without internet. Nobody else can see it. Back it up now and then: on iPhone, choose “Save to Files” so it lands in iCloud Drive. ${last ? `Last backup: ${fmtDate(last)}.` : '<strong>No backup yet.</strong>'}</p>

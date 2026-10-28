@@ -300,14 +300,15 @@ function sessionForm(id, date) {
       form.addEventListener('click', e => {
         const pick = e.target.closest('[data-log-mode]')
         if (!pick) return
-        const m = pick.dataset.logMode, box = $('[data-log-form]', form)
+        const m = pick.dataset.logMode, box = $('[data-log-form]', form), firstPick = !!pick.closest('[data-first-run]')
         box.dataset.mode = m
         $('[data-add-detail]', form).open = m === 'detailed' || !!showDetail
         $$('.seg [data-log-mode]', form).forEach(b => b.setAttribute('aria-pressed', b.dataset.logMode === m))
         $('[data-first-run]', form)?.remove()
         $('.log-mode-row', form).hidden = false
         if (m === 'detailed' && !$('[data-row]', rollBox)) addRoll(rollPreset)
-        saveMany([{ ...S.settings, logMode: m }])
+        // The first-run pick sets the whole app's mode too: "I want everything" means Advanced.
+        saveMany([{ ...S.settings, logMode: m, ...(firstPick ? { mode: m === 'detailed' ? 'advanced' : 'simple' } : {}) }])
       })
 
       $('#s-add-roll', form).addEventListener('click', () => {
