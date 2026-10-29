@@ -67,7 +67,7 @@ function gameTiles() {
   const v = verdictOf(), cur = rate(S.roll.filter(r => r.date >= daysAgo(29)))
   return tile('wrong', 'Going wrong', bad.length, groups[0] ? posRole(groups[0].position, groups[0].role) : 'breakdowns')
     + tile('next', 'Work on next', todo, todo ? 'to test or answer' : 'nothing open')
-    + tile('improve', 'Improving?', pct(cur), esc(v[1]), { spark: sparkBars(monthlySeries(6).map(s => s.rate)) })
+    + tile('improve', 'Improving?', pct(cur), esc(v[1]), { spark: sparkBars(monthlySeries(6).map(s => ({ label: s.label, v: s.rate, text: s.rate == null ? 'no rolls' : pct(s.rate) }))) })
 }
 
 // The hero: this week's sessions against your target, mat hours, run distance and load.

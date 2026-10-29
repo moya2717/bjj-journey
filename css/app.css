@@ -1352,3 +1352,26 @@ dialog.levelup::backdrop{background:rgba(0,0,0,.55)}
 .unsure-list .field-label{margin:0}
 .unsure-row{display:flex;flex-direction:column;gap:6px}
 .flow-move.unsure{border-style:dashed}
+
+/* ---------- Tap a chart to read it: invisible hit areas, the tapped mark lit and the rest dimmed, one callout ---------- */
+svg .hit-area{fill:transparent}
+[data-tip]{cursor:pointer;outline:none;transition:opacity .15s}
+svg:has(.tip-on) [data-tip]:not(.tip-on){opacity:.4}
+.tip-on>:is(rect,circle,polygon):not(.hit-area){filter:drop-shadow(0 0 4px var(--neon))}
+.tip-on .dot{fill:var(--neon)}
+.tip-on text{fill:var(--neon)}
+.tip-on>.hit-area,[data-tip]:focus-visible>.hit-area{fill:color-mix(in srgb,var(--neon) 12%,transparent)}
+[data-tip]:focus-visible>.hit-area{stroke:var(--neon);stroke-width:1.5}
+.cell[data-tip]{position:relative}
+.cell[data-tip]::after{content:'';position:absolute;inset:-2px}
+.cell.tip-on{outline:2px solid var(--neon);outline-offset:1px;box-shadow:0 0 8px var(--neon)}
+#chart-tip{position:absolute;z-index:40;max-width:calc(100vw - 16px);padding:7px 12px;border-radius:12px;background:var(--surface);color:var(--ink);border:1px solid color-mix(in srgb,var(--neon) 55%,transparent);box-shadow:var(--glow),var(--shadow-2);font-size:.86rem;font-weight:650;line-height:1.35;overflow-wrap:anywhere;pointer-events:none}
+@media (prefers-reduced-motion:no-preference){#chart-tip{animation:fade-in .15s ease}}
+/* A tile with a sparkline: the bars read out their values, the rest of the tile (marked ›) opens it. */
+.dojo-tile{position:relative}
+.tile-go{position:absolute;top:8px;right:10px;color:var(--muted);font-weight:700;line-height:1}
+.dojo-tile:has(.tile-go) .w-lbl{padding-right:12px}
+
+/* The page itself doesn't rubber-band. On iPhone a short page like Week bounced past its end on
+   almost every scroll, and the fixed bottom bar and log button were dragged up with it. */
+html,body{overscroll-behavior-y:none}

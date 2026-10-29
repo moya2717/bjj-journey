@@ -87,7 +87,7 @@ function runsPanel() {
       ${r.longest ? figure(`${fmtDist(distIn(r.longest, u))}<small> ${u}</small>`, `longest run, ${fmtDate(r.longest.date)}`) : ''}
     </div>
     <div class="trend-grid" style="margin-top:12px">
-      <div><h3>Distance per week</h3>${stackedBars(r.weeks, ['Distance'], { what: `Run distance in ${u}`, by: 'week', classes: ['l1'] })}</div>
+      <div><h3>Distance per week</h3>${stackedBars(r.weeks, [u], { what: `Run distance in ${u}`, by: 'week', classes: ['l1'] })}</div>
       <div><h3>Average pace per week</h3>${paces.filter(p => p.v != null).length > 1 ? trendLine(paces, { fmt: fmtClock, what: `Average pace per ${u}` }) + '<p class="small muted">Lower is faster.</p>' : '<p class="muted small">Log runs in two or more weeks to see a trend.</p>'}</div>
     </div>
     <h3 style="margin-top:14px">Recent runs</h3>

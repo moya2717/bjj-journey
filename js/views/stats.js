@@ -73,24 +73,26 @@ function advancedHub() {
     + modeLink()
 }
 
-// [label, () => [big number, short line, sparkline values, art, class], the screen it opens if not Stats]
+// [label, () => [big number, short line, sparkline points, art, class], the screen it opens if not Stats]
+// Sparkline points are { label, v, text }: what a tap on one bar says. Only roll rates are ever missing.
+const pts = (list, v, text = String) => list.map(x => ({ label: x.label, v: v(x), text: v(x) == null ? 'no rolls' : text(v(x)) }))
 export const TILES = {
-  load: ['Training load', () => { const t = loadTrend(); return [t.now, t.ratio == null ? 'this week so far' : `${pct(t.ratio)} of usual`, loadWeeks(8).map(w => w.total), '', t.spike ? 'warn' : ''] }, 'athlete'],
-  runs: ['Running', () => { const r = runStats(); return [`${fmtDist(r.week.dist)}<small> ${r.unit}</small>`, r.n ? `this week · ${plural(r.month.n, 'run')} this month` : 'log a run', r.n ? r.weeks.slice(-8).map(w => w.counts[0]) : null] }, 'athlete'],
+  load: ['Training load', () => { const t = loadTrend(); return [t.now, t.ratio == null ? 'this week so far' : `${pct(t.ratio)} of usual`, pts(loadWeeks(8), w => w.total, v => `load ${v}`), '', t.spike ? 'warn' : ''] }, 'athlete'],
+  runs: ['Running', () => { const r = runStats(); return [`${fmtDist(r.week.dist)}<small> ${r.unit}</small>`, r.n ? `this week · ${plural(r.month.n, 'run')} this month` : 'log a run', r.n ? pts(r.weeks.slice(-8), w => w.counts[0], v => `${fmtDist(v)} ${r.unit}`) : null] }, 'athlete'],
   radar: ['Game map', () => { const g = gameMap(), best = [...g.axes].sort((a, b) => b.v - a.v)[0]; return [g.empty ? '—' : Math.round(sum(g.axes, 'v') / g.axes.length), g.empty ? 'log moves to grow it' : 'strongest · ' + best.label, null, radar(g.axes, { mini: true })] }],
-  success: ['Roll success', () => { const s = monthlySeries(6), cur = s.at(-1).rate ?? s.filter(x => x.rate != null).at(-1)?.rate; return [pct(cur), 'by month', s.map(x => x.rate)] }],
+  success: ['Roll success', () => { const s = monthlySeries(6), cur = s.at(-1).rate ?? s.filter(x => x.rate != null).at(-1)?.rate; return [pct(cur), 'by month', pts(s, x => x.rate, pct)] }],
   attention: ['Attention', () => { const p = attention(); return [p.length, p[0] ? esc(p[0].p) + ' most' : 'positions, 90 days'] }],
   areas: ['Problem areas', () => { const bad = areaCounts('trouble', daysAgo(59)); return [bad.length, bad[0] ? esc(bad[0][0]) + ' most' : 'nothing flagged'] }],
-  moves: ['Moves in rolls', () => { const t = moveTrends(6); return [sum(t.months.at(-1).counts, x => x), t.topLanded[0] ? 'landed · ' + esc(t.topLanded[0].tech.name) : 'landed this month', t.months.map(m => sum(m.counts, x => x))] }],
+  moves: ['Moves in rolls', () => { const t = moveTrends(6); return [sum(t.months.at(-1).counts, x => x), t.topLanded[0] ? 'landed · ' + esc(t.topLanded[0].tech.name) : 'landed this month', pts(t.months, m => sum(m.counts, x => x), v => `${v} landed`)] }],
   body: ['Energy & sleep', () => { const f = bodyInsights().findings; return [f.length, f[0] ? esc(f[0].text) : 'no pattern yet'] }],
   time: ['Time of day', () => { const t = S.session.filter(s => s.time), best = ['Morning', 'Afternoon', 'Evening'].map(p => [p, t.filter(s => dayPart(s.time) === p).length]).sort((a, b) => b[1] - a[1])[0]; return [t.length, t.length ? `timed · mostly ${best[0].toLowerCase()}` : 'add class times'] }],
   other: ['Other training', () => { const r = S.activity.filter(a => a.date >= daysAgo(29)); return [hrs(sum(r, 'minutes')) + '<small>h</small>', 'outside BJJ, 30 days'] }],
-  problems: ['Problems over time', () => { const c = problemTrends().causes, g = c.filter(t => t.state === 'growing' || t.state === 'new'); return [g.length, g[0] ? 'growing · ' + esc(g[0].label) : c.length ? 'none growing' : 'tick causes', c[0]?.months.map(m => m.v)] }],
-  months: ['Month by month', () => { const s = monthlySeries(6); return [s.at(-1).sessions, 'sessions this month', s.map(x => x.sessions)] }],
+  problems: ['Problems over time', () => { const c = problemTrends().causes, g = c.filter(t => t.state === 'growing' || t.state === 'new'); return [g.length, g[0] ? 'growing · ' + esc(g[0].label) : c.length ? 'none growing' : 'tick causes', c[0] && pts(c[0].months, m => m.v, v => `${pct(v)} broke down`)] }],
+  months: ['Month by month', () => { const s = monthlySeries(6); return [s.at(-1).sessions, 'sessions this month', pts(s, x => x.sessions, v => plural(v, 'session'))] }],
 }
 export function statTile(k, view = TILES[k][2] || '') {
   const [label, f] = TILES[k], [big, small, values, art, cls = ''] = f()
-  return tile(k, label, big, small, { view, spark: art || (values?.some(v => v) ? sparkBars(values) : ''), cls: art ? 'radar-tile' : cls })
+  return tile(k, label, big, small, { view, spark: art || (values?.some(p => p.v) ? sparkBars(values) : ''), cls: art ? 'radar-tile' : cls })
 }
 
 const SUBS = {

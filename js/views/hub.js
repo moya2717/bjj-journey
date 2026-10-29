@@ -8,10 +8,11 @@ import { isSimple } from '../model.js'
 export const subOf = view => UI.sub[view] || ''
 
 // A tile: a label, one key number, a short line and an optional sparkline. It opens a sub-screen
-// of this screen, or with `view` one of another screen.
+// of this screen, or with `view` one of another screen. A tap on the sparkline reads out a bar
+// instead, so those tiles show a › for the part that opens.
 export const tile = (sub, label, big, small, { view = '', spark = '', cls = '' } = {}) =>
   `<button class="dojo-tile ${cls}" data-act="${view ? 'goto' : 'open-sub'}" ${view ? `data-view="${view}" data-anchor="${sub}"` : `data-sub="${sub}"`}>
-    <span class="w-lbl">${label}</span><span class="dojo-big">${big}</span>${spark}<span class="dojo-small">${small}</span></button>`
+    ${spark ? '<span class="tile-go" aria-hidden="true">›</span>' : ''}<span class="w-lbl">${label}</span><span class="dojo-big">${big}</span>${spark}<span class="dojo-small">${small}</span></button>`
 
 export const subHead = (label, back) => `<div class="sub-head"><button class="btn sm ghost" data-act="open-sub" data-sub="">‹ ${esc(back)}</button><h1>${esc(label)}</h1></div>`
 
