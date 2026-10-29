@@ -114,7 +114,8 @@ const MOVES = {
     Escape: ['North-south escape'],
   },
   'Turtle': {
-    Submission: ['Clock choke', 'Anaconda choke', 'Crucifix', 'Calf slicer from the truck'],
+    Submission: ['Clock choke', 'Anaconda choke', 'Calf slicer from the truck'],
+    Control: ['Crucifix'],
     Transition: ['Seatbelt back take', 'Spiral ride', 'Back take from turtle (hooks in)', 'Truck entry', 'Twister'],
     Escape: ['Sit-out', 'Turtle to guard recovery', 'Granby roll escape', 'Turtle to single leg'],
     Sweep: ['Peterson roll'],

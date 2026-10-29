@@ -84,7 +84,9 @@ Add your next tournament to get a countdown, a prep checklist, an A-game plan (o
 
 ## Game plan
 
-**Learn → Game plan** is your whole game as one outline, built from your roll chains, sequences (Live roll chains included) and the moves you know: Standing → Guard or Passing → Control → Submissions, with Escapes from the bad spots. Each position lists your moves out of it, marked landed live, drilled or seen, and where each one leads; tap the landing to jump there. Gaps come first: key positions with no answer (“No escape logged from bottom side control”), only one (“Only one pass from half guard top”), or none that has landed live yet, ranked by where you get caught and spend your rolls. Each gap suggests moves from the Live roll menu for that spot, and one tap adds one to Today’s focus, starts a sequence with it, or searches for an instructional.
+**Learn → Game plan** is your whole game as one map: Standing → Guard or Passing → Control → Submissions, with Escapes from the bad spots. Logged rolls are the main source. Each roll's chain, in order, gives every move where it happened, how it went (landed, tried, or caught you) and where it led, with the rolls it came from. Older rolls with a single move or a list of moves are read in order from where the roll started. Sequences and Live roll chains add planned edges, marked as planned. Moves your partners caught you with sit on the problem side of each position. Nothing is guessed: where a move led is the next position you logged, else what the Live roll table lists from that exact spot. Anything else shows "Position after: unknown", with a quick way to set it. Moves logged with no position at all are listed apart.
+
+Gaps come first: key positions with no answer (“No escape logged from bottom side control”), only one (“Only one pass from half guard top”), or none that has landed in a roll yet. They're ranked by where you get caught and spend your rolls. Each gap suggests moves the Live roll table lists from that exact spot and side, and one tap adds one to Today’s focus, starts a sequence with it, or searches for an instructional.
 
 ## Live roll
 

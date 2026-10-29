@@ -51,7 +51,7 @@ export const MENU = {
     ['Front headlock escape', 'Standing', 'Neutral'], ['Turtle to single leg', 'Half guard', 'Top'], ['Granby roll escape', 'Open guard', 'Bottom'], ['Guillotine defense'],
   ],
   'Closed guard|Bottom': [
-    ['Hip bump sweep', 'Half guard', 'Top', 2], ['Scissor sweep', 'Half guard', 'Top', 2], ['Flower sweep', 'Half guard', 'Top', 2], ['Kimura sweep', 'Half guard', 'Top', 2],
+    ['Hip bump sweep', 'Mount', 'Top', 2], ['Scissor sweep', 'Mount', 'Top', 2], ['Flower sweep', 'Mount', 'Top', 2], ['Kimura sweep', 'Mount', 'Top', 2],
     ['Muscle sweep', 'Half guard', 'Top', 2], ['Lumberjack sweep', 'Open guard', 'Top', 2], ['Overhead sweep', 'Open guard', 'Top', 2],
     ['Armbar from guard'], ['Triangle choke'], ['Triangle armbar'], ['Kimura'], ['Omoplata'], ['Guillotine'], ['Cross collar choke'], ['Loop choke'], ['Gogoplata'], ['Wristlock from guard'],
     ['Breaking posture'], ['High guard'], ['Overhook guard'], ['Shoulder clamp'], ['Rubber guard'], ['Two-on-one from guard'],
@@ -100,7 +100,7 @@ export const MENU = {
   ],
   'De La Riva|Bottom': [
     ['De La Riva sweep', 'Open guard', 'Top', 2], ['Tripod sweep', 'Open guard', 'Top', 2], ['Sickle sweep', 'Open guard', 'Top', 2], ['Single leg from De La Riva', 'Open guard', 'Top', 2],
-    ['Berimbolo', 'Back', 'Top', 4], ['Back take from De La Riva', 'Back', 'Top', 4], ['Matrix back take', 'Back', 'Top', 4], ['Crab ride', 'Back', 'Top', 4],
+    ['Berimbolo', 'Back', 'Top', 4], ['Back take from De La Riva', 'Back', 'Top', 4], ['Matrix back take', 'Back', 'Top', 4], ['Crab ride'],
     ['De La Riva to single-leg X', 'Leg entanglement', 'Bottom'], ['De La Riva omoplata'], ['De La Riva hook'], ['Reverse De La Riva hook', 'Reverse De La Riva', 'Bottom'],
   ],
   'De La Riva|Top': [
@@ -154,7 +154,7 @@ export const MENU = {
   'Mount|Top': [
     ['Armbar from mount'], ['Arm triangle from mount'], ['Ezekiel choke'], ['Cross collar choke from mount'], ['Americana from mount'], ['Mounted guillotine'], ['Armbar from S-mount'], ['Mounted triangle'],
     ['High mount'], ['S-mount'], ['Technical mount'], ['Low mount'], ['Grapevine mount'],
-    ['Mount to back take', 'Back', 'Top', 4], ['Gift wrap', 'Back', 'Top', 4],
+    ['Mount to back take', 'Back', 'Top', 4], ['Gift wrap'],
   ],
   'Mount|Bottom': [
     ['Upa (bridge and roll)', 'Closed guard', 'Top'], ['Elbow-knee escape', 'Half guard', 'Bottom'], ['Kipping escape', 'Open guard', 'Bottom'], ['Heel drag escape', 'Half guard', 'Bottom'],
@@ -249,10 +249,12 @@ function customMoves({ pos, role }) {
 // The points a landing scores under IBJJF rules, in the mover's own terms.
 export function pointsFor({ pos, role }, t, to) {
   if (to.role !== 'Top') return 0
-  if (to.pos === 'Mount' || to.pos === 'Back') return 4
+  if (to.pos === 'Back') return 4
+  // A sweep scores 2 even when it comes up in mount: the mount's 4 only counts once it's held on its own.
+  if ((GUARDS.includes(pos) || pos === 'Leg entanglement') && role === 'Bottom') return 2
+  if (to.pos === 'Mount') return 4
   if (pos === 'Standing' && t.type === 'Takedown' && to.pos !== 'Front headlock') return 2 // a snap down isn't a takedown
   if (GUARDS.includes(pos) && role === 'Top' && to.pos === 'Side control') return 3
-  if ((GUARDS.includes(pos) || pos === 'Leg entanglement') && role === 'Bottom') return 2 // a sweep
   if (to.pos === 'Knee on belly') return 2
   return 0 // reversals from turtle, mount or the back don't score
 }

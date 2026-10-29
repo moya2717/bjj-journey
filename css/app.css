@@ -1228,14 +1228,22 @@ html,body{overscroll-behavior-y:none}
 .gp-tile.has-gap{border-color:color-mix(in srgb,var(--broke) 40%,transparent)}
 .gp-pos{display:flex;flex-direction:column;min-width:0}
 .gp-moves{list-style:none;margin:0;padding:0}
-.gp-move{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+.gp-move{display:flex;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
 .gp-moves>.gp-move:first-child{border-top:0}
 .gp-name{display:flex;flex-direction:column;min-width:0;flex:1;overflow-wrap:anywhere}
 .gp-dot{flex:none;width:10px;height:10px;border-radius:50%;border:2px solid var(--line-strong)}
 .gp-move.drilled .gp-dot{border-color:var(--mat);background:color-mix(in srgb,var(--mat) 35%,transparent)}
 .gp-move.proven .gp-dot{border-color:var(--worked);background:var(--worked);box-shadow:0 0 8px color-mix(in srgb,var(--worked) 60%,transparent)}
 .gp-move.seen .gp-name b{font-weight:550}
-.gp-edge{flex:none;text-align:right;max-width:40%}
+.gp-move{align-items:flex-start}
+.gp-move .gp-dot{margin-top:5px}
+.gp-edges{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px;margin-top:3px;font-size:.82rem}
+.gp-edge.n{color:var(--muted);margin-right:6px}
+button.gp-edge.planned{text-decoration-style:dashed}
+span.gp-edge.planned:not(.n){color:var(--muted)}
+.gp-rolls{font-size:.78rem}
+.gp-move.caught .gp-dot{border-color:var(--broke);background:var(--broke-soft)}
+.gp-caught-h{margin:10px 0 0;font-weight:650;color:var(--broke)}
 .gp-legend{gap:12px;margin:8px 0 4px}
 .gp-legend .gp-move{border:0;padding:0;gap:6px}
 .gp-empty{margin-top:12px}

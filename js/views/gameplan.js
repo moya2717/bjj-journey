@@ -2,13 +2,16 @@
 // ways to close it: a focus for your next class, a sequence to map, or a video to watch.
 import { S, save } from '../store.js'
 import { UI } from '../ui.js'
-import { cap, esc, newId, plural, toast, today } from '../util.js'
+import { cap, esc, fmtDate, newId, plural, toast, today } from '../util.js'
 import { techById } from '../model.js'
 import { videoSearch } from '../catalog.js'
+import { field, openSheet, selectEl } from '../sheet.js'
+import { TABLE } from '../sim.js'
 import { fold, more, subHead, subOf, tile } from './hub.js'
-import { PHASES, gamePlan, phaseOf, place, tier } from '../gameplan.js'
+import { PHASES, at, gamePlan, isPlace, phaseOf, place, tier } from '../gameplan.js'
 
-const TIER = { proven: 'Landed live', drilled: 'Drilled', seen: 'Seen' }
+const TIER = { proven: 'Landed in a roll', drilled: 'Drilled', seen: 'Seen' }
+const OUT = { landed: 'landed', tried: 'tried', caughtBy: 'caught you', planned: 'planned' }
 const pickOf = g => UI.gpPick?.[g.id] && g.suggest.includes(UI.gpPick[g.id]) ? UI.gpPick[g.id] : g.suggest[0]
 
 export function view() {
@@ -27,7 +30,10 @@ export function view() {
       <div class="dojo-tiles">${PHASES.map(p => {
         const nodes = p.keys.map(k => plan.nodes[k]), moves = nodes.reduce((n, x) => n + shown(x, p).length, 0), covered = nodes.filter(x => shown(x, p).length).length, gaps = byPhase(p.id)
         return tile(p.id, p.label, moves, gaps ? `<span class="gp-flag">${plural(gaps, 'gap')}</span>` : covered ? `from ${plural(covered, 'position')}` : 'nothing yet', { cls: gaps ? 'gp-tile has-gap' : 'gp-tile' })
-      }).join('')}</div></section>`
+      }).join('')}</div></section>
+    ${plan.unplaced.length ? fold('gp-unplaced', `<span class="gp-pos"><b>Position unknown</b><span class="small muted">${plural(plan.unplaced.length, 'move')} logged without a position</span></span>`,
+      `<p class="small muted">Where these happened isn’t known: the roll has no starting position, or a move before them led somewhere unknown. They stay off the map until it is.</p>
+      <ul class="gp-moves">${plan.unplaced.map(u => `<li class="gp-move"><span class="gp-name"><b>${esc(techById(u.techId)?.name || '')}</b><span class="small muted">${OUT[u.outcome]}${u.seq ? ' in “' + esc(u.seq) + '”' : u.date ? ' · roll ' + fmtDate(u.date) + (u.partner ? ' with ' + esc(u.partner) : '') : ''}</span></span></li>`).join('')}</ul>`) : ''}`
 }
 
 // The moves a phase shows for a position: finishes on Submissions, everything else elsewhere.
@@ -42,22 +48,41 @@ function gapCard(g) {
       <a class="btn sm ghost" href="${videoSearch(t.name)}" target="_blank" rel="noopener">Find an instructional ↗</a></div>` : ''}</li>`
 }
 
-function moveRow(m) {
-  const n = [m.landed && `landed ${m.landed}×`, m.tried && `tried ${m.tried}×`, m.seq && (m.live ? 'Live roll chain' : 'in a sequence')].filter(Boolean).join(' · ')
-  const to = m.to ? `<button class="link small gp-edge" data-act="gp-go" data-k="${esc(m.to.pos + '|' + m.to.role)}">→ ${esc(m.to.pos)}${m.to.role === 'Neutral' ? '' : ', ' + m.to.role.toLowerCase()}</button>` : m.finish ? '<span class="small muted">finish</span>' : '<span class="small muted">control</span>'
-  return `<li class="gp-move ${tier(m)}"><span class="gp-dot" title="${TIER[tier(m)]}"></span><span class="gp-name"><b>${esc(m.t.name)}</b><span class="small muted">${TIER[tier(m)]}${n ? ' · ' + n : ''}</span></span>${to}</li>`
+const posName = d => { const { pos, role } = at(d); return pos + (role === 'Neutral' ? '' : ', ' + role.toLowerCase()) }
+const rollsLine = rolls => rolls.length ? `<span class="small muted gp-rolls">${rolls.length > 1 ? 'Rolls' : 'Roll'}: ${rolls.slice(0, 3).map(r => fmtDate(r.date) + (r.partner ? ' with ' + esc(r.partner) : '')).join(', ')}${rolls.length > 3 ? ` +${rolls.length - 3}` : ''}</span>` : ''
+
+// One edge: where the move led and how often in rolls, or that it's only planned. Positions link there.
+function edgeHtml(m, x, k, theirs) {
+  const count = x.n ? `${x.n}×` : x.planned ? 'planned' : 'usually', cls = `gp-edge ${x.n ? '' : 'planned'}`
+  if (x.d === '?') return `<span class="${cls}">Position after: unknown${theirs ? '' : ` <button class="link small" data-act="gp-after" data-k="${esc(k)}" data-id="${esc(m.id)}">Set</button>`}</span>`
+  if (!isPlace(x.d)) return `<span class="${cls}">${x.d === 'finish' ? 'Finish' : 'Kept the position'} · ${count}</span>`
+  return `<button class="link small ${cls}" data-act="gp-go" data-k="${esc(x.d)}">→ ${esc(posName(x.d))}</button><span class="${cls} n">${count}</span>`
 }
+
+function moveRow(m, k) {
+  const how = [m.landed && `landed ${m.landed}×`, m.tried && `tried ${m.tried}×`].filter(Boolean).join(' · ')
+  const src = how ? 'In rolls: ' + how + (m.seq ? ' · also planned' : '') : m.seq ? (m.live ? 'Planned: a Live roll chain' : 'Planned in a sequence') : 'A move you know, not logged from here yet'
+  return `<li class="gp-move ${tier(m)}"><span class="gp-dot" title="${TIER[tier(m)]}"></span><span class="gp-name"><b>${esc(m.t.name)}</b>
+    <span class="small muted">${src}</span>${rollsLine(m.rolls)}
+    ${m.edges.length ? `<span class="gp-edges">${m.edges.map(x => edgeHtml(m, x, k)).join('')}</span>` : ''}</span></li>`
+}
+
+// Moves partners caught you with from here, and where they left you: the problem side.
+const caughtRow = (m, k) => `<li class="gp-move caught"><span class="gp-dot"></span><span class="gp-name"><b>${esc(m.t.name)}</b>
+  <span class="small muted">Caught you ${m.caught}×</span>${rollsLine(m.rolls)}
+  ${m.edges.length ? `<span class="gp-edges">${m.edges.map(x => edgeHtml(m, x, k, true)).join('')}</span>` : ''}</span></li>`
 
 function phaseView(plan, phase) {
   const gaps = plan.gaps.filter(g => g.phase === phase.id), gapAt = k => gaps.filter(g => g.k === k)
-  const rows = phase.keys.map(k => plan.nodes[k]).filter(x => (phase.id === 'subs' ? shown(x, phase) : x.moves).length || gapAt(x.k).length)
+  const rows = phase.keys.map(k => plan.nodes[k]).filter(x => (phase.id === 'subs' ? shown(x, phase) : [...x.moves, ...x.caught]).length || gapAt(x.k).length)
   const empty = phase.keys.map(k => plan.nodes[k]).filter(x => !rows.includes(x))
   return `<p class="small muted">${{ standing: 'Getting it to the ground, or pulling guard.', guard: 'Playing from bottom: sweeps, back takes and guard changes.', passing: 'On top of their guard: breaks and passes.', control: 'Pins and the back: holding, moving between them and setting up the finish.', subs: 'Your finishes, by where you hit them.', escapes: 'The bad spots: how you get out.' }[phase.id]}</p>
     <div class="legend gp-legend">${Object.entries(TIER).map(([k, l]) => `<span class="gp-move ${k}"><span class="gp-dot"></span>${l}</span>`).join('')}</div>
     ${rows.map(x => {
       const moves = shown(x, phase), g = gapAt(x.k), subs = x.moves.filter(m => m.finish).length
-      return `<div data-gp="${esc(x.k)}">${fold('gp:' + x.k, `<span class="gp-pos"><b>${esc(x.pos)}</b><span class="small muted">${x.role === 'Neutral' ? '' : esc(x.role) + ' · '}${moves.length || !subs || phase.id === 'subs' ? plural(moves.length, phase.id === 'subs' ? 'finish' : 'move', phase.id === 'subs' ? 'finishes' : 'moves') : plural(subs, 'finish', 'finishes')}</span></span>${g.length ? `<span class="gp-flag">${plural(g.length, 'gap')}</span>` : ''}`,
-        `${moves.length ? `<ul class="gp-moves">${moves.map(moveRow).join('')}</ul>` : ''}
+      return `<div data-gp="${esc(x.k)}">${fold('gp:' + x.k, `<span class="gp-pos"><b>${esc(x.pos)}</b><span class="small muted">${x.role === 'Neutral' ? '' : esc(x.role) + ' · '}${moves.length || !subs || phase.id === 'subs' ? plural(moves.length, phase.id === 'subs' ? 'finish' : 'move', phase.id === 'subs' ? 'finishes' : 'moves') : plural(subs, 'finish', 'finishes')}</span></span>${g.length ? `<span class="gp-flag">${plural(g.length, 'gap')}</span>` : x.caughtN && phase.id !== 'subs' ? `<span class="gp-flag">caught ${x.caughtN}×</span>` : ''}`,
+        `${moves.length ? `<ul class="gp-moves">${moves.map(m => moveRow(m, x.k)).join('')}</ul>` : ''}
+        ${x.caught.length && phase.id !== 'subs' ? `<p class="gp-caught-h small">Caught you here</p><ul class="gp-moves">${x.caught.map(m => caughtRow(m, x.k)).join('')}</ul>` : ''}
         ${subs && phase.id !== 'subs' ? `<button class="link small gp-subs" data-act="gp-go" data-k="${esc(x.k)}" data-phase="subs">${plural(subs, 'finish', 'finishes')} from here ›</button>` : ''}
         ${g.length ? `<ul class="list gp-gaps">${g.map(gapCard).join('')}</ul>` : ''}`, true)}</div>`
     }).join('') || '<p class="small muted">Nothing here yet.</p>'}
@@ -71,9 +96,22 @@ export function mount(root) {
   if (el) { el.querySelector('details').open = true; el.scrollIntoView({ block: 'start' }) }
 }
 
+// Where a move led, when nothing logged says: you pick, and it's kept for that move from that spot.
+function afterForm(k, id) {
+  const t = techById(id)
+  if (!t) return
+  const opts = [{ value: 'stay', label: 'Stayed in ' + place(k) }, ...Object.keys(TABLE).filter(x => x !== k).map(x => ({ value: x, label: cap(place(x)) }))]
+  openSheet('Where did it lead?', `<p class="hint">${esc(t.name)}, from ${esc(place(k))}. Nothing you logged says where it went next.</p>
+    ${field('Position after', selectEl('after', opts, S.settings.gpAfter?.[k + '|' + id] || ''))}`, {
+    submitLabel: 'Save',
+    onSubmit: fd => { save({ ...S.settings, gpAfter: { ...S.settings.gpAfter, [k + '|' + id]: fd.get('after') } }) },
+  })
+}
+
 const gapOf = el => gamePlan().gaps.find(g => g.id === el.dataset.g)
 
 export const actions = {
+  'gp-after': el => { afterForm(el.dataset.k, el.dataset.id); return false },
   'gp-pick': el => { UI.gpPick = { ...UI.gpPick, [el.dataset.g]: el.dataset.id } },
   // An edge: open the phase that position belongs to, at that position.
   'gp-go': el => { UI.sub.gameplan = el.dataset.phase || phaseOf(el.dataset.k); UI.gpAt = el.dataset.k; scrollTo(0, 0) },
