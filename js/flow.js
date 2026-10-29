@@ -4,7 +4,7 @@
 
 import { S } from './store.js'
 import { ALSO, AFTER, DEFENSES, MENU, OFF, UNSURE, flip, key } from './sim.js'
-import { rollMoves, techById } from './model.js'
+import { rollMoves, sparred, techById } from './model.js'
 import { slug } from './util.js'
 
 const idOf = name => 'c:' + slug(name)
@@ -66,7 +66,7 @@ export function fromRolls(id) {
     const r = rows[[from, to, outcome === 'caughtBy'].join('>')] ||= { from, to, theirs: outcome === 'caughtBy', landed: 0, tried: 0, caughtBy: 0 }
     r[outcome]++
   }
-  S.roll.forEach(r => {
+  sparred().forEach(r => {
     if (r.chain?.length) r.chain.forEach((m, i) => {
       const next = r.chain[i + 1]
       if (m.techId === id && m.position) bump(norm(m.position, m.role), m.outcome !== 'tried' && next?.position ? norm(next.position, next.role) : '', m.outcome)

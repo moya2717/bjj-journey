@@ -2,7 +2,7 @@ import { S, cached } from './store.js'
 import { BELTS, ENERGY, REASONS, SIZES, SLEEP, STYLES } from './vocab.js'
 import { byDateDesc, daysAgo, isoDate, posRole, rate, score, sum, topKeys, weekStart, ym } from './util.js'
 import { MOVE_GROUPS, groupOf } from './catalog.js'
-import { allTechs, masteryOf, rollMoves, seqById, sizeLabel, techById } from './model.js'
+import { allTechs, masteryOf, rollMoves, seqById, sizeLabel, sparred, techById } from './model.js'
 import { activeOn } from './body.js'
 
 const notWorked = r => r.result !== 'worked'
@@ -67,7 +67,7 @@ export function monthlySeries(n) {
 // Moves logged in rolls: what you landed each month by group, landed vs caught by per type,
 // and your most-landed and most-caught-by moves.
 export function moveTrends(n) {
-  const all = S.roll.flatMap(r => rollMoves(r).map(m => ({ ...m, date: r.date, tech: techById(m.techId) }))).filter(m => m.tech)
+  const all = sparred().flatMap(r => rollMoves(r).map(m => ({ ...m, date: r.date, tech: techById(m.techId) }))).filter(m => m.tech)
   const landed = all.filter(m => m.outcome === 'landed'), caught = all.filter(m => m.outcome === 'caughtBy')
   const now = new Date(), groups = Object.keys(MOVE_GROUPS)
   const months = []
@@ -258,7 +258,7 @@ function mapAt(before) {
   const add = (o, id, n = 1) => o[id] = (o[id] || 0) + n
   const raise = (id, n) => { if (id && (level[id] || 0) < n) level[id] = n }
   if (before) S.session.filter(s => s.date < before).forEach(s => (s.drilled || []).forEach(id => raise(id, 2)))
-  S.roll.filter(r => !before || r.date < before).forEach(r => rollMoves(r).forEach(m => {
+  sparred().filter(r => !before || r.date < before).forEach(r => rollMoves(r).forEach(m => {
     if (m.outcome === 'landed') { add(landed, m.techId); if (before) raise(m.techId, 3) }
     else if (m.outcome === 'tried') add(tried, m.techId)
     else add(caught, m.techId)

@@ -11,6 +11,7 @@ import { goalStatus } from '../goals.js'
 import { activeInjuries, duration, injuriesOf, injuryName } from '../body.js'
 import { fmtDist, loadAll, loadTrend, runStats } from '../load.js'
 import { WIDGETS, homeWidgets } from './athlete.js'
+import { gameName } from '../rounds.js'
 import { TAG_LABELS, nextPlan, readiness, recentNotes, reviewDue, todaysFocus } from '../loop.js'
 
 // Above the fold: this week, quick actions and today's focus. Everything else is a compact
@@ -125,12 +126,12 @@ function focusCard() {
       <div class="row-actions"><button class="btn sm" data-act="new-session">Log it</button><button class="btn sm ghost" data-act="clear-plan">Clear</button></div></div>` : ''}
     ${list.length ? '' : '<p class="small muted">After class, write down something to fix. It shows up here as one thing to bring to your next class. Rolls, sequences and drills add more ideas.</p>'}
     <ul class="list">${items.slice(0, UI.more.focus || 2).map(f => `<li class="focus-item"><span><b>${esc(f.text)}</b><span class="small muted">${esc(f.why)}</span></span>
-      <span class="row-actions">${f.seqId ? `<button class="btn sm ghost" data-act="open-seq" data-id="${esc(f.seqId)}">Open</button>` : ''}<button class="btn sm" data-act="plan-focus" data-i="${list.indexOf(f)}">Plan it</button></span></li>`).join('')}</ul>${moreButton('focus', items.length, 2)}
+      <span class="row-actions">${f.seqId ? `<button class="btn sm ghost" data-act="open-seq" data-id="${esc(f.seqId)}">Open</button>` : ''}${f.game ? `<button class="btn sm ghost" data-act="new-round" data-game="${esc(f.game.game)}" data-side="${esc(f.game.side)}" data-position="${esc(f.game.position)}">Log it</button>` : ''}<button class="btn sm" data-act="plan-focus" data-i="${list.indexOf(f)}">Plan it</button></span></li>`).join('')}</ul>${moreButton('focus', items.length, 2)}
   </section>`
 }
 
 // Back up every 30 days. "Not now" hides the reminder for a week.
-const backupDue = () => (S.session.length + S.roll.length + S.activity.length + S.seq.length > 0)
+const backupDue = () => (S.session.length + S.roll.length + S.round.length + S.activity.length + S.seq.length > 0)
   && (!S.settings.lastBackup || S.settings.lastBackup < daysAgo(30)) && !(S.settings.backupSnooze >= daysAgo(6))
 
 function nudges() {
@@ -278,6 +279,7 @@ function reviewData() {
     sessions: S.session.filter(s => s.date >= from).sort(byDateDesc).map(s => ({ date: s.date, time: s.time || '', type: s.type, wentWell: s.wentWell || [], trouble: s.trouble || [], minutes: s.minutes, plan: s.plan || '', stuckToPlan: s.planHit || '', felt: s.feel || '', drilled: (s.drilled || []).map(name).filter(Boolean), reps: (s.reps || []).map(r => `${r.count} ${name(r.techId)}`), worked: trunc(s.worked, 300), wentWrong: trunc(s.struggled, 300), lesson: trunc(s.lesson, 200), reflection: s.reflectA ? `${s.reflectQ} ${trunc(s.reflectA, 300)}` : '', coachQuestion: s.coachQ || '', notes: trunc(s.notes, 300), energy: s.energy || '', sleep: s.sleep || '', trainingAroundInjury: injuriesOf(s).map(injuryName) })),
     injuries: S.injury.filter(i => !i.endDate || i.endDate >= from).map(i => ({ where: injuryName(i), severity: ['', 'mild', 'moderate', 'severe'][i.severity || 1], started: i.startDate, healed: i.endDate || 'still active', what: trunc(i.description, 200), trainingChanges: [...(i.mods || []), i.modNotes].filter(Boolean) })),
     rolls: S.roll.filter(r => r.date >= from).sort(byDateDesc).map(r => { const seq = seqById(r.seqId); return { date: r.date, partnerBelt: r.level, partnerSize: r.size || '', partnerStyle: r.styles || [], position: r.position, role: r.role, move: name(rollTechId(r)), movesUsed: (r.moves || []).filter(m => name(m.techId)).map(m => `${name(m.techId)} (${MOVE_OUTCOMES[m.outcome] || m.outcome})`), sequence: seq ? seq.name + ': ' + nodePath(seq, r.nodeId).join(' > ') : '', result: RESULTS[r.result]?.label || r.result, causes: r.reasons || [], whatHappened: trunc(r.what, 300), tryNext: r.tryNext || '', tryNextStatus: r.tryNext ? (r.tryStatus || 'open') : '' } }),
+    positionalRounds: S.round.filter(g => g.date >= from).sort(byDateDesc).map(g => ({ date: g.date, game: gameName(g), from: g.position, side: g.side, myGoal: g.goal, theirGoal: g.theirGoal, goes: g.tries, iScored: g.wins, theyScored: g.losses, partnerBelt: g.level || '', movesUsed: (g.moves || []).filter(m => name(m.techId)).map(m => `${name(m.techId)} (${MOVE_OUTCOMES[m.outcome] || m.outcome})`), note: trunc(g.note, 200) })),
     otherTraining: S.activity.filter(a => a.date >= from).map(a => ({ date: a.date, type: a.type, minutes: a.minutes, intensity: a.intensity, notes: trunc(a.notes, 200) })),
     challenges: S.goal.map(g => ({ title: g.title, target: g.target, progress: goalStatus(g).value, status: goalStatus(g).label })),
     sequenceGaps: S.seq.flatMap(s => s.nodes.filter(n => n.who === 'them' && !s.nodes.some(c => c.parentId === n.id)).map(n => s.name + ': ' + n.label)),

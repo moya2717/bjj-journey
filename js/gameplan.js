@@ -5,7 +5,7 @@
 // until you say.
 import { S, cached } from './store.js'
 import { CATALOG_BY_ID } from './catalog.js'
-import { masteryOf, rollMoves, techById } from './model.js'
+import { masteryOf, rollMoves, sparred, techById } from './model.js'
 import { liveRollSeqs } from './loop.js'
 import { GUARDS, TABLE, flip, key } from './sim.js'
 
@@ -60,7 +60,7 @@ export const gamePlan = () => cached('gamePlan', () => {
   // An edge: seen in rolls (n), planned in a sequence, or what the library says (lib).
   const edge = (e, d, kind = 'n') => { const x = e.dests[d] ||= { n: 0, planned: 0, lib: 0 }; x[kind]++ }
 
-  S.roll.forEach(r => {
+  sparred().forEach(r => {
     const ref = { id: r.id, date: r.date || '', partner: r.partner || '' }
     const log = (k, m, d) => {
       if (!techById(m.techId)) return

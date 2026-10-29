@@ -21,6 +21,7 @@ import * as injuries from './views/injuries.js'
 import * as athlete from './views/athlete.js'
 import * as review from './views/review.js'
 import * as goals from './views/goals.js'
+import * as rounds from './views/rounds.js'
 import * as hub from './views/hub.js'
 
 const VIEWS = {
@@ -68,6 +69,7 @@ const actions = Object.assign(
   },
   ...Object.values(VIEWS).map(([, view]) => view.actions),
   goals.actions,
+  rounds.actions,
   hub.actions,
 )
 

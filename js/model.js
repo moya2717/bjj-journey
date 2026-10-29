@@ -22,7 +22,7 @@ export const techUsage = () => cached('techUsage', () => {
   const uses = {}
   const bump = (id, n = 1) => { if (id) uses[id] = (uses[id] || 0) + n }
   S.session.forEach(s => { (s.drilled || []).forEach(id => bump(id)); (s.reps || []).forEach(r => bump(r.techId)) })
-  S.roll.forEach(r => rollMoves(r).forEach(m => m.outcome !== 'caughtBy' && bump(m.techId)))
+  sparred().forEach(r => rollMoves(r).forEach(m => m.outcome !== 'caughtBy' && bump(m.techId)))
   S.seq.forEach(s => s.nodes.forEach(n => bump(n.techId)))
   S.study.forEach(v => (v.notes || []).forEach(n => bump(n.techId)))
   return uses
@@ -51,7 +51,7 @@ const masteryEvidence = () => cached('masteryEvidence', () => {
   S.session.forEach(s => { if (s.planTechId && s.planHit && s.planHit !== 'Went another way') raise(s.planTechId, s.planResult === 'landed' ? 3 : 2) })
   const myRank = BELTS.indexOf(currentRank().belt)
   const since = {}
-  ;[...S.roll].sort(byDateAsc).forEach(r => {
+  ;[...sparred()].sort(byDateAsc).forEach(r => {
     const higher = BELTS.indexOf(r.level) > myRank && r.level !== 'Unknown'
     landedIds(r).forEach(id => { raise(id, higher ? 4 : 3); since[id] ||= r.date })
   })
@@ -109,6 +109,14 @@ export function rollMoves(roll) {
   const moves = (roll.moves || []).filter(m => m.techId && MOVE_OUTCOMES[m.outcome]), id = rollTechId(roll)
   return id && !moves.some(m => m.techId === id) ? [{ techId: id, outcome: roll.result === 'worked' ? 'landed' : 'tried' }, ...moves] : moves
 }
+
+// Positional rounds with moves count like rolls wherever your moves are read (mastery, the game map,
+// the game plan, move pages). A move marked landed proves it only in a round where you scored.
+const asRoll = g => {
+  const down = m => g.wins || m.outcome !== 'landed' ? m : { ...m, outcome: 'tried' }
+  return { ...g, result: g.wins > g.losses ? 'worked' : g.wins ? 'partial' : 'broke', chain: (g.chain || []).map(down), moves: (g.moves || []).map(down) }
+}
+export const sparred = () => cached('sparred', () => [...S.roll, ...S.round.filter(g => (g.moves || []).length).map(asRoll)])
 
 export const landedIds = roll => [...new Set(rollMoves(roll).filter(m => m.outcome === 'landed').map(m => m.techId))]
 

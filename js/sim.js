@@ -7,7 +7,7 @@
 
 import { S } from './store.js'
 import { GAME_MAPS } from './maps.js'
-import { allTechs, currentRank, isCustom, masteryOf, rollMoves, techById } from './model.js'
+import { allTechs, currentRank, isCustom, masteryOf, rollMoves, sparred, techById } from './model.js'
 import { BELTS } from './vocab.js'
 import { slug } from './util.js'
 
@@ -370,7 +370,7 @@ export function myGame() {
   const starts = {}, mine = {}, caught = {}
   const at = (pos, role) => { const k = key(pos, pos === 'Standing' ? 'Neutral' : role); return MENU[k] ? k : null }
   const bump = (o, k, id, n) => { if (k && techById(id)) (o[k] ||= {})[id] = (o[k][id] || 0) + n }
-  S.roll.forEach(r => {
+  sparred().forEach(r => {
     const k = at(r.position, r.role)
     if (k) starts[k] = (starts[k] || 0) + 1
     const steps = r.chain?.length ? r.chain.map(m => ({ ...m, k: at(m.position, m.role) })) : rollMoves(r).map(m => ({ ...m, k }))

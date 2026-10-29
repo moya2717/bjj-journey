@@ -2,12 +2,13 @@ import { S } from '../store.js'
 import { ACTIVITY_TYPES, FEELS, POSITIONS } from '../vocab.js'
 import { dayPart, daysAgo, esc, hrs, monthLabel, pct, plural, rate, sum, ym } from '../util.js'
 import { areaCounts, badSpots, bodyInsights, gameMap, monthlySeries, moveTrends, problemTrends, weeklySessions, weeklyStreak } from '../analysis.js'
-import { butterfly, heatmap, lineChart, radar, spark, sparkBars, stackedBars } from '../charts.js'
+import { butterfly, heatmap, lineChart, radar, spark, sparkBars, stackedBars, trendLine } from '../charts.js'
 import { UI } from '../ui.js'
 import { MASTERY, currentRank, isSimple, partnerNames } from '../model.js'
 import { readiness } from '../loop.js'
 import { fmtDist, loadTrend, loadWeeks, runStats } from '../load.js'
 import { advancedRow, modeLink, subHead, subOf, tile } from './hub.js'
+import { roundMonths, roundSpots, rounds, spotName, spotTrend } from '../rounds.js'
 
 // A hero with this month's numbers and the calendar heatmap, then a tile per panel.
 // Each tile shows one number and opens the full panel as a sub-screen.
@@ -62,7 +63,7 @@ function simpleView() {
 function advancedHub() {
   const group = (title, tiles) => `<h2 class="section-title">${title}</h2><div class="dojo-tiles">${tiles}</div>`
   return group('Training', ['load', 'runs', 'months', 'time', 'other'].map(k => statTile(k)).join(''))
-    + group('Rolls', ['success', 'moves', 'attention', 'areas', 'problems', 'body'].map(k => statTile(k)).join(''))
+    + group('Rolls', ['games', 'success', 'moves', 'attention', 'areas', 'problems', 'body'].map(k => statTile(k)).join(''))
     + group('Questions from Home', tile('wrong', 'Going wrong', badSpots(daysAgo(59)).bad.length, 'breakdowns, 60 days', { view: 'overview' })
       + tile('next', 'Work on next', S.roll.filter(r => r.tryNext && (r.tryStatus || 'open') === 'open').length, 'ideas to test', { view: 'overview' })
       + tile('improve', 'Improving?', pct(rate(S.roll.filter(r => r.date >= daysAgo(29)))), 'roll success, 30 days', { view: 'overview' }))
@@ -80,6 +81,7 @@ export const TILES = {
   load: ['Training load', () => { const t = loadTrend(); return [t.now, t.ratio == null ? 'this week so far' : `${pct(t.ratio)} of usual`, pts(loadWeeks(8), w => w.total, v => `load ${v}`), '', t.spike ? 'warn' : ''] }, 'athlete'],
   runs: ['Running', () => { const r = runStats(); return [`${fmtDist(r.week.dist)}<small> ${r.unit}</small>`, r.n ? `this week · ${plural(r.month.n, 'run')} this month` : 'log a run', r.n ? pts(r.weeks.slice(-8), w => w.counts[0], v => `${fmtDist(v)} ${r.unit}`) : null] }, 'athlete'],
   radar: ['Game map', () => { const g = gameMap(), best = [...g.axes].sort((a, b) => b.v - a.v)[0]; return [g.empty ? '—' : Math.round(sum(g.axes, 'v') / g.axes.length), g.empty ? 'log moves to grow it' : 'strongest · ' + best.label, null, radar(g.axes, { mini: true })] }],
+  games: ['Positional rounds', () => { const r = rounds(daysAgo(29)), tries = sum(r, 'tries'), weak = roundSpots(daysAgo(59)).filter(s => s.tries >= 4).sort((a, b) => a.rate - b.rate)[0]; return [tries ? pct(sum(r, 'wins') / tries) : '—', weak ? 'weakest · ' + esc(spotName(weak.position, weak.side)) : tries ? 'scored, 30 days' : 'log a sparring game', pts(roundMonths(6), m => m.v, pct)] }],
   success: ['Roll success', () => { const s = monthlySeries(6), cur = s.at(-1).rate ?? s.filter(x => x.rate != null).at(-1)?.rate; return [pct(cur), 'by month', pts(s, x => x.rate, pct)] }],
   attention: ['Attention', () => { const p = attention(); return [p.length, p[0] ? esc(p[0].p) + ' most' : 'positions, 90 days'] }],
   areas: ['Problem areas', () => { const bad = areaCounts('trouble', daysAgo(59)); return [bad.length, bad[0] ? esc(bad[0][0]) + ' most' : 'nothing flagged'] }],
@@ -97,6 +99,7 @@ export function statTile(k, view = TILES[k][2] || '') {
 
 const SUBS = {
   radar: ['Your game map', () => gameMapPanel()],
+  games: ['Positional rounds', () => gamesPanel()],
   success: ['Roll success by month', () => { const series = monthlySeries(6); return `<section class="panel wide">${series.some(s => s.rate != null) ? lineChart(series, { w: 420, h: 170 }) : '<p class="muted">Log rolls to see this trend.</p>'}</section>` }],
   attention: ['Where your attention went', attentionPanel],
   areas: ['Strengths and trouble areas', () => areasPanel()],
@@ -123,6 +126,22 @@ function gameMapPanel() {
       ${open === a.label ? `<small>${a.top.length ? a.top.map(m => `${esc(m.tech.name)} (${MASTERY[m.level].toLowerCase()}${m.landed ? `, landed ${m.landed}×` : ''})`).join(' · ') : 'Nothing logged here yet.'}</small>` : ''}</button>`).join('')}</div>
     <p class="small muted">Each move adds its mastery level, and more each time you land it in a roll. Scores grow fast at first, then slower, out of 100. Tap a side for the moves behind it.</p>
   </section>`
+}
+
+// Positional rounds: how often you score from each spot, this month against the one before, and over time.
+function gamesPanel() {
+  if (!S.round.length) return `<section class="panel wide"><h2>Positional rounds</h2><p class="muted">Positional sparring is a game from one spot: you pass, they sweep, reset when someone scores. Log the score with the + buttons and your success rate per position shows up here.</p>
+    <div class="row-actions"><button class="btn" data-act="new-round">Log a positional round</button></div></section>`
+  const spots = roundSpots(), trend = spotTrend(), months = roundMonths(6)
+  const arrow = t => t.now == null || t.before == null || Math.abs(t.now - t.before) < 0.05 ? '' : `<span class="${t.now > t.before ? 'delta-up' : 'delta-down'}">${t.now > t.before ? '▲' : '▼'} from ${pct(t.before)}</span>`
+  return `<section class="panel wide"><h2>Your success rate by month</h2>
+      ${months.some(m => m.v != null) ? trendLine(months, { fmt: pct, what: 'Positional round success by month', h: 130 }) : '<p class="muted small">No rounds in the last 6 months.</p>'}
+      <p class="small muted">The share of goes where you reached your goal.</p></section>
+    <section class="panel wide"><h2>By position</h2><div class="stat-rows">${spots.map(s => { const t = trend(s.k), you = s.rate ?? 0, them = s.tries ? s.losses / s.tries : 0
+      return `<div class="stat-row spot-row"><span>${esc(spotName(s.position, s.side))}</span><span class="meter split" aria-hidden="true"><span class="you" style="width:${you * 100}%"></span><span class="them" style="width:${them * 100}%"></span></span><b>${pct(s.rate)}</b>
+        <small>${plural(s.tries, 'go', 'goes')}: you ${s.wins}, them ${s.losses}${s.tries - s.wins - s.losses ? `, ${s.tries - s.wins - s.losses} even` : ''} ${arrow(t)}</small></div>` }).join('')}</div>
+      <p class="key" aria-hidden="true"><span><i class="rk-you"></i>You scored</span><span><i class="rk-them"></i>They scored</span></p>
+      <p class="small muted">The arrow compares the last 30 days with the 30 before, once each has 3 goes.</p></section>`
 }
 
 export const actions = {

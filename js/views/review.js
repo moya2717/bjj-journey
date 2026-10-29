@@ -31,6 +31,9 @@ export function view() {
       ${figure(w.rolls.worked, 'worked')}${figure(w.rolls.partial, 'partly')}${figure(w.rolls.broke, 'broke down')}</div>
       ${w.causes.length ? `<p class="sub">Top causes of breakdowns</p><div class="tags">${w.causes.map(([k, n]) => `<span class="tag bad">${esc(k)} · ${n}</span>`).join('')}</div>` : ''}`
       : '<p class="small muted">No rolls logged this week.</p>'}</section>` : '')}
+    ${part('rounds', 'Positional rounds', w.rounds.tries ? `you scored ${w.rounds.wins} of ${w.rounds.tries} goes` : 'none this week', w.rounds.n ? `<section class="panel"><h2>Positional rounds</h2><div class="figures tight">
+      ${figure(pct(w.rounds.wins / (w.rounds.tries || 1)), 'goes you scored')}${figure(w.rounds.wins, 'you scored')}${figure(w.rounds.losses, 'they scored')}</div>
+      <p class="small muted">Per position, and the trend, in Stats → Positional rounds.</p></section>` : '')}
     ${part('moves', 'Moves', `${w.landed.length} landed · ${w.caught.length} caught by`, w.landed.length || w.caught.length || detailed ? `<section class="panel"><h2>Moves</h2><div class="trend-grid">
       <div><p class="sub">Landed</p>${moveList(w.landed)}</div><div><p class="sub">Caught by</p>${moveList(w.caught)}</div></div></section>` : '')}
     ${part('plan', 'Plan hit rate', w.plan.n ? pct(w.plan.hit / w.plan.n) : 'no plans rated', w.plan.n || w.plan.unrated || detailed ? `<section class="panel"><h2>Plan hit rate</h2>${w.plan.n

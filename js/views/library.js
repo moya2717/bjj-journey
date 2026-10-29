@@ -3,7 +3,7 @@ import { UI } from '../ui.js'
 import { LIBRARY_GROUPS, POSITIONS, TECH_TYPES } from '../vocab.js'
 import { $, esc, newId, pct, toast, trunc } from '../util.js'
 import { field, selectEl, openSheet } from '../sheet.js'
-import { MASTERY, allTechs, isCustom, masteryOf, masteryPips, myTechs, rollMoves, techById } from '../model.js'
+import { MASTERY, allTechs, isCustom, masteryOf, masteryPips, myTechs, rollMoves, sparred, techById } from '../model.js'
 import { FLOW, fromRolls, kindFrom, movesFrom, movesInto, moverTerms, needs, posLabel, setsUp, theirsInto } from '../flow.js'
 import { attackerOf, describe, flip } from '../sim.js'
 import { videoSearch } from '../catalog.js'
@@ -133,7 +133,7 @@ const home = pos => pos === 'Standing' ? 'Standing|Neutral' : pos + '|' + attack
 function movePage(t) {
   if (!t) return pageHead('Move not found')
   const rows = FLOW[t.id] || [], mine = fromRolls(t.id), froms = [...new Set(rows.map(r => r.from))]
-  const used = S.roll.flatMap(rollMoves).filter(m => m.techId === t.id), n = o => used.filter(m => m.outcome === o).length
+  const used = sparred().flatMap(rollMoves).filter(m => m.techId === t.id), n = o => used.filter(m => m.outcome === o).length
   return `${pageHead(t.name)}
     <div class="mv-meta"><span class="tech-type">${esc(t.position)} · ${esc(t.type)}${isCustom(t) ? ' · added by you' : ''}</span>
       <button class="star" data-act="star" data-id="${esc(t.id)}" aria-pressed="${!!t.starred}" aria-label="${t.starred ? 'Unstar' : 'Star'} ${esc(t.name)}">★</button></div>

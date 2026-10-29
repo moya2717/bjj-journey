@@ -1273,3 +1273,21 @@ span.flow-chip.more{cursor:default;display:inline-flex;align-items:center}
 .flow-rolls li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 8px;font-size:.88rem}
 .flow-rolls .tags{margin-top:0}
 .mv-notes{white-space:pre-wrap;margin-top:10px}
+
+
+/* ---------- Positional rounds: the game, your side and a tap counter ---------- */
+.round-box{display:flex;flex-direction:column;gap:12px}
+.round-more{display:flex;flex-direction:column;gap:12px}
+.counter{display:grid;gap:8px}
+.count-row{display:grid;grid-template-columns:minmax(0,1fr) 48px 3ch 48px;align-items:center;gap:10px;padding:6px 8px 6px 14px;border:1px solid var(--edge);border-radius:var(--r);background:var(--surface);font-weight:650}
+.count-row output{font-size:1.5rem;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;font-stretch:80%}
+.count-row.wins output{color:var(--worked)}.count-row.losses output{color:var(--broke)}
+.count-btn{width:48px;height:48px;border-radius:50%;border:1px solid var(--edge-strong);background:var(--surface-2);color:var(--ink);font-size:1.4rem;font-weight:700;line-height:1;cursor:pointer;transition:transform .12s,box-shadow .2s}
+.count-btn:active{transform:scale(.92)}
+.count-btn.plus{background:var(--mat-soft);color:var(--mat);border-color:color-mix(in srgb,var(--neon) 55%,transparent);box-shadow:var(--glow)}
+.score-tags{margin:0}
+.meter.split{display:flex;justify-content:space-between}
+.meter.split .you{background:var(--worked)}.meter.split .them{background:var(--broke)}
+.spot-row{cursor:default;grid-template-columns:118px minmax(0,1fr) 40px}
+.key .rk-you,.key .rk-them{display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle;background:var(--worked)}
+.key .rk-them{background:var(--broke)}

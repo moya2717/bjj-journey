@@ -6,7 +6,7 @@
 import { S, cached, save } from './store.js'
 import { LIBRARY_GROUPS, POSITIONS, TECH_TYPES } from './vocab.js'
 import { $, byDateDesc, esc, fmtDate, today, toast } from './util.js'
-import { MOVE_OUTCOMES, allTechs, rollMoves, techById, techUsage } from './model.js'
+import { MOVE_OUTCOMES, allTechs, rollMoves, sparred, techById, techUsage } from './model.js'
 import { describe, fits, flip, key, landing, menuFor } from './sim.js'
 import { homeFor, saveChain } from './views/sim.js'
 
@@ -61,7 +61,7 @@ export function searchMoves(text, limit = 30) {
 // Moves from your latest logs, newest first.
 const recentMoves = () => cached('recentMoves', () => {
   const ids = []
-  ;[...S.roll, ...S.session].sort(byDateDesc).forEach(x => (x.kind === 'roll' ? rollMoves(x).map(m => m.techId) : [...(x.drilled || []), ...(x.reps || []).map(r => r.techId)])
+  ;[...sparred(), ...S.session].sort(byDateDesc).forEach(x => (x.kind !== 'session' ? rollMoves(x).map(m => m.techId) : [...(x.drilled || []), ...(x.reps || []).map(r => r.techId)])
     .forEach(id => { if (techById(id) && !ids.includes(id)) ids.push(id) }))
   return ids.slice(0, 10)
 })
@@ -136,7 +136,7 @@ const theirs = at => ({ pos: at.pos, role: flip(at.role) })
 const history = () => cached('chainHistory', () => {
   const at = {}, after = {}
   const bump = (table, k, id, n = 1) => { if (k && id) (table[k] ||= {})[id] = (table[k][id] || 0) + n }
-  S.roll.forEach(r => {
+  sparred().forEach(r => {
     const chain = r.chain?.length ? r.chain : rollMoves(r).map(m => ({ position: r.position, role: r.role, techId: m.techId, who: m.outcome === 'caughtBy' ? 'them' : 'me', weak: true }))
     chain.forEach((m, i) => {
       bump(at, key(m.position, m.who === 'them' ? flip(m.role) : m.role), m.techId, m.weak ? 1 : 2)

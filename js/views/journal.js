@@ -9,6 +9,7 @@ import { hasDetail, logMode, partnerProfile, rollMoves, seqById, techById } from
 import { heatLevel } from '../charts.js'
 import { addPhotos, removePhotos, hydratePhotos, openViewer, photoURL } from '../photos.js'
 import { movesUsed, partnerDatalist, stepOptions } from './rolls.js'
+import { newRound, readRound, roundMini, roundProblem, roundRow, wireRounds } from './rounds.js'
 import { activeInjuries, activeOn, injuriesOf, injuryName } from '../body.js'
 import { distUnit, fmtClock, isRun, paceOf, rpeIntensity } from '../load.js'
 import { latestTags, nextPlan } from '../loop.js'
@@ -75,12 +76,14 @@ function dayPanel() {
   const activities = S.activity.filter(a => a.date === UI.calDay).sort(byTime)
   const studies = S.study.filter(v => v.date === UI.calDay)
   const looseRolls = S.roll.filter(r => r.date === UI.calDay && !sessions.some(s => s.id === r.sessionId))
+  const looseRounds = S.round.filter(g => g.date === UI.calDay && !sessions.some(s => s.id === g.sessionId))
   return `<div class="day-panel">
     <div class="day-head"><h2>${fmtDateLong(UI.calDay)}</h2><div class="head-actions"><button class="btn sm" data-act="new-session" data-date="${UI.calDay}">Log BJJ</button><button class="btn sm ghost" data-act="new-run" data-date="${UI.calDay}">Log a run</button><button class="btn sm ghost" data-act="new-activity" data-date="${UI.calDay}">Log other activity</button></div></div>
     ${sessions.length || activities.length || studies.length
       ? [...sessions.map(s => [s.time, entryCard(s)]), ...activities.map(a => [a.time, activityCard(a)]), ...studies.map(v => ['99', studyMini(v)])].sort((a, b) => (a[0] || '99').localeCompare(b[0] || '99')).map(x => x[1]).join('')
       : `<p class="muted">Nothing logged on this day.</p>`}
     ${looseRolls.length ? `<section class="panel"><h3>Roll notes</h3>${looseRolls.map(rollMini).join('')}</section>` : ''}
+    ${looseRounds.length ? `<section class="panel"><h3>Positional rounds</h3><div class="log-rolls">${looseRounds.map(g => roundMini(g)).join('')}</div></section>` : ''}
   </div>`
 }
 
@@ -115,6 +118,7 @@ const PLAN_LOOK = { 'Stuck to it': 'good', 'Partly': 'mid', 'Went another way': 
 // A training day as one card: the photos up top, the facts at a glance, each roll as a flow of moves.
 function entryCard(s) {
   const d = parseD(s.date), rolls = S.roll.filter(r => r.sessionId === s.id).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+  const games = S.round.filter(g => g.sessionId === s.id).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
   const drilled = (s.drilled || []).map(techById).filter(Boolean), photos = s.photos || []
   const reps = (s.reps || []).filter(r => r.count && techById(r.techId))
   const facts = [s.minutes && s.minutes + ' min', +s.rounds && plural(+s.rounds, 'round'), s.feel && 'felt ' + s.feel.toLowerCase()].filter(Boolean)
@@ -128,6 +132,7 @@ function entryCard(s) {
         <div style="min-width:0"><h3>${esc(s.type)}${s.time ? ` <span class="entry-time">${fmtTime(s.time)}</span>` : ''}</h3><p class="entry-meta">${esc(cap(facts.join(' · ')))}</p></div></div>
       ${body.length || injuriesOf(s).length ? `<div class="tags">${body.map(b => `<span class="tag">${esc(b)}</span>`).join('')}${injuriesOf(s).map(i => `<span class="tag bad">Around ${esc(injuryName(i).toLowerCase())}</span>`).join('')}</div>` : ''}
       ${s.plan ? `<p class="log-plan"><span class="tag pos">Plan</span> ${esc(s.plan)}${s.planHit ? ` <span class="tag ${PLAN_LOOK[s.planHit] || ''}">${esc(s.planHit)}</span>` : ''}${techById(s.planTechId) && PLAN_RESULT[s.planResult] ? ` <span class="tag ${s.planResult === 'landed' ? 'good' : ''}">${esc(techById(s.planTechId).name)}: ${PLAN_RESULT[s.planResult].toLowerCase()}</span>` : ''}</p>` : ''}
+      ${games.length ? `<div class="log-rolls">${games.map(g => roundMini(g)).join('')}</div>` : ''}
       ${rolls.length ? `<div class="log-rolls">${rollSummary(rolls)}${rolls.map(rollMini).join('')}</div>` : ''}
       ${(s.focus || []).length || drilled.length ? `<div class="tags">${(s.focus || []).map(p => `<span class="tag pos">${esc(p)}</span>`).join('')}${drilled.map(t => `<span class="tag">${esc(t.name)}</span>`).join('')}</div>` : ''}
       ${reps.length ? `<p class="small">Reps: ${reps.map(r => `${r.count} × ${esc(techById(r.techId).name.toLowerCase())}`).join(', ')}</p>` : ''}
@@ -137,6 +142,7 @@ function entryCard(s) {
       ${s.coachQ ? `<p class="coach-q"><span class="tag pos">Ask coach</span> ${esc(s.coachQ)}${s.coachAnswered ? ' <span class="small muted">(answered)</span>' : s.coachAsked ? ' <span class="small muted">(asked)</span>' : ''}</p>${s.coachA ? `<p class="small" style="max-width:70ch">${clamp(s.coachA)}</p>` : ''}` : ''}
       <div class="row-actions">
         <button class="btn sm ghost" data-act="new-roll" data-session="${s.id}">Add roll notes</button>
+        <button class="btn sm ghost" data-act="new-round" data-session="${s.id}">Add a positional round</button>
         <button class="btn sm ghost" data-act="edit-session" data-id="${s.id}">Edit</button>
       </div>
     </div></article>`
@@ -248,13 +254,13 @@ function sessionForm(id, date) {
   if (!s) return
   const lastRoll = [...S.roll].sort(byDateDesc)[0] || { position: 'Half guard', role: 'Top', seqId: '' }
   const rollPreset = { position: lastRoll.position, role: lastRoll.role, seqId: seqById(lastRoll.seqId) ? lastRoll.seqId : '' }
-  const existingRolls = id ? S.roll.filter(r => r.sessionId === id) : []
+  const existingRolls = id ? S.roll.filter(r => r.sessionId === id) : [], existingRounds = id ? S.round.filter(g => g.sessionId === id) : []
   const keptPhotos = [...(s.photos || [])], newFiles = []
   // Simple mode folds everything past the note into one "Add more detail". An entry that already
   // has detail opens it, so nothing you wrote is ever hidden.
   const mode = logMode(), simple = mode === 'simple', firstRun = !id && !S.settings.logMode && !S.session.length
   const showDetail = id && (hasDetail(s) || existingRolls.length)
-  let rows = 0
+  let rows = 0, games = 0
 
   openSheet(id ? 'Edit training' : 'Log training', `<div class="log-form" data-log-form data-mode="${mode}">
     ${firstRun ? `<div class="first-run" data-first-run><p><b>How much do you want to log?</b> You can change this any time.</p>
@@ -271,6 +277,11 @@ function sessionForm(id, date) {
     <details class="more" ${(s.photos || []).length ? 'open' : ''}><summary>Add a photo</summary><div>
       <div class="photos" id="s-photos"></div>
       <label class="btn sm ghost file-btn">Add photos<input type="file" id="s-file" accept="image/*" multiple></label>
+    </div></details>
+    <details class="more" data-games ${existingRounds.length ? 'open' : ''}><summary>Positional rounds <span class="hint">sparring games, scored each go</span></summary><div>
+      ${existingRounds.length ? `<div class="log-rolls">${existingRounds.map(g => roundMini(g)).join('')}</div><p class="hint">Edit saved rounds from the journal.</p>` : ''}
+      <div class="ql-rolls" id="s-games"></div>
+      <div><button type="button" class="btn sm ghost" id="s-add-game">+ Add a positional round</button></div>
     </div></details>
     <details class="more add-detail" data-add-detail ${!simple || showDetail ? 'open' : ''}><summary>Add more detail <span class="hint">plan, energy, drills, reflection, rolls</span></summary><div>
       ${step(3, 'How it went', bodyCheck(s) + howItWent(s))}
@@ -290,13 +301,18 @@ function sessionForm(id, date) {
     ${partnerDatalist()}</div>
     <p class="form-error" id="form-error"></p>`, {
     submitLabel: id ? 'Save changes' : 'Save',
-    onDelete: id ? () => { remove(s); removePhotos(s.photos || []); saveMany(existingRolls.map(r => ({ ...r, sessionId: '' }))) } : null,
+    onDelete: id ? () => { remove(s); removePhotos(s.photos || []); saveMany([...existingRolls, ...existingRounds].map(r => ({ ...r, sessionId: '' }))) } : null,
     onMount: form => {
       const rollBox = $('#s-rolls', form), repBox = $('#s-reps', form), photoBox = $('#s-photos', form)
       const renumber = () => $$('[data-row-title]', rollBox).forEach((h, j) => h.textContent = 'Roll ' + (j + 1))
       const addRoll = preset => { rollBox.insertAdjacentHTML('beforeend', rollRow(rows++, preset)); renumber() }
       let reps = (s.reps || []).length
       wireBodyCheck(form)
+      wireRounds(form)
+      // A game starts as your last one did; opening the empty fold adds the first one.
+      const gameBox = $('#s-games', form), addGame = () => gameBox.insertAdjacentHTML('beforeend', roundRow(games++, newRound()))
+      $('#s-add-game', form).addEventListener('click', addGame)
+      $('[data-games]', form).addEventListener('toggle', e => { if (e.target.open && !existingRounds.length && !$('[data-game-row]', gameBox)) addGame() })
       // Switching modes keeps what you've typed: it only folds or unfolds the extras, and remembers the pick.
       form.addEventListener('click', e => {
         const pick = e.target.closest('[data-log-mode]')
@@ -319,7 +335,7 @@ function sessionForm(id, date) {
       $('#s-add-rep', form).addEventListener('click', () => repBox.insertAdjacentHTML('beforeend', repRow(reps++)))
       form.addEventListener('click', e => {
         const removeBtn = e.target.closest('[data-remove-row]')
-        if (removeBtn) { removeBtn.closest('[data-row],[data-rep]').remove(); renumber() }
+        if (removeBtn) { removeBtn.closest('[data-row],[data-rep],[data-game-row]').remove(); renumber() }
         const dropPhoto = e.target.closest('[data-drop-photo]')
         if (dropPhoto) { const i = keptPhotos.indexOf(dropPhoto.dataset.dropPhoto); if (i >= 0) keptPhotos.splice(i, 1); dropPhoto.parentElement.remove() }
         const dropFile = e.target.closest('[data-drop-file]')
@@ -365,6 +381,10 @@ function sessionForm(id, date) {
       if (missing >= 0) { $('#form-error').textContent = `Pick a result for roll ${missing + 1}, or remove it.`; return false }
       const nowhere = rows.findIndex(row => fd.get(`r${row.dataset.row}_result`) && !chainOf(row).position)
       if (nowhere >= 0) { $('#form-error').textContent = `Pick where roll ${nowhere + 1} started.`; return false }
+      // A game block nobody touched is left out; one with anything in it needs its goes counted.
+      const played = $$('[data-game-row] [data-round]', form).map(box => readRound(fd, box)).filter(r => r.tries || r.moves.length || r.note || r.partner)
+      const gameProblem = played.map((r, j) => roundProblem(r, played.length > 1 ? j + 1 : '')).find(Boolean)
+      if (gameProblem) { $('#form-error').textContent = gameProblem; return false }
 
       const added = await addPhotos(newFiles.filter(Boolean))
       const dropped = (s.photos || []).filter(p => !keptPhotos.includes(p))
@@ -399,14 +419,16 @@ function sessionForm(id, date) {
           what: g('what').trim(), tryNext, tryStatus: tryNext ? 'open' : '', createdAt: Date.now() + j,
         }
       })
+      const rounds = played.map((r, j) => ({ ...r, id: newId('round'), kind: 'round', date, sessionId, createdAt: Date.now() + j }))
       UI.calDay = date
       UI.calMonth = date.slice(0, 7)
       // The plan is used up once a new session logs it.
       // Your first log also keeps the mode you used, so adding detail once doesn't switch you to Detailed.
       const usedPlan = !id && plan && session.plan === plan.text
       const settings = { ...(usedPlan ? { nextPlan: null } : {}), ...(S.settings.logMode ? {} : { logMode: $('[data-log-form]', form).dataset.mode }) }
-      saveMany([session, ...rolls, ...(Object.keys(settings).length ? [{ ...S.settings, ...settings }] : [])])
-      toast(rolls.length ? `Training and ${plural(rolls.length, 'roll')} saved` : 'Training saved')
+      saveMany([session, ...rolls, ...rounds, ...(Object.keys(settings).length ? [{ ...S.settings, ...settings }] : [])])
+      const extras = [rolls.length && plural(rolls.length, 'roll'), rounds.length && plural(rounds.length, 'positional round')].filter(Boolean)
+      toast(extras.length ? `Training and ${extras.join(' and ')} saved` : 'Training saved')
     },
   })
 }

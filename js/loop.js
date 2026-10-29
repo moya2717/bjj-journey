@@ -7,6 +7,7 @@ import { masteryOf, myTechs, rollMoves, seqById, techById } from './model.js'
 import { badSpots, weakestStep } from './analysis.js'
 import { activeInjuries, injuryName } from './body.js'
 import { distIn, loadOf, loadWeeks, runs, runStats } from './load.js'
+import { suggestedGame } from './rounds.js'
 
 // ---------- Today's focus ----------
 
@@ -28,6 +29,9 @@ export const focusIdeas = () => cached('focusIdeas', () => {
   if (gap?.text && gap.set >= daysAgo(13)) list.push({ text: gap.text, techId: gap.techId || '', seqId: '', why: 'A gap in your game plan' })
   const live = liveRollSeqs()[0]
   if (live) list.push({ text: `Drill ${live.seq.name}`, techId: firstMove(live.seq), seqId: live.seq.id, why: 'Saved from Live roll' })
+  // A positional round for your weakest spot: the cleanest way to get reps where you lose.
+  const game = suggestedGame()
+  if (game) list.push({ text: game.text, techId: '', seqId: '', why: game.why, game })
   const weak = weakestStep(daysAgo(59))
   if (weak) list.push({ text: `Fix ${weak.label} (${weak.seq})`, techId: seqById(weak.seqId)?.nodes.find(n => n.id === weak.nodeId)?.techId || '', seqId: weak.seqId, why: `Went wrong in ${weak.broke + weak.partial} of ${weak.n} rolls` })
   const spot = badSpots(daysAgo(59)).groups[0]
@@ -67,7 +71,7 @@ export function reviewWeek() {
 }
 
 // Sunday and Monday, until that week's review is done.
-export const reviewDue = () => [0, 1].includes(new Date().getDay()) && S.settings.reviewedWeek !== reviewWeek().from && (S.session.length + S.roll.length + S.activity.length > 0)
+export const reviewDue = () => [0, 1].includes(new Date().getDay()) && S.settings.reviewedWeek !== reviewWeek().from && (S.session.length + S.roll.length + S.round.length + S.activity.length > 0)
 
 // The focus you picked in your last review, for two weeks after you picked it.
 export const weekFocus = () => { const f = S.settings.weekFocus; return f?.text && f.set >= daysAgo(13) ? f : null }
@@ -76,7 +80,7 @@ export const weekReview = () => cached('weekReview', () => {
   const { from, to, back } = reviewWeek(), inWeek = x => x.date >= from && x.date <= to
   const weeks = loadWeeks(6), wk = weeks[5 - back], prior = weeks.slice(1 - back, 5 - back)
   const avg = sum(prior, 'total') / 4, unit = runStats().unit
-  const sessions = S.session.filter(inWeek), rolls = S.roll.filter(inWeek), weekRuns = runs().filter(inWeek)
+  const sessions = S.session.filter(inWeek), rolls = S.roll.filter(inWeek), weekRuns = runs().filter(inWeek), games = S.round.filter(inWeek)
   const causes = {}
   rolls.filter(r => r.result !== 'worked').forEach(r => (r.reasons || []).forEach(x => causes[x] = (causes[x] || 0) + 1))
   const moves = rolls.flatMap(rollMoves).filter(m => techById(m.techId))
@@ -87,6 +91,7 @@ export const weekReview = () => cached('weekReview', () => {
     load: wk.total, avg, ratio: avg ? wk.total / avg : null, minutes: wk.minutes,
     sessions: sessions.length, target: S.settings.weeklyTarget || 3,
     runs: { n: weekRuns.length, dist: sum(weekRuns, r => distIn(r, unit)), unit },
+    rounds: { n: games.length, tries: sum(games, 'tries'), wins: sum(games, 'wins'), losses: sum(games, 'losses') },
     rolls: { n: rolls.length, worked: rolls.filter(r => r.result === 'worked').length, partial: rolls.filter(r => r.result === 'partial').length, broke: rolls.filter(r => r.result === 'broke').length },
     causes: Object.entries(causes).sort((a, b) => b[1] - a[1]).slice(0, 3),
     landed: top('landed'), caught: top('caughtBy'),
