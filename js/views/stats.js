@@ -122,13 +122,11 @@ function gameMapPanel() {
       <span>${a.label}</span><span class="meter mat"><span style="width:${a.v}%"></span></span><b>${a.v}</b>
       ${open === a.label ? `<small>${a.top.length ? a.top.map(m => `${esc(m.tech.name)} (${MASTERY[m.level].toLowerCase()}${m.landed ? `, landed ${m.landed}×` : ''})`).join(' · ') : 'Nothing logged here yet.'}</small>` : ''}</button>`).join('')}</div>
     <p class="small muted">Each move adds its mastery level, and more each time you land it in a roll. Scores grow fast at first, then slower, out of 100. Tap a side for the moves behind it.</p>
-    <div class="row-actions"><button class="btn sm ghost" data-act="dojo-stats">Your fighter’s stats in the Dojo</button></div>
   </section>`
 }
 
 export const actions = {
   'radar-tip': el => { UI.radarTip = UI.radarTip === el.dataset.k ? '' : el.dataset.k },
-  'dojo-stats': () => { UI.view = 'character'; UI.dojoSub = 'stats'; scrollTo(0, 0) },
 }
 
 function attention() {

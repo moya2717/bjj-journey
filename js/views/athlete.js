@@ -15,8 +15,9 @@ import { exampleRecords } from '../examples.js'
 import { previewImport } from './importing.js'
 import { addPhotos, hydratePhotos, photoURL, removePhotos } from '../photos.js'
 import { activeInjuries, injuryName } from '../body.js'
-import { characterWidget } from './character.js'
-import { LOAD_TYPES, distIn, distUnit, fmtClock, fmtDist, loadMonths, loadTrend, loadWeeks, paceOf, runStats, runs } from '../load.js'
+import { goalsPanel } from './goals.js'
+import { goalStatus } from '../goals.js'
+import { LOAD_TYPES, distIn, loadAll, distUnit, fmtClock, fmtDist, loadMonths, loadTrend, loadWeeks, paceOf, runStats, runs } from '../load.js'
 
 // The fighter card, then a tile per part of your profile. Each tile opens its panel as a
 // sub-screen; the stats tiles open the same sub-screens under Stats. Simple mode keeps the card,
@@ -30,6 +31,7 @@ export function view() {
   <div class="dojo-tiles">
     ${isSimple() ? statTile('radar', 'stats') : statTile('load') + statTile('runs') + ['radar', 'moves', 'body', 'problems', 'time'].map(k => statTile(k, 'stats')).join('')}
     ${tile('belts', 'Belt history', P.promotions.length ? `${esc(rank.belt)}` : '—', P.promotions.length ? `${plural(rank.stripes, 'stripe')} · ${rank.since ? span(rank.since) : ''}` : 'add your belt')}
+    ${tile('goals', 'Challenges', S.goal.length ? `${S.goal.filter(g => goalStatus(g).state === 'done').length}/${S.goal.length}` : '—', S.goal.length ? 'done' : 'set a target')}
     ${tile('comp', 'Competition', P.tournaments.length ? `${rec[0]}–${rec[1]}` : '—', P.tournaments.length ? plural(P.tournaments.length, 'event') : 'add a tournament')}
     ${tile('settings', 'Settings', isSimple() ? 'Simple' : 'Advanced', last ? `backed up ${fmtDate(last)}` : 'no backup yet', { cls: last ? '' : 'warn' })}
   </div>
@@ -41,6 +43,7 @@ const SUBS = {
   load: ['Training load', () => loadPanel()],
   runs: ['Running', () => runsPanel()],
   belts: ['Belt history', () => rankPanel(S.profile)],
+  goals: ['Challenges', () => goalsPanel()],
   comp: ['Competition', () => tournamentPanel(S.profile)],
   settings: ['Settings and backups', () => widgetPanel() + dataPanel()],
 }
@@ -54,20 +57,22 @@ const signedPct = x => x == null ? '—' : (x > 0 ? '+' : '') + Math.round(x * 1
 // ---------- Training load ----------
 
 function loadPanel() {
-  if (!S.session.length && !S.activity.length) return `<section class="panel wide" id="load"><h2>Training load</h2><p class="muted">Log BJJ sessions, runs and other training. Your weekly and monthly load, and how this week compares with your usual, show up here.</p></section>`
-  const by = UI.loadBy || 'week', t = loadTrend(), periods = by === 'week' ? loadWeeks(8) : loadMonths(6), [mat, run, other] = periods.at(-1).minutes
+  if (!S.session.length && !S.activity.length) return `<section class="panel wide" id="load"><h2>Training load</h2><p class="muted">Log BJJ sessions. Your weekly and monthly load, and how this week compares with your usual, show up here.</p></section>`
+  const by = UI.loadBy || 'week', all = loadAll(), t = loadTrend(), periods = by === 'week' ? loadWeeks(8) : loadMonths(6), [mat, run, other] = periods.at(-1).minutes
+  const types = all ? LOAD_TYPES : LOAD_TYPES.slice(0, 1)
   return `<section class="panel wide" id="load">
     <div class="history-head"><h2>Training load</h2><div class="seg" role="group" aria-label="Show load by">${['week', 'month'].map(k => `<button data-act="load-by" data-by="${k}" aria-pressed="${by === k}">By ${k}</button>`).join('')}</div></div>
+    <div class="seg load-view" role="group" aria-label="What counts as load">${[['', 'BJJ only'], ['all', 'All training (incl. runs & other)']].map(([k, l]) => `<button data-act="load-view" data-k="${k}" aria-pressed="${all === !!k}">${l}</button>`).join('')}</div>
     <div class="figures tight">
       ${figure(t.now, 'load this week')}
       ${figure(Math.round(t.avg), 'weekly average, last 4 weeks')}
       ${figure(`${signedPct(t.wow)} ${delta(t.last, t.before)}`, 'last week vs the one before')}
     </div>
     ${t.spike ? `<div class="callout warn"><p><strong>Big jump this week.</strong> You’re at ${pct(t.ratio)} of your 4-week average. Load spikes over about 40% are when niggles tend to start, so an easier day or two could pay off.</p></div>` : ''}
-    ${stackedBars(periods.map(p => ({ label: p.label, counts: p.load })), LOAD_TYPES, { what: 'Training load', by, classes: ['l0', 'l1', 'l2'] })}
-    <p class="key" aria-hidden="true">${LOAD_TYPES.map((g, i) => `<span><i class="l${i}"></i>${g}</span>`).join('')}</p>
-    <p class="small muted" style="margin-top:8px">This ${by}: ${hrs(mat)} hrs on the mat, ${hrs(run)} hrs running, ${hrs(other)} hrs other.</p>
-    <details class="explain"><summary>How load is counted</summary><p class="small muted">Load is minutes × effort on a 1–10 scale. Runs and activities use the effort you logged (easy 3, moderate 5, hard 7). BJJ classes count as 6, open mats 7, privates 5, drilling 4 and competition 9.</p></details>
+    ${stackedBars(periods.map(p => ({ label: p.label, counts: p.load.slice(0, types.length) })), types, { what: all ? 'Training load' : 'BJJ training load', by, classes: ['l0', 'l1', 'l2'] })}
+    ${all ? `<p class="key" aria-hidden="true">${LOAD_TYPES.map((g, i) => `<span><i class="l${i}"></i>${g}</span>`).join('')}</p>` : ''}
+    <p class="small muted" style="margin-top:8px">This ${by}: ${hrs(mat)} hrs on the mat, ${hrs(run)} hrs running, ${hrs(other)} hrs other${all ? '' : '. Runs and other training are tracked but not counted in this load'}.</p>
+    <details class="explain"><summary>How load is counted</summary><p class="small muted">Load is minutes × effort on a 1–10 scale. BJJ classes count as 6, open mats 7, privates 5, drilling 4 and competition 9. Runs and activities use the effort you logged (easy 3, moderate 5, hard 7) and count only with “All training”. Readiness on Home always includes them.</p></details>
   </section>`
 }
 
@@ -104,8 +109,7 @@ const card = (view, anchor, label, num, sub, cls = '') => `<button class="widget
   <span class="w-lbl">${label}</span>${num === '' ? '' : `<span class="w-num">${num}</span>`}<span class="w-sub">${sub}</span></button>`
 
 export const WIDGETS = {
-  character: ['Character', characterWidget],
-  load: ['Weekly load', () => { const t = loadTrend(); return card('athlete', 'load', 'Training load', t.now, t.ratio == null ? 'this week so far' : `${pct(t.ratio)} of your 4-week average`, t.spike ? 'warn' : '') }],
+  load: ['Weekly load', () => { const t = loadTrend(); return card('athlete', 'load', loadAll() ? 'Training load' : 'BJJ load', t.now, t.ratio == null ? 'this week so far' : `${pct(t.ratio)} of your 4-week average`, t.spike ? 'warn' : '') }],
   runs: ['Run distance', () => { const r = runStats(); return card('athlete', 'runs', 'Running', `${fmtDist(r.week.dist)}<small> ${r.unit}</small>`, `this week, ${fmtDist(r.month.dist)} ${r.unit} this month`) }],
   streak: ['Streak', () => card('athlete', '', 'Streak', plural(weeklyStreak(), 'week'), `in a row at ${S.settings.weeklyTarget || 3}+ sessions`)],
   mat: ['Mat hours', () => { const m = S.session.filter(s => s.date.startsWith(ym(new Date()))); return card('journal', '', 'Mat hours', hrs(sum(m, 'minutes')), `this month, ${plural(m.length, 'session')}`) }],
@@ -115,9 +119,9 @@ export const WIDGETS = {
     return `<button class="widget radar-widget" data-act="goto" data-view="stats" data-anchor="radar">${radar(g.axes, { mini: true })}<span><span class="w-lbl">Game map</span><span class="w-sub">${g.empty ? 'Log moves to grow it' : `Strongest: ${esc(best.label.toLowerCase())}`}</span></span></button>` }],
   sleep: ['Sleep and energy', () => { const f = bodyInsights().findings[0]; return card('stats', 'body', 'Sleep and energy', '', f ? esc(f.text) : 'No clear pattern yet. Tag energy and sleep when you log.', 'text') }],
 }
-// Until you pick, Simple mode shows only your character on Home.
-export const homeWidgets = () => (S.settings.homeWidgets || (isSimple() ? ['character'] : ['character', 'load', 'runs', 'streak', 'injuries'])).filter(k => WIDGETS[k])
-const ESSENTIAL = ['character', 'streak', 'mat', 'radar', 'moves']
+// Until you pick, Simple mode shows your streak and game map on Home.
+export const homeWidgets = () => (S.settings.homeWidgets || (isSimple() ? ['streak', 'radar'] : ['load', 'runs', 'streak', 'injuries'])).filter(k => WIDGETS[k])
+const ESSENTIAL = ['streak', 'mat', 'radar', 'moves']
 
 // Simple mode lists the essential cards first and folds the rest under More.
 function widgetPanel() {
@@ -340,6 +344,7 @@ function dataPanel() {
 export const actions = {
   'edit-profile': () => profileForm(),
   'load-by': el => { UI.loadBy = el.dataset.by },
+  'load-view': el => { save({ ...S.settings, loadView: el.dataset.k }) },
   'new-promo': () => promotionForm(),
   'edit-promo': el => promotionForm(el.dataset.id),
   'export': async () => { try { if (await exportBackup()) toast('Backup ready') } catch { toast('Couldn’t make the backup. Try again.') } },

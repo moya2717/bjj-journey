@@ -1,4 +1,4 @@
-// Shared layout for screens that open on a summary, like the Dojo: tiles that open sub-screens,
+// Shared layout for screens that open on a summary, like Profile and Stats: tiles that open sub-screens,
 // lists that show the first few with "Show more", and folds that remember whether they're open.
 import { S, save } from '../store.js'
 import { UI } from '../ui.js'

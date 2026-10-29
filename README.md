@@ -2,7 +2,7 @@
 
 A private jiu-jitsu training journal that installs on your iPhone like an app, works offline, and needs no account.
 
-Your entries, photos and achievements are stored **only on your phone**. Nobody else can see them, including whoever hosts the app. Each friend who installs it gets their own empty journal.
+Your entries and photos are stored **only on your phone**. Nobody else can see them, including whoever hosts the app. Each friend who installs it gets their own empty journal.
 
 ## Put it on your iPhone
 
@@ -33,15 +33,14 @@ Send them the same address and these install steps. Everyone's journal is separa
 
 ## Finding your way around
 
-The bar at the bottom has five sections. Each one holds a few screens, shown as tabs under the header:
+The bar at the bottom has four sections. Each one holds a few screens, shown as tabs under the header:
 
 | Section | Screens |
 |---|---|
 | **Home** | Your overview: what keeps going wrong, what to work on next, whether you’re improving |
 | **Journal** | Calendar · Rolls · Matchups |
-| **Learn** | Sequences (with the quiz) · Game plan · Moves · Study (scenario review, video study, fixes) · Resources |
-| **Dojo** | Character (stats, inventory, titles, level rewards) · Quests (daily quests, weekly boss, missions) · Story (The Story So Far, written from your journal) · Shop · Live roll |
-| **You** | Profile & stats · Compete · Achievements |
+| **Learn** | Sequences (with the quiz) · Game plan · Live roll · Moves · Study (scenario review, video study, fixes) · Resources |
+| **You** | Profile (fighter card, training load, running, challenges, settings) · Stats · Injuries · Compete |
 
 Tap a section twice to go back to its first screen. The round **+** button logs training from anywhere.
 
@@ -66,7 +65,11 @@ Importing the same file again fills in mat time and rolls that an earlier import
 
 ## Other training
 
-**Journal → Log other activity** records running, strength training, yoga, mobility, recovery and other sports, with time, duration, distance and intensity. They appear on the calendar as hollow dots and in Stats, and count toward Cross-training achievements, but never toward mat hours.
+**Journal → Log other activity** records running, strength training, yoga, mobility, recovery and other sports, with time, duration, distance and intensity. They appear on the calendar as hollow dots and in Stats, but never toward mat hours.
+
+**Training load** (You → Profile → Training load, and Home's "this week") counts BJJ only: mat sessions, drilling and competition. Runs and other training stay tracked, with their own Running tile, distance and pace. Tap **All training (incl. runs & other)** on the load chart to see everything stacked by type; the choice is remembered, and the week-over-week spike warning follows it. Readiness on Home always counts runs and other training, since fatigue is fatigue, and says so in its reason ("big run yesterday", "runs included").
+
+**Challenges** (You → Profile → Challenges) are targets you set yourself, like 500 shrimps this month or 10 knee cuts that worked live. Progress fills in from what you log, and challenges behind pace show up on Home under "What should I work on next?".
 
 ## Study
 
@@ -85,7 +88,7 @@ Add your next tournament to get a countdown, a prep checklist, an A-game plan (o
 
 ## Live roll
 
-**Dojo → Live roll** is a turn-based roll against a simulated partner. Pick where it starts and who you’re rolling with, then choose one move per turn from options that fit your position. Points follow IBJJF scoring (2 for a takedown, sweep or knee on belly, 3 for a pass, 4 for mount or the back) and only count once you stabilize; a near miss earns an advantage, and a submission ends it. Your partner counters with moves that fit the position, and when they attack a submission you can defend it. Moves you’ve mastered in your journal land more often, and moves from your sequences (or the game maps) draw the reactions you mapped, with your answer offered next. Some options are moves for the other person, like a sweep when you’re on top: spot them, or pay for it. After the game, chains of moves that worked back to back and scored (or ended in the tap) can be saved as a sequence, or added as a branch to one that already starts with the same move, so you can drill them before your next session.
+**Learn → Live roll** is a turn-based roll against a simulated partner. Pick where it starts and who you’re rolling with, then choose one move per turn from options that fit your position. Points follow IBJJF scoring (2 for a takedown, sweep or knee on belly, 3 for a pass, 4 for mount or the back) and only count once you stabilize; a near miss earns an advantage, and a submission ends it. Your partner counters with moves that fit the position, and when they attack a submission you can defend it. Moves you’ve mastered in your journal land more often, and moves from your sequences (or the game maps) draw the reactions you mapped, with your answer offered next. Some options are moves for the other person, like a sweep when you’re on top: spot them, or pay for it. After the game, chains of moves that worked back to back and scored (or ended in the tap) can be saved as a sequence, or added as a branch to one that already starts with the same move, so you can drill them before your next session.
 
 **Your game.** Once you log rolls, Live roll learns from them. "Where you usually start" offers your three most-logged starting positions, and "Recreate my last roll" starts where your last logged roll did, against a partner as tough as that partner's belt and size were for you. With "Use the moves I log", each turn gives one of your logged moves for that spot a slot, marked "Your move". A logged move the game doesn't list yet joins in only if it fits that side of the position: either the game lists it from a sibling spot (another open guard, another pin), where it lands the same way, or the library files it under that position, where it keeps you in place. A move logged in the wrong spot, like a rear naked choke from closed guard, stays out. "Rehearse my problem spots" makes your partner go for the moves that have caught you from each spot.
 
@@ -93,7 +96,7 @@ Every position and role the game can reach has its own menu in `js/sim.js`. To c
 
 ## Quiz
 
-**Sequences → Quiz me** asks multiple-choice questions built from your sequences, the game maps and the move library: “Your partner sprawls. What’s your best answer?” Questions you miss come back more often, and quizzes count toward Study achievements.
+**Sequences → Quiz me** asks multiple-choice questions built from your sequences, the game maps and the move library: “Your partner sprawls. What’s your best answer?” Questions you miss come back more often.
 
 ## Backups
 
@@ -132,7 +135,8 @@ js/app.js             boot, tabs, and the one click handler: buttons name an act
 js/store.js           IndexedDB storage; the whole journal is loaded into memory at launch
 js/model.js           lookups: moves, sequences, partners, rank
 js/analysis.js        the numbers behind Overview, Matchups and Stats
-js/achievements.js    milestone ladders and your own challenges
+js/goals.js           challenges you set yourself and how their progress is counted
+js/load.js            training load (BJJ only, or all training) and run stats
 js/catalog.js         the built-in library of about 350 moves
 js/maps.js            ready-made game maps (decision trees) shown in Resources
 js/resources.js       curated learning links shown in Resources

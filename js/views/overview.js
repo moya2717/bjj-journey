@@ -6,11 +6,10 @@ import { areaCounts, badSpots, bodyInsights, hardestMatchup, monthlySeries, move
 import { lineChart, sparkBars } from '../charts.js'
 import { fold, modeLink, moreButton, subHead, subOf, tile } from './hub.js'
 import { UI } from '../ui.js'
-import { questsOn } from '../game.js'
 import { thisWeek as scenarioWeek } from '../scenarios.js'
-import { computeAchievements, goalStatus, progressOf } from '../achievements.js'
+import { goalStatus } from '../goals.js'
 import { activeInjuries, duration, injuriesOf, injuryName } from '../body.js'
-import { fmtDist, loadTrend, runStats } from '../load.js'
+import { fmtDist, loadAll, loadTrend, runStats } from '../load.js'
 import { WIDGETS, homeWidgets } from './athlete.js'
 import { TAG_LABELS, nextPlan, readiness, recentNotes, reviewDue, todaysFocus } from '../loop.js'
 
@@ -20,7 +19,6 @@ import { TAG_LABELS, nextPlan, readiness, recentNotes, reviewDue, todaysFocus } 
 export function view() {
   const fresh = !S.session.length && !S.roll.length, sub = QUESTIONS[subOf('overview')]
   if (sub && !fresh) return `<h1 class="sr">Home</h1>${subHead(sub[0], 'Home')}<article class="q q-${subOf('overview')}">${sub[1]()}${sub[2]}</article>`
-  const quests = questsOn(today()), done = quests.filter(q => q.done).length
   if (isSimple()) return `<h1 class="sr">Home</h1>
     ${thisWeek()}
     ${quick()}
@@ -32,7 +30,6 @@ export function view() {
     ${fresh ? welcome() : `${focusCard()}
     ${nudges()}
     ${readinessCard()}
-    <button class="dojo-row" data-act="tab" data-view="quests"><span><b>Today’s quests</b><span class="small muted">${done} of ${quests.length} done</span></span><span aria-hidden="true">›</span></button>
     ${widgets()}
     <h2 class="section-title">Your game, last 60 days</h2>
     <div class="dojo-tiles">${gameTiles()}</div>
@@ -83,7 +80,7 @@ function thisWeek() {
         <span><b>${week.length}</b> ${week.length === 1 ? 'session' : 'sessions'}, target ${target}</span>
         <span><b>${hrs(sum(week, 'minutes'))}</b> mat hrs</span>
         ${isSimple() ? '' : `<span><b>${fmtDist(r.week.dist)}</b> ${r.unit} run</span>
-        <span><b>${t.ratio == null ? '—' : pct(t.ratio)}</b> of usual load</span>`}
+        <span><b>${t.ratio == null ? '—' : pct(t.ratio)}</b> of usual ${loadAll() ? '' : 'BJJ '}load</span>`}
       </span>
     </span>
     ${t.spike ? '<span class="hero-warn">Load is well above your 4-week average. Ease in.</span>' : ''}
@@ -210,9 +207,8 @@ function nextLists() {
 function whatNext() {
   const { experiments, proven, unanswered, coachQs } = nextLists()
   const behind = S.goal.map(g => ({ g, ...goalStatus(g) })).filter(x => x.state === 'behind')
-  const almost = computeAchievements().filter(a => !a.unlockedOn && progressOf(a) >= 0.7).sort((a, b) => progressOf(b) - progressOf(a)).slice(0, 2)
   const struggling = allTechs().map(t => ({ t, ...techStats(t.id) })).filter(x => x.n >= 3 && x.rate < 0.4).sort((a, b) => a.rate - b.rate).slice(0, 2)
-  if (![experiments, proven, unanswered, coachQs, behind, almost, struggling].some(l => l.length))
+  if (![experiments, proven, unanswered, coachQs, behind, struggling].some(l => l.length))
     return recentNotes('worked', 59).length ? noteList('worked', 'What’s working, keep doing it')
       : '<p class="empty">Write down something that worked after each class. Your wins collect here, and as you add more detail your to-do list grows too.</p>'
 
@@ -227,8 +223,7 @@ function whatNext() {
     <div class="row-actions"><button class="btn sm ghost" data-act="add-node" data-seq="${o.seq.id}" data-parent="${o.node.id}" data-who="me">Add your answer</button></div></li>`)
   section('Ask your coach', coachQs.slice(0, 3), s => `<li><p>${esc(s.coachQ)}</p><p class="small muted">From ${fmtDate(s.date)}</p>
     <div class="row-actions"><button class="btn sm ghost" data-act="coach-asked" data-id="${s.id}">Asked it</button></div></li>`)
-  section('Challenges behind pace', behind, x => `<li><p>${esc(x.g.title)}</p><p class="small muted">${x.value} of ${x.g.target}</p></li>`)
-  section('Almost unlocked', almost, a => `<li><p>${esc(a.title)}</p><p class="small muted">${Math.floor(a.total).toLocaleString()} of ${a.target.toLocaleString()}</p></li>`)
+  section('Challenges behind pace', behind, x => `<li><p>${esc(x.g.title)}</p><p class="small muted">${x.value} of ${x.g.target}</p></li>`, '<button class="card-link" data-act="goto" data-view="athlete" data-anchor="goals">Your challenges</button>')
   section('Moves that aren’t landing', struggling, x => `<li><p>${esc(x.t.name)}</p><p class="small muted">${pct(x.rate)} success over ${x.n} rolls</p></li>`)
   return html
 }

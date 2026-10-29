@@ -1,6 +1,8 @@
 // Training load and runs. Load uses the session-RPE idea: minutes × effort on a 1–10 scale.
 // Runs and other activities use the RPE you logged, or else their intensity; BJJ sessions use a
 // typical effort for the kind of class. Runs are ordinary "Running" activities, nothing separate.
+// The load score is BJJ only unless you pick "All training": runs and other training are still
+// tracked, and readiness always counts them, since tired legs are tired legs.
 import { S, cached } from './store.js'
 import { byDateAsc, daysAgo, isoDate, monthRange, parseD, shiftMonth, sum, weekStart, ym } from './util.js'
 
@@ -10,16 +12,19 @@ const CLASS_RPE = { Gi: 6, 'No-gi': 6, 'Open mat': 7, Private: 5, Competition: 9
 export const rpeIntensity = rpe => rpe <= 4 ? 'Easy' : rpe <= 7 ? 'Moderate' : 'Hard'
 
 export const isRun = a => a.kind === 'activity' && a.type === 'Running'
+export const loadAll = () => S.settings.loadView === 'all'
 const effort = x => +x.rpe || (x.kind === 'session' ? CLASS_RPE[x.type] || 6 : INTENSITY_RPE[x.intensity] || 5)
 const typeOf = x => x.kind === 'session' ? 0 : isRun(x) ? 1 : 2
 
-const entries = () => cached('loadEntries', () => [...S.session, ...S.activity].map(x => ({ date: x.date, t: typeOf(x), min: +x.minutes || 0, load: (+x.minutes || 0) * effort(x) })))
+export const loadOf = x => (+x.minutes || 0) * effort(x)
+const entries = () => cached('loadEntries', () => [...S.session, ...S.activity].map(x => ({ date: x.date, t: typeOf(x), min: +x.minutes || 0, load: loadOf(x) })))
 
 function tally(from, to) {
   const list = entries().filter(e => e.date >= from && e.date <= to)
   const by = f => LOAD_TYPES.map((_, t) => Math.round(sum(list.filter(e => e.t === t), f)))
   const load = by('load')
-  return { minutes: by('min'), load, total: sum(load, x => x) }
+  const all = sum(load, x => x)
+  return { minutes: by('min'), load, all, total: loadAll() ? all : load[0] }
 }
 
 const weekFrom = i => { const w = weekStart(new Date()); w.setDate(w.getDate() - 7 * i); return w }

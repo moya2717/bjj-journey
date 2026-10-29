@@ -2,10 +2,9 @@
 import { S, load, onChange } from './store.js'
 import { UI } from './ui.js'
 import { BELT_LOOK } from './vocab.js'
-import { $, toast } from './util.js'
+import { $ } from './util.js'
 import { currentRank, isSimple } from './model.js'
 import { weeksOnTarget } from './analysis.js'
-import { titleOf, unlockedIds } from './achievements.js'
 import * as overview from './views/overview.js'
 import * as journal from './views/journal.js'
 import * as rolls from './views/rolls.js'
@@ -17,13 +16,11 @@ import * as sim from './views/sim.js'
 import * as study from './views/study.js'
 import * as resources from './views/resources.js'
 import * as compete from './views/compete.js'
-import * as achievements from './views/achievements.js'
 import * as stats from './views/stats.js'
 import * as injuries from './views/injuries.js'
 import * as athlete from './views/athlete.js'
 import * as review from './views/review.js'
-import * as character from './views/character.js'
-import * as dojo from './views/dojo.js'
+import * as goals from './views/goals.js'
 import * as hub from './views/hub.js'
 
 const VIEWS = {
@@ -36,34 +33,25 @@ const VIEWS = {
   gameplan: ['Game plan', gameplan],
   library: ['Moves', library],
   sim: ['Live roll', sim],
-  character: ['Character', dojo.character],
-  quests: ['Quests', dojo.quests],
-  story: ['Story', dojo.story],
-  shop: ['Shop', dojo.shop],
   resources: ['Resources', resources],
   study: ['Study', study],
   athlete: ['Profile', athlete],
   stats: ['Stats', stats],
   injuries: ['Injuries', injuries],
   compete: ['Compete', compete],
-  achievements: ['Achievements', achievements],
 }
 
-// Five sections on the bottom bar, each holding one or more screens as sub-tabs.
+// Four sections on the bottom bar, each holding one or more screens as sub-tabs.
 // Icons are simple 24px line drawings, so they follow the theme's text color.
 const SECTIONS = {
   home: { label: 'Home', views: ['overview'], icon: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>' },
   journal: { label: 'Journal', views: ['journal', 'rolls', 'matchups', 'review'], icon: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
-  // Your game plan and what you study, together: sequences, moves, scenarios and resources.
-  learn: { label: 'Learn', views: ['sequences', 'gameplan', 'library', 'study', 'resources'], icon: '<path d="M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M9 7h7"/>' },
-  // The game side: your character, quests, story, shop and Live roll.
-  dojo: { label: 'Dojo', views: ['character', 'quests', 'story', 'shop', 'sim'], icon: '<path d="M3 6.5c6 1.6 12 1.6 18 0M5 10.5h14M7.5 7.2V21M16.5 7.2V21"/>' },
-  you: { label: 'You', views: ['athlete', 'stats', 'injuries', 'compete', 'achievements'], icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>' },
+  // Your game plan and what you study, together: sequences, the game plan they add up to, Live roll to rehearse them, moves, scenarios and resources.
+  learn: { label: 'Learn', views: ['sequences', 'gameplan', 'sim', 'library', 'study', 'resources'], icon: '<path d="M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M9 7h7"/>' },
+  you: { label: 'You', views: ['athlete', 'stats', 'injuries', 'compete'], icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>' },
 }
 const sectionOf = view => Object.keys(SECTIONS).find(k => SECTIONS[k].views.includes(view))
-// The Dojo opens where you left it last time, even after the app restarts.
-const lastIn = {}, saved = dojo.lastDojo()
-if (SECTIONS.dojo.views.includes(saved.view)) { lastIn.dojo = saved.view; UI.dojoSub = saved.sub || '' }
+const lastIn = {}
 
 const actions = Object.assign(
   {
@@ -73,13 +61,13 @@ const actions = Object.assign(
     // Tapping the section you're in goes back to its first screen, like any iPhone tab bar.
     section: el => {
       const key = el.dataset.section, s = SECTIONS[key]
-      if (sectionOf(UI.view) === key) { UI.dojoSub = ''; UI.sub = {} }
+      if (sectionOf(UI.view) === key) UI.sub = {}
       UI.view = sectionOf(UI.view) === key ? s.views[0] : lastIn[key] || s.views[0]
       scrollTo(0, 0)
     },
   },
   ...Object.values(VIEWS).map(([, view]) => view.actions),
-  character.actions,
+  goals.actions,
   hub.actions,
 )
 
@@ -111,7 +99,6 @@ function renderHeader() {
   }
   const current = sectionOf(UI.view)
   lastIn[current] = UI.view
-  if (current === 'dojo') dojo.remember(UI.view)
   document.documentElement.style.setProperty('--top-h', $('.top').offsetHeight + 'px')
   $('#bottombar').innerHTML = `<div class="bottombar-inner">${Object.entries(SECTIONS).map(([key, s]) =>
     `<button data-act="section" data-section="${key}" ${key === current ? 'aria-current="page"' : ''}>
@@ -134,17 +121,6 @@ document.addEventListener('click', async e => {
   if (await action(el) !== false) render()
 })
 
-// Celebrate what a save earned: XP, quests and levels first, then any achievement it unlocked.
-let unlocked = new Set(), gains
-function announceUnlocks() {
-  const now = unlockedIds(), fresh = [...now].filter(id => !unlocked.has(id)), after = character.snapshot()
-  const earned = character.announceGains(gains, after)
-  unlocked = now
-  gains = after
-  if (earned) setTimeout(() => toast(earned), 900)
-  if (fresh.length) setTimeout(() => toast(fresh.length === 1 ? `Achievement unlocked: ${titleOf(fresh[0])}` : `${fresh.length} achievements unlocked`), earned ? 3800 : 900)
-}
-
 async function boot() {
   try {
     await load()
@@ -152,9 +128,7 @@ async function boot() {
     $('#app').innerHTML = '<div class="empty-state"><h2>Storage is turned off</h2><p>This browser isn’t letting the journal save. On iPhone, turn off Private Browsing, or add the app to your Home Screen.</p></div>'
     return
   }
-  unlocked = unlockedIds()
-  gains = character.snapshot()
-  onChange(() => { render(); announceUnlocks() })
+  onChange(render)
   render()
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     // When an update finishes installing, reload once so it shows right away.

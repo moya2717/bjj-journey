@@ -22,7 +22,7 @@ const listeners = []
 export const onChange = fn => listeners.push(fn)
 const changed = () => { version++; listeners.forEach(fn => fn()) }
 
-// Derived data (move lookups, usage counts, achievements) is computed once per change to the
+// Derived data (move lookups, usage counts, analysis) is computed once per change to the
 // journal and reused until the next save. One rule, no invalidation to think about.
 let version = 0, cacheVersion = -1, cache = new Map()
 export function cached(key, compute) {
@@ -51,8 +51,12 @@ export function allRecords() {
   return [...KINDS.flatMap(k => S[k]), S.settings, ...(S.profile.createdAt ? [S.profile] : [])]
 }
 
+// Settings the app no longer uses (the old character, quests and shop) are dropped on load and
+// restore, so they stop being saved and don't go into new backups.
+const RETIRED = ['game', 'reviewedWeeks']
+
 function apply(rec) {
-  if (rec.kind === 'settings') S.settings = { ...S.settings, ...rec }
+  if (rec.kind === 'settings') { RETIRED.forEach(k => delete rec[k]); S.settings = { ...S.settings, ...rec } }
   else if (rec.kind === 'profile') S.profile = { ...emptyProfile(), ...rec }
   else if (KINDS.includes(rec.kind)) {
     const list = S[rec.kind], i = list.findIndex(x => x.id === rec.id)

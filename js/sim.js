@@ -363,7 +363,7 @@ export function newRoll(start, partner, { personal = false, rehearse = false, my
   return state
 }
 
-export function optionsFor(state) {
+function optionsFor(state) {
   const menu = shuffle(menuFor(state)), out = []
   const add = (id, extra) => { if (id && !out.some(o => o.id === id)) out.push({ id, ...extra }) }
   state.threat?.defenses.slice(0, 2).forEach(id => add(id, { defend: true }))
@@ -393,12 +393,6 @@ function chance(m, t, state, option) {
   if (option.answer) p += 0.2
   p += masteryOf(t).level * 0.07 + PARTNERS[state.partner].you
   return Math.max(0.05, Math.min(0.9, p))
-}
-
-// Scout, a shop ability: which options belong to your partner, and which of yours is likeliest to land.
-export function scout(state) {
-  const odds = state.options.map(o => o.decoy ? -1 : chance(menuFor(state).find(x => x.id === o.id) || { id: o.id, to: null, pts: 0 }, techById(o.id), state, o))
-  return { turn: state.turn, decoys: state.options.map(o => !!o.decoy), best: odds.indexOf(Math.max(...odds)) }
 }
 
 function blockText(m, t) {

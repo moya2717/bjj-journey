@@ -63,7 +63,6 @@ const masteryEvidence = () => cached('masteryEvidence', () => {
 })
 
 // The first day a live roll proved a move worked, if one has.
-export const firstLiveSuccess = id => masteryEvidence().since[id] || ''
 
 export function masteryOf(t) {
   const auto = Math.max(masteryEvidence().level[t.id] || 0, t.starred ? 1 : 0)

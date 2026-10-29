@@ -6,7 +6,7 @@ import { byDateDesc, daysAgo, fmtDate, isoDate, sum, today, topKeys, trunc, week
 import { masteryOf, myTechs, rollMoves, seqById, techById } from './model.js'
 import { badSpots, weakestStep } from './analysis.js'
 import { activeInjuries, injuryName } from './body.js'
-import { distIn, loadWeeks, runs, runStats } from './load.js'
+import { distIn, loadOf, loadWeeks, runs, runStats } from './load.js'
 
 // ---------- Today's focus ----------
 
@@ -109,18 +109,22 @@ export function latestTags() {
 }
 
 // A simple tally: good sleep, high energy and a lighter week push it up; poor sleep, low energy,
-// injuries and a load spike pull it down. A severe injury always means go light.
+// injuries, a load spike and a big run yesterday pull it down. A severe injury always means go light.
+// Fatigue doesn't care what kind of training it was, so load here always includes runs and other training.
 export function readiness() {
   const tags = latestTags(), hurt = activeInjuries(), worst = Math.max(0, ...hurt.map(i => i.severity || 1))
-  const w = loadWeeks(5), avg = sum(w.slice(0, 4), 'total') / 4, ratio = avg ? w[4].total / avg : null
+  const w = loadWeeks(5), avg = sum(w.slice(0, 4), 'all') / 4, ratio = avg ? w[4].all / avg : null
+  const runShare = w[4].all ? w[4].load[1] / w[4].all : 0, bigRun = runs().filter(r => r.date >= daysAgo(1) && loadOf(r) >= 300).at(-1)
   const why = []
   let score = 0
   const add = (n, text) => { score += n; why.push(text) }
   if (tags.sleep === 'poor') add(-1, 'poor sleep'); else if (tags.sleep === 'good') add(1, 'good sleep')
   if (tags.energy === 'low') add(-1, 'low energy'); else if (tags.energy === 'high') add(1, 'high energy')
   if (worst) add(-worst, `${hurt.length > 1 ? 'injuries' : injuryName(hurt[0]).toLowerCase()} active`)
-  if (ratio != null && ratio > 1.4) add(-2, `load ${Math.round(ratio * 100)}% of your 4-week average`)
-  else if (ratio != null && ratio > 1.15) add(-1, `load above your usual`)
+  if (bigRun) add(-1, `big run ${bigRun.date === today() ? 'today' : 'yesterday'}`)
+  const withRuns = runShare >= 0.25 ? ', runs included' : ''
+  if (ratio != null && ratio > 1.4) add(-2, `load ${Math.round(ratio * 100)}% of your 4-week average${withRuns}`)
+  else if (ratio != null && ratio > 1.15) add(-1, `load above your usual${withRuns}`)
   else if (ratio != null && ratio < 0.7 && avg > 0) add(1, `a light week so far`)
   const level = worst >= 3 || score <= -2 ? 'light' : score >= 2 ? 'push' : 'normal'
   return { level, label: { push: 'Push today', normal: 'Normal', light: 'Go light / drill day' }[level], why, tags, known: !!(tags.from || hurt.length || avg) }

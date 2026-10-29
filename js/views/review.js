@@ -81,7 +81,7 @@ export const actions = {
     const own = $('#wf-own').value.trim(), pick = ideas[+document.querySelector('[name=wf]:checked')?.value]
     const f = own ? { text: own, techId: '', seqId: '' } : pick
     if (!f) { toast('Pick a focus or write your own.'); return false }
-    save({ ...S.settings, weekFocus: { text: f.text, techId: f.techId || '', seqId: f.seqId || '', set: today() }, reviewedWeek: reviewWeek().from, reviewedWeeks: [...new Set([...(S.settings.reviewedWeeks || []), reviewWeek().from])] })
+    save({ ...S.settings, weekFocus: { text: f.text, techId: f.techId || '', seqId: f.seqId || '', set: today() }, reviewedWeek: reviewWeek().from })
     toast('Focus saved. It’s on Home all week.')
   },
   // Pick something from Today's focus as the plan for your next session log.
