@@ -39,7 +39,7 @@ The bar at the bottom has five sections. Each one holds a few screens, shown as 
 |---|---|
 | **Home** | Your overview: what keeps going wrong, what to work on next, whether you’re improving |
 | **Journal** | Calendar · Rolls · Matchups |
-| **Learn** | Sequences (with the quiz) · Moves · Study (scenario review, video study, fixes) · Resources |
+| **Learn** | Sequences (with the quiz) · Game plan · Moves · Study (scenario review, video study, fixes) · Resources |
 | **Dojo** | Character (stats, inventory, titles, level rewards) · Quests (daily quests, weekly boss, missions) · Story (The Story So Far, written from your journal) · Shop · Live roll |
 | **You** | Profile & stats · Compete · Achievements |
 
@@ -78,6 +78,10 @@ Importing the same file again fills in mat time and rolls that an earlier import
 ## Compete
 
 Add your next tournament to get a countdown, a prep checklist, an A-game plan (one sequence each for standing, top and bottom, suggested from your best sequences), and the rules for your belt. After the event, log each match: result, how it ended, points and what happened. Your record comes from the matches.
+
+## Game plan
+
+**Learn → Game plan** is your whole game as one outline, built from your roll chains, sequences (Live roll chains included) and the moves you know: Standing → Guard or Passing → Control → Submissions, with Escapes from the bad spots. Each position lists your moves out of it, marked landed live, drilled or seen, and where each one leads; tap the landing to jump there. Gaps come first: key positions with no answer (“No escape logged from bottom side control”), only one (“Only one pass from half guard top”), or none that has landed live yet, ranked by where you get caught and spend your rolls. Each gap suggests moves from the Live roll menu for that spot, and one tap adds one to Today’s focus, starts a sequence with it, or searches for an instructional.
 
 ## Live roll
 

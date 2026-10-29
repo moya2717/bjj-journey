@@ -23,6 +23,9 @@ export const liveRollSeqs = () => S.seq.map(s => {
 // What your log suggests working on, most specific first.
 export const focusIdeas = () => cached('focusIdeas', () => {
   const list = []
+  // A gap you picked on the Game plan, for two weeks.
+  const gap = S.settings.gameFocus
+  if (gap?.text && gap.set >= daysAgo(13)) list.push({ text: gap.text, techId: gap.techId || '', seqId: '', why: 'A gap in your game plan' })
   const live = liveRollSeqs()[0]
   if (live) list.push({ text: `Drill ${live.seq.name}`, techId: firstMove(live.seq), seqId: live.seq.id, why: 'Saved from Live roll' })
   const weak = weakestStep(daysAgo(59))

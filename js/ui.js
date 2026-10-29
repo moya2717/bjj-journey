@@ -10,6 +10,8 @@ export const UI = {
   rollRes: '',
   seqSel: null,
   seqNode: null,
+  gpPick: {}, // the move each Game plan gap's actions use
+  gpAt: '', // the position a Game plan edge jumps to
   quiz: null,
   scenario: null,
   sim: null,
