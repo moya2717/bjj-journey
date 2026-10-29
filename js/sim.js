@@ -7,7 +7,8 @@
 
 import { S } from './store.js'
 import { GAME_MAPS } from './maps.js'
-import { allTechs, isCustom, masteryOf, techById } from './model.js'
+import { allTechs, currentRank, isCustom, masteryOf, rollMoves, techById } from './model.js'
+import { BELTS } from './vocab.js'
 import { slug } from './util.js'
 
 export const TURNS = 12
@@ -245,8 +246,40 @@ function customMoves({ pos, role }) {
     : [])
 }
 
-export const menuFor = state => [...(TABLE[key(state.pos, state.role)] || []), ...customMoves(state)]
-  .filter(m => !m.after.length || m.after.some(id => state.setups.includes(id)))
+// The points a landing scores under IBJJF rules, in the mover's own terms.
+export function pointsFor({ pos, role }, t, to) {
+  if (to.role !== 'Top') return 0
+  if (to.pos === 'Mount' || to.pos === 'Back') return 4
+  if (pos === 'Standing' && t.type === 'Takedown' && to.pos !== 'Front headlock') return 2 // a snap down isn't a takedown
+  if (GUARDS.includes(pos) && role === 'Top' && to.pos === 'Side control') return 3
+  if ((GUARDS.includes(pos) || pos === 'Leg entanglement') && role === 'Bottom') return 2 // a sweep
+  if (to.pos === 'Knee on belly') return 2
+  return 0 // reversals from turtle, mount or the back don't score
+}
+
+// A move from your log that the game doesn't list here joins in when the game lists it for the same side
+// of a sibling spot (another open guard, another pin), or the library files it under this position for this side.
+// It lands where it does from that sibling; otherwise it keeps you where you are. A locked closed guard
+// has no siblings: you can't torreando their crossed ankles.
+const FAMILIES = [GUARDS.filter(p => p !== 'Closed guard'), ['Side control', 'Knee on belly', 'North-south']]
+function borrow(id, at) {
+  const t = techById(id)
+  if (!t || !fits(t, at)) return null
+  const from = Object.entries(TABLE).find(([k, moves]) => {
+    const [p, r] = k.split('|')
+    return r === at.role && FAMILIES.some(f => f.includes(p) && f.includes(at.pos)) && moves.some(m => m.id === id)
+  })
+  if (!from && t.position !== at.pos) return null
+  const to = from?.[1].find(m => m.id === id).to || null
+  return { id, to, pts: to ? pointsFor(at, t, to) : 0, after: [] }
+}
+
+// The game's moves from here, plus any you log from here (or, for your partner, the ones that caught you).
+export const menuFor = (state, logged = state.personal ? state.my?.mine[key(state.pos, state.role)] : null) => {
+  const base = [...(TABLE[key(state.pos, state.role)] || []), ...customMoves(state)], have = new Set(base.map(m => m.id))
+  return [...base, ...Object.keys(logged || {}).filter(id => !have.has(id)).map(id => borrow(id, state)).filter(Boolean)]
+    .filter(m => !m.after.length || m.after.some(id => state.setups.includes(id)))
+}
 export const isFinish = m => !m.to && techById(m.id)?.type === 'Submission'
 const isAttack = m => isFinish(m) || m.pts > 0
 
@@ -293,10 +326,39 @@ function mappedReactions(techId, state) {
     })))).filter(r => r.answers.length)
 }
 
-export function newRoll(start, partner) {
-  const s = STARTS[start] || STARTS[pick(Object.keys(STARTS))]
+// Your game, from your journal: where your rolls start, the moves you use and land in each spot
+// (weighted toward landed), and the moves that caught you there, keyed by your position and role.
+export function myGame() {
+  const starts = {}, mine = {}, caught = {}
+  const at = (pos, role) => { const k = key(pos, pos === 'Standing' ? 'Neutral' : role); return MENU[k] ? k : null }
+  const bump = (o, k, id, n) => { if (k && techById(id)) (o[k] ||= {})[id] = (o[k][id] || 0) + n }
+  S.roll.forEach(r => {
+    const k = at(r.position, r.role)
+    if (k) starts[k] = (starts[k] || 0) + 1
+    const steps = r.chain?.length ? r.chain.map(m => ({ ...m, k: at(m.position, m.role) })) : rollMoves(r).map(m => ({ ...m, k }))
+    steps.forEach(m => m.outcome === 'caughtBy' ? bump(caught, m.k, m.techId, 1) : bump(mine, m.k, m.techId, m.outcome === 'landed' ? 2 : 1))
+  })
+  S.seq.forEach(s => s.nodes.filter(n => !n.parentId && n.who === 'me').forEach(n => bump(mine, at(s.position, s.role), n.techId, 1)))
+  return { starts: Object.keys(starts).sort((a, b) => starts[b] - starts[a]).slice(0, 3), mine, caught }
+}
+
+// Your last logged roll as a start: its position, and a partner as tough as their belt and size were for you.
+export function lastRoll() {
+  const r = S.roll.filter(r => r.position).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]
+  const k = r && key(r.position, r.position === 'Standing' ? 'Neutral' : r.role)
+  if (!r || !MENU[k]) return null
+  const belt = BELTS.indexOf(r.level), mineBelt = BELTS.indexOf(currentRank().belt)
+  const edge = Math.sign((r.level !== 'Unknown' && belt >= 0 ? belt - mineBelt : 0) + ({ Heavier: 1, Lighter: -1 }[r.size] || 0))
+  return { start: k, partner: ['easy', 'even', 'tough'][edge + 1], roll: r }
+}
+
+// start: a STARTS key or a 'Position|Role' key. personal: your logged moves join the menus.
+// rehearse: your partner favors the moves that have caught you.
+export function newRoll(start, partner, { personal = false, rehearse = false, my = null } = {}) {
+  const s = MENU[start] ? { pos: start.split('|')[0], role: start.split('|')[1] } : STARTS[start] || STARTS[pick(Object.keys(STARTS))]
   const state = { pos: s.pos, role: s.role, me: 0, them: 0, advMe: 0, advThem: 0, turn: 1, partner: PARTNERS[partner] ? partner : 'even',
-    momentum: false, pending: null, threat: null, setups: [], log: [], used: [], over: null }
+    momentum: false, pending: null, threat: null, setups: [], log: [], used: [], over: null,
+    personal, rehearse, my: personal || rehearse ? my || myGame() : null }
   state.options = optionsFor(state)
   return state
 }
@@ -307,14 +369,20 @@ export function optionsFor(state) {
   state.threat?.defenses.slice(0, 2).forEach(id => add(id, { defend: true }))
   state.pending?.answers.slice(0, 2).forEach(id => add(id, { answer: true }))
   const fresh = test => menu.find(m => test(m) && !out.some(o => o.id === m.id))?.id
+  // One of your own moves from here always gets a slot, favoring the ones you use and land most.
+  const logged = state.personal && state.my.mine[key(state.pos, state.role)] || {}
+  const yours = menu.filter(m => logged[m.id] && !out.some(o => o.id === m.id))
+  if (yours.length) add(weighted(yours, m => logged[m.id]).id)
   add(fresh(m => masteryOf(techById(m.id)).level >= 1))
   add(fresh(isAttack))
   add(fresh(m => !isAttack(m)))
   menu.forEach(m => out.length < 4 && add(m.id))
   // Sometimes a move that belongs to the other person sneaks in. Spot it, or pay for it.
   if (state.pos !== 'Leg entanglement' && Math.random() < 0.3) add(pick(decoysFor(state)), { decoy: true })
+  out.forEach(o => { if (logged[o.id] && !o.decoy) o.mine = true })
   return [...out.filter(o => o.defend), ...shuffle(out.filter(o => !o.defend))]
 }
+const weighted = (list, w) => { let r = Math.random() * list.reduce((n, x) => n + w(x), 0); return list.find(x => (r -= w(x)) < 0) || list[0] }
 
 function chance(m, t, state, option) {
   const finish = isFinish(m)
@@ -362,10 +430,13 @@ function land(state, mine, m, t, say) {
 }
 
 // What your partner does after your move fails.
+// Rehearsing your problem spots, they go for what has caught you from here more often.
 function partnerMove(state, say, extra = 0) {
-  if (Math.random() >= PARTNERS[state.partner].counter + extra) return say('They hold their position.')
-  const menu = menuFor({ ...state, role: flip(state.role) }), attacks = menu.filter(m => m.to || isFinish(m))
-  const m = pick(attacks.length && Math.random() < 0.8 ? attacks : menu), t = techById(m.id)
+  const caught = state.rehearse && state.my.caught[key(state.pos, state.role)] || {}
+  const menu = menuFor({ ...state, role: flip(state.role) }, caught), attacks = menu.filter(m => m.to || isFinish(m))
+  const problems = menu.filter(m => caught[m.id])
+  if (Math.random() >= PARTNERS[state.partner].counter + extra + (problems.length ? 0.1 : 0)) return say('They hold their position.')
+  const m = problems.length && Math.random() < 0.6 ? weighted(problems, x => caught[x.id]) : pick(attacks.length && Math.random() < 0.8 ? attacks : menu), t = techById(m.id)
   state.setups.push(m.id)
   if (isFinish(m)) {
     state.threat = { id: m.id, defenses: defensesFor(t, state) }

@@ -2,9 +2,9 @@
 import { S, save } from '../store.js'
 import { UI } from '../ui.js'
 import { cap, esc, newId, plural, posRole, toast, today } from '../util.js'
-import { masteryOf, masteryPips, techById } from '../model.js'
+import { masteryOf, masteryPips, sizeLabel, techById } from '../model.js'
 import { videoSearch } from '../catalog.js'
-import { PARTNERS, STARTS, TURNS, describe, newRoll, optionsFor, play, scout } from '../sim.js'
+import { PARTNERS, STARTS, TURNS, describe, lastRoll, myGame, newRoll, optionsFor, play, scout } from '../sim.js'
 import { SHOP, SIM_DAILY, SIM_WIN_TOKENS, hasAbility, simCounted } from '../game.js'
 
 export function view() {
@@ -16,12 +16,22 @@ export function view() {
 function setup() {
   const log = S.settings.simLog || [], wins = log.filter(r => r.result === 'win').length
   const choice = UI.simSetup ||= { start: 'standing', partner: 'even' }
+  const my = myGame(), last = lastRoll(), logged = Object.keys(my.mine).length > 0
+  const pick = (act, k, label, on) => `<button class="choice ${on ? 'on' : ''}" data-act="${act}" data-k="${esc(k)}" aria-pressed="${on}">${label}</button>`
+  choice.personal ??= logged
+  const toggle = (k, label) => pick('sim-toggle', k, label, !!choice[k])
   return `<h2>Start a roll</h2>
-    <p class="field-label" style="margin-top:12px">Where it starts</p>
+    ${my.starts.length ? `<p class="field-label" style="margin-top:12px">Where you usually start</p>
+    <div class="choice-grid">${my.starts.map(k => pick('sim-start', k, posRole(...k.split('|')), choice.start === k)).join('')}
+      ${last ? pick('sim-start', 'last', `Recreate my last roll: ${posRole(last.roll.position, last.roll.role)}${last.roll.level && last.roll.level !== 'Unknown' ? `, ${esc(last.roll.level.toLowerCase())} belt` : ''}${last.roll.size ? `, ${esc(sizeLabel(last.roll.size))}` : ''}`, choice.start === 'last') : ''}</div>` : ''}
+    <p class="field-label" style="margin-top:12px">${my.starts.length ? 'Or pick a start' : 'Where it starts'}</p>
     <div class="choice-grid">${Object.entries(STARTS).map(([k, s]) => `<button class="choice ${choice.start === k ? 'on' : ''}" data-act="sim-start" data-k="${k}" aria-pressed="${choice.start === k}">${s.label}</button>`).join('')}
       <button class="choice ${choice.start === 'random' ? 'on' : ''}" data-act="sim-start" data-k="random" aria-pressed="${choice.start === 'random'}">Surprise me</button></div>
     <p class="field-label" style="margin-top:14px">Your partner</p>
     <div class="choice-grid">${Object.entries(PARTNERS).map(([k, p]) => `<button class="choice ${choice.partner === k ? 'on' : ''}" data-act="sim-partner" data-k="${k}" aria-pressed="${choice.partner === k}">${p.label}</button>`).join('')}</div>
+    ${logged || Object.keys(my.caught).length ? `<p class="field-label" style="margin-top:14px">Your game</p>
+    <div class="choice-grid">${logged ? toggle('personal', 'Use the moves I log') : ''}${Object.keys(my.caught).length ? toggle('rehearse', 'Rehearse my problem spots') : ''}</div>
+    <p class="small muted" style="margin-top:6px">${logged ? 'Your logged moves get a slot each turn wherever they fit. ' : ''}${Object.keys(my.caught).length ? 'Rehearsing, your partner goes for what has caught you from each spot.' : ''}</p>` : ''}
     <div class="row-actions" style="margin-top:16px"><button class="btn" data-act="sim-go">Slap hands and roll</button></div>
     <ul class="small muted fix-list" style="margin-top:14px">
       <li>${TURNS} turns. Points follow IBJJF scoring and count once you stabilize; near misses earn advantages. A submission ends it.</li>
@@ -49,7 +59,7 @@ function turn(g) {
     <div class="quiz-options">${g.options.map((o, i) => {
       const t = techById(o.id), m = masteryOf(t).level, sc = g.scout?.turn === g.turn ? g.scout : null
       return `<button class="quiz-opt" data-act="sim-move" data-i="${i}">
-        <span>${esc(t.name)}${o.answer ? ' <span class="tag good">Your answer</span>' : o.defend ? ' <span class="tag">Defend</span>' : ''}${sc?.decoys[i] ? ' <span class="tag bad">Their move</span>' : sc?.best === i ? ' <span class="tag good">Likeliest to land</span>' : ''}</span>
+        <span>${esc(t.name)}${o.answer ? ' <span class="tag good">Your answer</span>' : o.defend ? ' <span class="tag">Defend</span>' : o.mine ? ' <span class="tag">Your move</span>' : ''}${sc?.decoys[i] ? ' <span class="tag bad">Their move</span>' : sc?.best === i ? ' <span class="tag good">Likeliest to land</span>' : ''}</span>
         <span class="small muted">${esc(t.type)} ${m ? masteryPips(m) : ''}</span></button>`
     }).join('')}</div>
     ${g.log.length ? `<ol class="sim-log">${g.log.slice(0, 4).map(e => `<li class="${e.worked ? 'worked' : ''}"><span class="small muted">Turn ${e.turn}</span> ${esc(e.text)}</li>`).join('')}</ol>` : ''}
@@ -122,9 +132,15 @@ export function saveChain(c, intoId, note = `From live roll on ${today()}`) {
 
 export const actions = {
   'sim-save-chain': el => { (UI.simSaved ||= {})[el.dataset.i] = saveChain(UI.sim.chains[+el.dataset.i], el.dataset.into) },
-  'sim-start': el => { UI.simSetup.start = el.dataset.k },
+  'sim-start': el => { UI.simSetup.start = el.dataset.k; if (el.dataset.k === 'last') UI.simSetup.partner = lastRoll()?.partner || UI.simSetup.partner },
+  'sim-toggle': el => { UI.simSetup[el.dataset.k] = !UI.simSetup[el.dataset.k] },
   'sim-partner': el => { UI.simSetup.partner = el.dataset.k },
-  'sim-go': () => { const c = UI.simSetup ||= { start: 'standing', partner: 'even' }; UI.sim = newRoll(c.start, c.partner); UI.simSaved = {}; scrollTo(0, 0) },
+  'sim-go': () => {
+    const c = UI.simSetup ||= { start: 'standing', partner: 'even' }
+    UI.sim = newRoll(c.start === 'last' ? lastRoll()?.start : c.start, c.partner, { personal: !!c.personal, rehearse: !!c.rehearse })
+    UI.simSaved = {}
+    scrollTo(0, 0)
+  },
   'sim-quit': () => { UI.sim = null },
   'sim-reshuffle': () => { const g = UI.sim; if (g && !g.reshuffled && hasAbility('reshuffle')) { g.options = optionsFor(g); g.reshuffled = true; g.scout = g.scout && { ...g.scout, turn: 0 } } },
   'sim-scout': () => { const g = UI.sim; if (g && !g.scout && hasAbility('scout')) g.scout = scout(g) },
