@@ -1249,3 +1249,27 @@ span.gp-edge.planned:not(.n){color:var(--muted)}
 .gp-empty{margin-top:12px}
 .gp-subs{display:block;margin-top:8px}
 .load-view{display:flex;margin:0 0 12px}.load-view button{flex:1;line-height:1.2}
+
+/* ---------- Move and position pages: where a move comes from and leads to ---------- */
+.tech{position:relative}
+.tech-open{background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.tech-open::after{content:'';position:absolute;inset:0;border-radius:inherit}
+.tech .star,.tech .mastery,.tech .photos,.tech .row-actions{position:relative;z-index:1}
+.sub-head h1{overflow-wrap:anywhere}
+.mv-meta{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;margin-bottom:6px}
+.flow-card{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r);padding:10px 14px 12px;margin-top:10px}
+.flow-card h2{font-size:.76rem;font-stretch:100%;text-transform:uppercase;letter-spacing:.07em;color:var(--neon,var(--mat));margin-bottom:6px}
+.flow-chips{display:flex;flex-wrap:wrap;gap:6px}
+.flow-chip{border:1px solid var(--edge-strong,var(--line));background:color-mix(in srgb,var(--ink) 5%,transparent);color:var(--ink);border-radius:999px;padding:4px 10px;min-height:32px;font-size:.86rem;line-height:1.25;cursor:pointer;max-width:100%;overflow-wrap:anywhere;text-align:left;transition:box-shadow .18s,border-color .18s}
+.flow-chip:hover{border-color:color-mix(in srgb,var(--neon,var(--mat)) 55%,transparent);box-shadow:var(--glow,none)}
+.flow-chip.pos{background:var(--mat-soft);color:var(--mat);font-weight:650}
+.flow-chip.more{color:var(--muted)}
+span.flow-chip.more{cursor:default;display:inline-flex;align-items:center}
+.flow-sub{font-size:.8rem;color:var(--muted);margin:10px 0 5px}
+.flow-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0}
+.flow-line+.btn{margin-top:6px}
+.flow-tag{font-size:.7rem;font-weight:720;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);align-self:center}
+.flow-rolls{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.flow-rolls li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 8px;font-size:.88rem}
+.flow-rolls .tags{margin-top:0}
+.mv-notes{white-space:pre-wrap;margin-top:10px}

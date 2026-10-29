@@ -37,11 +37,16 @@ export const MENU = {
   'Standing|Neutral': [
     ['Double leg', 'Half guard', 'Top', 2], ['Blast double', 'Open guard', 'Top', 2], ['Single leg', 'Open guard', 'Top', 2], ['Low single', 'Open guard', 'Top', 2],
     ['Ankle pick', 'Open guard', 'Top', 2], ['Knee tap', 'Open guard', 'Top', 2], ['High crotch', 'Half guard', 'Top', 2], ['Body lock takedown', 'Half guard', 'Top', 2],
-    ['Inside trip', 'Half guard', 'Top', 2], ['Ouchi gari', 'Half guard', 'Top', 2], ['De ashi barai (foot sweep)', 'Open guard', 'Top', 2],
+    ['Inside trip', 'Open guard', 'Top', 2], ['Ouchi gari', 'Open guard', 'Top', 2], ['De ashi barai (foot sweep)', 'Open guard', 'Top', 2],
     ['Osoto gari', 'Side control', 'Top', 2], ['Seoi nage', 'Side control', 'Top', 2], ['Uchi mata', 'Side control', 'Top', 2], ['Hip toss', 'Side control', 'Top', 2],
+    ['Sweep single', 'Open guard', 'Top', 2], ['Kouchi gari', 'Open guard', 'Top', 2], ['Fireman’s carry', 'Side control', 'Top', 2], ['Outside trip', 'Side control', 'Top', 2],
+    ['Lateral drop', 'Side control', 'Top', 2], ['Head and arm throw', 'Side control', 'Top', 2], ['Ippon seoi nage', 'Side control', 'Top', 2], ['Drop seoi nage', 'Side control', 'Top', 2],
+    ['Harai goshi', 'Side control', 'Top', 2], ['O goshi', 'Side control', 'Top', 2], ['Koshi guruma', 'Side control', 'Top', 2], ['Tai otoshi', 'Side control', 'Top', 2],
     ['Snap down', 'Front headlock', 'Top'], ['Guard pull', 'Open guard', 'Bottom'], ['Sit-down guard pull', 'Open guard', 'Bottom'], ['Jumping closed guard', 'Closed guard', 'Bottom'],
     ['Collar tie'], ['Collar and sleeve grips'], ['Underhook pummeling'], ['Russian tie'], ['Two-on-one'], ['Arm drag'], ['Inside tie (wrist control)'],
-    ['Standing guillotine'], ['Arm-in guillotine'],
+    ['Standing guillotine'], ['Arm-in guillotine'], ['Flying armbar'], ['Flying triangle'],
+    ['Duck under'], ['Collar drag'], ['Slide by'], ['Shuck'], ['Over-under clinch'], ['Body lock'],
+    ['Butt scoot', 'Open guard', 'Bottom'], ['Imanari roll', 'Leg entanglement', 'Bottom'],
   ],
   'Front headlock|Top': [
     ['High elbow guillotine'], ['Japanese necktie'], ['Peruvian necktie'], ['D’arce choke'], ['Anaconda choke'], ['Chin strap control'],
@@ -52,10 +57,11 @@ export const MENU = {
   ],
   'Closed guard|Bottom': [
     ['Hip bump sweep', 'Mount', 'Top', 2], ['Scissor sweep', 'Mount', 'Top', 2], ['Flower sweep', 'Mount', 'Top', 2], ['Kimura sweep', 'Mount', 'Top', 2],
-    ['Muscle sweep', 'Half guard', 'Top', 2], ['Lumberjack sweep', 'Open guard', 'Top', 2], ['Overhead sweep', 'Open guard', 'Top', 2],
+    ['Muscle sweep', 'Half guard', 'Top', 2], ['Lumberjack sweep', 'Open guard', 'Top', 2], ['Overhead sweep', 'Mount', 'Top', 2],
     ['Armbar from guard'], ['Triangle choke'], ['Triangle armbar'], ['Kimura'], ['Omoplata'], ['Guillotine'], ['Cross collar choke'], ['Loop choke'], ['Gogoplata'], ['Wristlock from guard'],
-    ['Breaking posture'], ['High guard'], ['Overhook guard'], ['Shoulder clamp'], ['Rubber guard'], ['Two-on-one from guard'],
-    ['Arm drag to back', 'Back', 'Top', 4], ['Collar sleeve guard', 'Open guard', 'Bottom'],
+    ['Single collar choke'], ['Monoplata'], ['Baratoplata'], ['Tarikoplata'], ['Biceps slicer'],
+    ['Breaking posture'], ['High guard'], ['Overhook guard'], ['Shoulder clamp'], ['Rubber guard'], ['Two-on-one from guard'], ['Williams guard'],
+    ['Arm drag to back', 'Back', 'Top', 4], ['Kimura grip to back', 'Back', 'Top', 4], ['Collar sleeve guard', 'Open guard', 'Bottom'],
   ],
   'Closed guard|Top': [
     ['Posture in closed guard'], ['Standing guard break', 'Open guard', 'Top'], ['Kneeling guard break', 'Open guard', 'Top'], ['Knee in the middle break', 'Open guard', 'Top'],
@@ -63,7 +69,7 @@ export const MENU = {
   'Open guard|Bottom': [
     ['Collar sleeve sweep', 'Open guard', 'Top', 2], ['Shin-to-shin sweep', 'Open guard', 'Top', 2], ['Double ankle sweep', 'Open guard', 'Top', 2], ['Chair sweep', 'Open guard', 'Top', 2],
     ['Hook sweep', 'Half guard', 'Top', 2], ['X-guard sweep from open guard', 'Open guard', 'Top', 2], ['Triangle choke'], ['Omoplata'],
-    ['Guard retention (frames and hips)'], ['Inversion'], ['Granby roll recovery'], ['Shoulder walk'], ['Collar sleeve guard'],
+    ['Guard retention (frames and hips)'], ['Inversion'], ['Granby roll recovery'], ['Shoulder walk'], ['Collar sleeve guard'], ['K guard'],
     ['De La Riva hook', 'De La Riva', 'Bottom'], ['Reverse De La Riva hook', 'Reverse De La Riva', 'Bottom'], ['Seated guard', 'Butterfly guard', 'Bottom'],
     ['Spider guard retention', 'Spider / lasso', 'Bottom'], ['X-guard entry', 'X-guard', 'Bottom'], ['Worm guard', 'Lapel guards', 'Bottom'],
     ['Shin-to-shin entry', 'Leg entanglement', 'Bottom'], ['Technical stand-up from guard', 'Standing', 'Neutral'], ['Wrestle up', 'Standing', 'Neutral'],
@@ -72,7 +78,7 @@ export const MENU = {
     ['Long step pass', 'Side control', 'Top', 3], ['Leg drag pass', 'Side control', 'Top', 3], ['Torreando pass', 'Side control', 'Top', 3], ['Over-under pass', 'Side control', 'Top', 3],
     ['Double under pass', 'Side control', 'Top', 3], ['Stack pass', 'Side control', 'Top', 3], ['X-pass', 'Side control', 'Top', 3], ['Leg weave pass', 'Side control', 'Top', 3],
     ['Smash pass', 'Side control', 'Top', 3], ['Float pass', 'Side control', 'Top', 3], ['Folding pass', 'Side control', 'Top', 3], ['Body lock pass', 'Side control', 'Top', 3],
-    ['Knee cut pass', 'Side control', 'Top', 3], ['Headquarters'], ['Ashi garami', 'Leg entanglement', 'Bottom'],
+    ['Knee cut pass', 'Side control', 'Top', 3], ['Cartwheel pass', 'Side control', 'Top', 3], ['Headquarters'], ['Ashi garami', 'Leg entanglement', 'Bottom'],
   ],
   'Half guard|Bottom': [
     ['Underhook sweep', 'Half guard', 'Top', 2], ['Old school sweep', 'Half guard', 'Top', 2], ['Electric chair', 'Half guard', 'Top', 2], ['Waiter sweep', 'Open guard', 'Top', 2],
@@ -80,14 +86,15 @@ export const MENU = {
     ['Kimura sweep from half guard', 'Half guard', 'Top', 2], ['Plan B sweep', 'Half guard', 'Top', 2],
     ['Back take from half guard', 'Back', 'Top', 4], ['Back take from dogfight', 'Back', 'Top', 4],
     ['Kimura from half guard'], ['Triangle from knee shield'], ['Guillotine'],
-    ['Knee shield'], ['Lockdown'], ['Z guard'], ['Deep half guard entry'], ['Dogfight'], ['Shrimp to guard recovery', 'Open guard', 'Bottom'],
+    ['Knee shield'], ['Lockdown'], ['Z guard'], ['Deep half guard entry'], ['Dogfight'], ['Quarter guard recovery'], ['Shrimp to guard recovery', 'Open guard', 'Bottom'],
+    ['Reap from half guard', 'Leg entanglement', 'Bottom'],
   ],
   'Half guard|Top': [
     ['Knee cut pass', 'Side control', 'Top', 3], ['Back step pass', 'Side control', 'Top', 3], ['Tripod pass', 'Side control', 'Top', 3], ['Underhook half pass', 'Side control', 'Top', 3],
     ['Shin slide', 'Side control', 'Top', 3], ['Hip switch half pass', 'Side control', 'Top', 3], ['Smash pass', 'Side control', 'Top', 3],
     ['Knee shield pass', 'Side control', 'Top', 3], ['Lockdown pass', 'Side control', 'Top', 3], ['Deep half pass', 'Side control', 'Top', 3],
     ['Kimura from half guard'], ['D’arce choke'], ['Arm triangle from half guard'], ['Toe hold from half guard top'],
-    ['Crossface and underhook'], ['Flat half guard control'], ['Whizzer'],
+    ['Crossface and underhook'], ['Flat half guard control'], ['Whizzer'], ['Switch base to mount', 'Mount', 'Top', 4],
   ],
   'Butterfly guard|Bottom': [
     ['Butterfly sweep', 'Open guard', 'Top', 2], ['Arm drag sweep', 'Open guard', 'Top', 2], ['Elevator sweep', 'Open guard', 'Top', 2], ['Overhook butterfly sweep', 'Open guard', 'Top', 2],
@@ -180,7 +187,7 @@ export const MENU = {
     ['North-south escape', 'Open guard', 'Bottom'], ['Shrimp to guard recovery', 'Open guard', 'Bottom'], ['Underhook escape to knees', 'Turtle', 'Bottom'],
   ],
   'Turtle|Top': [
-    ['Clock choke'], ['Anaconda choke'], ['Crucifix'], ['Calf slicer from the truck'], ['Spiral ride'], ['Truck entry'],
+    ['Clock choke'], ['Anaconda choke'], ['Crucifix'], ['Calf slicer from the truck'], ['Twister'], ['Spiral ride'], ['Truck entry'],
     ['Seatbelt back take', 'Back', 'Top', 4], ['Back take from turtle (hooks in)', 'Back', 'Top', 4], ['Front headlock', 'Front headlock', 'Top'],
   ],
   'Turtle|Bottom': [
@@ -195,11 +202,40 @@ export const AFTER = {
   'Electric chair': ['Lockdown'], 'Waiter sweep': ['Deep half guard entry'], 'Deep half sweep': ['Deep half guard entry'], 'Homer Simpson sweep': ['Deep half guard entry'],
   'Back take from dogfight': ['Dogfight', 'Underhook sweep'], 'Triangle from knee shield': ['Knee shield', 'Z guard'], 'Shoulder crunch sweep': ['Shoulder crunch'],
   'Lockdown pass': ['Lockdown'], 'Deep half pass': ['Deep half guard entry'], 'Knee shield pass': ['Knee shield', 'Z guard'], 'Whizzer': ['Dogfight', 'Underhook sweep'],
-  'Kesa gatame escape': ['Kesa gatame', 'Reverse kesa gatame'], 'Body triangle escape': ['Body triangle'], 'Calf slicer from the truck': ['Truck entry'],
+  'Kesa gatame escape': ['Kesa gatame', 'Reverse kesa gatame'], 'Body triangle escape': ['Body triangle'], 'Calf slicer from the truck': ['Truck entry'], 'Twister': ['Truck entry'],
+}
+
+// Where a move sometimes lands instead of its usual landing above, in the mover's terms. The game
+// plays the usual one; the move pages show both.
+export const ALSO = {
+  'Double leg': [['Open guard', 'Top'], ['Side control', 'Top']], 'Blast double': [['Half guard', 'Top'], ['Side control', 'Top']], 'Single leg': [['Half guard', 'Top']],
+  'High crotch': [['Open guard', 'Top'], ['Side control', 'Top']], 'Body lock takedown': [['Side control', 'Top'], ['Mount', 'Top']],
+  'Inside trip': [['Half guard', 'Top']], 'Ouchi gari': [['Half guard', 'Top']], 'Kouchi gari': [['Half guard', 'Top']], 'Drop seoi nage': [['Turtle', 'Top']],
+  'Standing guillotine': [['Closed guard', 'Bottom']], 'Arm-in guillotine': [['Closed guard', 'Bottom']], 'Flying armbar': [['Closed guard', 'Bottom']], 'Flying triangle': [['Closed guard', 'Bottom']],
+  'Snap down': [['Turtle', 'Top']], 'Guard pull': [['Closed guard', 'Bottom']], 'Sprawl': [['Turtle', 'Top']], 'Crossface sprawl': [['Turtle', 'Top']],
+  'Go-behind from front headlock': [['Back', 'Top']], 'Front headlock spin behind': [['Back', 'Top']], 'Turtle to single leg': [['Open guard', 'Top']], 'Peterson roll': [['Side control', 'Top']],
+  'Standing guard break': [['Half guard', 'Top']], 'Kneeling guard break': [['Half guard', 'Top']], 'Knee in the middle break': [['Half guard', 'Top']],
+  'Kimura sweep': [['Side control', 'Top']], 'Overhead sweep': [['Side control', 'Top']], 'Lumberjack sweep': [['Mount', 'Top']],
+  'Torreando pass': [['Knee on belly', 'Top']], 'X-pass': [['Knee on belly', 'Top']], 'Body lock pass': [['Mount', 'Top']], 'Underhook half pass': [['Mount', 'Top']],
+  'Butterfly sweep': [['Half guard', 'Top'], ['Side control', 'Top']], 'Elevator sweep': [['Half guard', 'Top'], ['Side control', 'Top']], 'Overhook butterfly sweep': [['Half guard', 'Top'], ['Side control', 'Top']],
+  'Balloon sweep': [['Mount', 'Top']], 'Spider guard overhead sweep': [['Mount', 'Top']],
+  'Underhook sweep': [['Side control', 'Top']], 'Old school sweep': [['Side control', 'Top']], 'Kimura sweep from half guard': [['Side control', 'Top']],
+  'Shrimp to guard recovery': [['Closed guard', 'Bottom'], ['Half guard', 'Bottom']], 'Elbow-knee escape': [['Closed guard', 'Bottom']], 'Heel drag escape': [['Closed guard', 'Bottom']],
+  'Upa (bridge and roll)': [['Half guard', 'Top']], 'Kesa gatame escape': [['Side control', 'Top'], ['Back', 'Top']], 'Back escape (shoulder to the mat)': [['Closed guard', 'Top']],
+}
+// Moves the game plays but whose landing we can't vouch for. The move pages say "Not mapped yet".
+export const UNSURE = new Set(['Muscle sweep', 'Plan B sweep', 'John Wayne sweep', 'Coyote half sweep'])
+// Moves the game doesn't offer on their own (answers to a shot, throws we haven't mapped), for the move
+// pages: where they start, and where they land ('' keeps you there, null: not mapped yet). A plain "armbar"
+// must still read as the armbar from guard, so the inverted one stays off the game's menu.
+export const OFF = {
+  'Sprawl': ['Standing|Neutral', 'Front headlock|Top'], 'Crossface sprawl': ['Standing|Neutral', 'Front headlock|Top'],
+  'Inverted armbar': ['Closed guard|Bottom', ''], 'Whizzer (standing)': ['Standing|Neutral', ''], 'Downblock': ['Standing|Neutral', ''], 'Single leg defense (limp leg)': ['Standing|Neutral', ''],
+  ...Object.fromEntries(['Kosoto gari', 'Hiza guruma', 'Sasae tsurikomi ashi', 'Suplex', 'Sumi gaeshi', 'Tomoe nage', 'Yoko tomoe nage', 'Tani otoshi'].map(n => [n, ['Standing|Neutral', null]])),
 }
 
 // The defenses that answer a submission, besides the escapes of the position you're in.
-const DEFENSES = [
+export const DEFENSES = [
   [/armbar|wristlock/i, 'Armbar defense (stack)'], [/^(?!arm triangle).*triangle/i, 'Triangle defense'], [/kimura|americana|omoplata/i, 'Kimura defense'],
   [/guillotine|necktie|d’arce|anaconda/i, 'Guillotine defense'], [/heel hook|ankle|toe hold|kneebar|calf|estima|aoki/i, 'Heel hook defense'],
 ]
