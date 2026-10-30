@@ -8,7 +8,8 @@ import { opponentList, opponentStory } from './opponents.js'
 import { roundList } from './rounds.js'
 import { chainBuilder, readChain, rollFlow, setChainStart } from '../picker.js'
 import { describeBox } from '../describe.js'
-import { MOVE_OUTCOMES, logMode, nodeDepth, nodePath, partnerNames, partnerProfile, rollTechId, seqById, sizeLabel, techById, treeOrder } from '../model.js'
+import { MOVE_OUTCOMES, logMode, nodeDepth, nodePath, partnerProfile, rollTechId, seqById, sizeLabel, techById, treeOrder } from '../model.js'
+import { noteFor, partnerDatalist, partnerLinker, partnerPicker } from '../partners.js'
 
 // Rolls has two sides: your roll notes, and your opponents with their stories.
 const sides = on => `<div class="seg roll-sides" role="group" aria-label="Show">${[['', 'Roll notes'], ['opponents', 'Opponents']].map(([k, label]) =>
@@ -81,7 +82,7 @@ export function stepOptions(seqId, selected, first = 'Whole sequence') {
     `<option value="${n.id}" ${n.id === selected ? 'selected' : ''}>${' '.repeat(nodeDepth(seq, n))}${n.who === 'them' ? 'They: ' : 'You: '}${esc(trunc(n.label, 60))}</option>`).join('')
 }
 
-export const partnerDatalist = () => `<datalist id="partner-list">${partnerNames().map(p => `<option value="${esc(p)}"></option>`).join('')}</datalist>`
+export { partnerDatalist }
 
 const SIMPLE_RESULTS = { worked: 'It worked', partial: 'Partly', broke: 'It fell apart' }
 
@@ -92,7 +93,7 @@ function rollForm(id, preset = {}) {
   // A new roll starts where your last one did: most notes in a sitting are about the same position.
   const last = [...S.roll].sort(byDateDesc)[0]
   const r = id ? S.roll.find(x => x.id === id) : {
-    date: session?.date || today(), sessionId: session?.id || '', partner: '', level: 'Blue', size: '', styles: [],
+    date: session?.date || today(), sessionId: session?.id || '', partner: preset.partner || '', level: 'Blue', size: '', styles: [],
     position: '', role: '', seqId: preset.seqId || '', nodeId: preset.nodeId || '', techId: '',
     result: 'broke', reasons: [], what: '', tryNext: '', tryStatus: 'open',
   }
@@ -106,14 +107,13 @@ function rollForm(id, preset = {}) {
   if (simple && !id) Object.assign(r, { result: '', level: 'Unknown' })
   const detailed = id && (r.position || r.reasons?.length || r.tryNext || r.seqId || r.techId || r.styles?.length || r.size)
 
-  const partnerName = field(simple ? 'Who did you roll with? (optional)' : 'Partner (optional)', `<input type="text" name="partner" id="r-partner" list="partner-list" autocomplete="off" value="${esc(r.partner)}" placeholder="Name or nickname">`)
+  const partnerName = partnerPicker('', r.partner, { label: simple ? 'Who did you roll with? (optional)' : 'Partner (optional)', note: id ? noteFor(r) : '', id: 'r-partner' })
   const where = `<fieldset><legend>What happened, move by move</legend>${describeBox('')}${chainBuilder('', r, last?.position)}</fieldset>`
   const result = `<fieldset><legend>${simple ? 'How did it go?' : 'Result'}</legend><div class="chips">${Object.entries(RESULTS).map(([k, v]) => `<label class="chip r-${k}"><input type="radio" name="result" value="${k}" ${r.result === k ? 'checked' : ''}><span>${simple ? SIMPLE_RESULTS[k] : v.label}</span></label>`).join('')}</div></fieldset>`
   const why = `<fieldset data-why ${r.result === 'worked' ? 'hidden' : ''}><legend>Why it went wrong</legend>${chipsEl('reasons', REASONS, r.reasons || [])}</fieldset>`
   const what = field(simple ? 'What happened?' : 'What happened', `<textarea name="what" id="r-what" rows="3" placeholder="${simple ? 'They got on top and I couldn’t get them off. I remembered to keep my elbows in.' : 'He got the underhook as soon as I cut, came up, and I ended up on bottom'}">${esc(r.what)}</textarea>`)
   const tryNext = field('What you’ll try next time', `<input type="text" name="tryNext" id="r-next" value="${esc(r.tryNext)}" placeholder="Crossface first, then cut">`)
-  const partnerMore = `<div class="grid3">
-        ${simple ? '' : partnerName}
+  const partnerMore = `${simple ? '' : partnerName}<div class="grid2">
         ${field('Partner’s belt', selectEl('level', BELTS, r.level, 'id="r-level"'))}
         ${field('Their size', selectEl('size', [{ value: '', label: 'Not noted' }, ...SIZES], r.size || '', 'id="r-size"'))}
       </div>${partnerDatalist()}
@@ -125,7 +125,7 @@ function rollForm(id, preset = {}) {
 
   // The common case comes first (where, how it went, what next). Partner and sequence details fold away.
   openSheet(id ? 'Edit roll note' : 'Log a roll', simple ? `
-    <div class="grid2">${date}${partnerName}</div>
+    ${date}${partnerName}
     ${result}
     ${what}
     <details class="more" ${detailed ? 'open' : ''}><summary>Add more detail <span class="hint">position, moves, causes, what to try next</span></summary><div>
@@ -134,7 +134,7 @@ function rollForm(id, preset = {}) {
     <p class="form-error" id="form-error"></p>` : `
     <div class="grid2">${date}${sessionPick}</div>
     ${where}${result}${why}${what}${tryNext}
-    <details class="more" ${r.partner || (r.styles || []).length ? 'open' : ''}><summary>Partner: name, belt, size, style</summary><div>${partnerMore}</div></details>
+    <details class="more" ${r.partner || (r.styles || []).length ? 'open' : ''} data-partner-more><summary>Partner: name, belt, size, style</summary><div>${partnerMore}</div></details>
     <details class="more" ${r.seqId || r.techId ? 'open' : ''}><summary>Sequence or main move</summary><div>${sequence}</div></details>
     <p class="form-error" id="form-error"></p>`, {
     submitLabel: id ? 'Save changes' : 'Save roll',
@@ -147,6 +147,7 @@ function rollForm(id, preset = {}) {
       })
       $('#r-session', form).addEventListener('change', e => { const s = S.session.find(x => x.id === e.target.value); if (s) form.elements.date.value = s.date })
       $('#r-partner', form).addEventListener('change', e => fillFromPartner(form, e.target.value, id))
+      if (!id && r.partner) fillFromPartner(form, r.partner)
       form.addEventListener('change', e => { if (e.target.name === 'result') $('[data-why]', form).hidden = e.target.value === 'worked' })
     },
     onSubmit: (fd, form) => {
@@ -155,16 +156,17 @@ function rollForm(id, preset = {}) {
       const chain = readChain($('[data-chain]', form))
       if (simple && !fd.get('result')) { $('#form-error').textContent = 'Pick how it went.'; return false }
       if (!simple && !chain.position && (!id || r.position)) { $('#form-error').textContent = 'Pick where the roll started.'; return false }
-      const tryNext = fd.get('tryNext').trim()
+      const tryNext = fd.get('tryNext').trim(), rollId = id || newId('roll'), partners = partnerLinker()
       const rec = {
-        ...(id ? r : {}), id: id || newId('roll'), kind: 'roll', date, sessionId: fd.get('sessionId'),
-        partner: fd.get('partner').trim(), level: fd.get('level'), size: fd.get('size') || '', styles: fd.getAll('styles'),
+        ...(id ? r : {}), id: rollId, kind: 'roll', date, sessionId: fd.get('sessionId'),
+        ...partners.link(fd, '', { level: fd.get('level'), size: fd.get('size') || '', styles: fd.getAll('styles'), date, refId: rollId }),
+        level: fd.get('level'), size: fd.get('size') || '', styles: fd.getAll('styles'),
         position: chain.position, role: chain.role, seqId: fd.get('seqId'), nodeId: fd.get('seqId') ? fd.get('nodeId') : '',
         techId: fd.get('techId'), moves: chain.moves, chain: chain.chain, result: fd.get('result') || 'broke', reasons: fd.get('result') === 'worked' ? [] : fd.getAll('reasons'), what: fd.get('what').trim(),
         tryNext, tryStatus: tryNext ? (id && r.tryNext === tryNext ? (r.tryStatus || 'open') : 'open') : '',
       }
       if (id && r.tryNext !== tryNext) { delete rec.promoted; delete rec.promoteSkip }
-      save(rec)
+      saveMany([rec, ...partners.recs()])
       toast(id ? 'Roll saved' : 'Roll logged')
     },
   })
@@ -206,7 +208,7 @@ function promoteForm(rollId) {
 }
 
 export const actions = {
-  'new-roll': el => rollForm(null, { sessionId: el.dataset.session }),
+  'new-roll': el => rollForm(null, { sessionId: el.dataset.session, partner: el.dataset.partner }),
   'edit-roll': el => rollForm(el.dataset.id),
   'log-node': el => rollForm(null, { seqId: el.dataset.seq, nodeId: el.dataset.id }),
   'exp': el => {

@@ -2,7 +2,7 @@
 import { S, save } from '../store.js'
 import { UI } from '../ui.js'
 import { esc, fmtDate, fmtDateLong, fmtMonthY, plural, toast } from '../util.js'
-import { sizeLabel } from '../model.js'
+import { profileByName, sizeLabel } from '../model.js'
 import { opponent, opponents, storyOf, summaryOf } from '../rivals.js'
 
 // The story's back button goes to the list of opponents, not to the roll notes.
@@ -45,6 +45,7 @@ export function opponentStory(key) {
       <p class="small muted">${esc(who(o) || 'Rolling partner')} · since ${esc(fmtMonthY(o.first))}</p>
       <div class="opp-sofar">${summaryOf(o).map(l => `<p>${esc(l)}</p>`).join('')}</div>
       <button class="link small" data-act="pin-nemesis" data-key="${esc(o.key)}">${o.nemesis ? 'Not my nemesis' : 'Make them my nemesis'}</button>
+      ${profileByName(o.name) ? `<button class="link small" data-act="goto" data-view="matchups" data-anchor="p:${esc(profileByName(o.name).id)}">Scouting brief</button>` : ''}
     </section>
     <h2 class="opp-h">The story</h2>
     ${hidden ? `<button class="btn ghost show-more" data-act="show-more" data-k="opp:${esc(key)}" data-n="10">Show ${Math.min(10, hidden)} earlier ${hidden === 1 ? 'roll' : 'rolls'}</button>` : ''}

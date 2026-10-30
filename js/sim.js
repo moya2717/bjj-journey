@@ -381,8 +381,10 @@ export function myGame() {
 }
 
 // Your last logged roll as a start: its position, and a partner as tough as their belt and size were for you.
-export function lastRoll() {
-  const r = S.roll.filter(r => r.position).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0]
+export const lastRoll = () => rollLike(S.roll.filter(r => r.position).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0])
+
+// A roll's start and a partner as tough as that roll's belt and size, if Live roll has that spot.
+export function rollLike(r) {
   const k = r && key(r.position, r.position === 'Standing' ? 'Neutral' : r.role)
   if (!r || !MENU[k]) return null
   const belt = BELTS.indexOf(r.level), mineBelt = BELTS.indexOf(currentRank().belt)

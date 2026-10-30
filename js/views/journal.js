@@ -10,6 +10,7 @@ import { hasDetail, logMode, partnerProfile, rollMoves, seqById, techById } from
 import { heatLevel } from '../charts.js'
 import { addPhotos, removePhotos, hydratePhotos, openViewer, photoURL } from '../photos.js'
 import { movesUsed, partnerDatalist, stepOptions } from './rolls.js'
+import { partnerLinker, partnerPicker } from '../partners.js'
 import { newRound, readRound, roundMini, roundProblem, roundRow, wireRounds } from './rounds.js'
 import { activeInjuries, activeOn, injuriesOf, injuryName } from '../body.js'
 import { distUnit, fmtClock, isRun, paceOf, rpeIntensity } from '../load.js'
@@ -231,8 +232,8 @@ function rollRow(i, preset) {
   const seqOptions = [{ value: '', label: 'None' }, ...S.seq.map(s => ({ value: s.id, label: s.name }))], seq = seqById(preset.seqId)
   return `<div class="ql-roll" data-row="${i}">
     <div class="ql-roll-head"><h3 data-row-title>Roll</h3><button type="button" class="mini" data-remove-row>Remove</button></div>
-    <div class="grid3">
-      ${field('Partner', `<input type="text" name="${k('partner')}" list="partner-list" autocomplete="off" placeholder="Optional" data-partner>`)}
+    ${partnerPicker(k(''))}
+    <div class="grid2">
       ${field('Belt', selectEl(k('level'), BELTS, 'Blue'))}
       ${field('Size', selectEl(k('size'), [{ value: '', label: 'Not noted' }, ...SIZES], ''))}
     </div>
@@ -385,7 +386,8 @@ function sessionForm(id, date) {
       const nowhere = rows.findIndex(row => fd.get(`r${row.dataset.row}_result`) && !chainOf(row).position)
       if (nowhere >= 0) { $('#form-error').textContent = `Pick where roll ${nowhere + 1} started.`; return false }
       // A game block nobody touched is left out; one with anything in it needs its goes counted.
-      const played = $$('[data-game-row] [data-round]', form).map(box => readRound(fd, box)).filter(r => r.tries || r.moves.length || r.note || r.partner)
+      const games = $$('[data-game-row] [data-round]', form).map(box => [box.dataset.round, readRound(fd, box)]).filter(([, r]) => r.tries || r.moves.length || r.note || r.partner)
+      const played = games.map(([, r]) => r)
       const gameProblem = played.map((r, j) => roundProblem(r, played.length > 1 ? j + 1 : '')).find(Boolean)
       if (gameProblem) { $('#form-error').textContent = gameProblem; return false }
 
@@ -412,25 +414,29 @@ function sessionForm(id, date) {
         coachAnswered: coachQ && coachQ === s.coachQ ? !!s.coachAnswered : false, coachA: coachQ && coachQ === s.coachQ ? s.coachA || '' : '',
         energy: fd.get('energy') || '', sleep: fd.get('sleep') || '', injuryIds: fd.get('aroundInjury') ? fd.getAll('injuryIds') : [],
       }
+      const partners = partnerLinker()
       const rolls = rows.filter(row => fd.get(`r${row.dataset.row}_result`)).map((row, j) => {
         const g = name => fd.get(`r${row.dataset.row}_${name}`) || ''
-        const partner = g('partner').trim(), seqId = g('seqId'), result = g('result'), tryNext = g('tryNext').trim(), chain = chainOf(row)
+        const rollId = newId('roll'), styles = partnerProfile(g('partner'))?.styles || [], seqId = g('seqId'), result = g('result'), tryNext = g('tryNext').trim(), chain = chainOf(row)
         return {
-          id: newId('roll'), kind: 'roll', date, sessionId, partner, level: g('level'), size: g('size'),
-          styles: partnerProfile(partner)?.styles || [], position: chain.position, role: chain.role,
+          id: rollId, kind: 'roll', date, sessionId, ...partners.link(fd, `r${row.dataset.row}_`, { level: g('level'), size: g('size'), styles, date, refId: rollId }),
+          level: g('level'), size: g('size'), styles, position: chain.position, role: chain.role,
           seqId, nodeId: seqId ? g('nodeId') : '', techId: '', moves: chain.moves, chain: chain.chain, result,
           reasons: result === 'worked' ? [] : fd.getAll(`r${row.dataset.row}_reasons`),
           what: g('what').trim(), tryNext, tryStatus: tryNext ? 'open' : '', createdAt: Date.now() + j,
         }
       })
-      const rounds = played.map((r, j) => ({ ...r, id: newId('round'), kind: 'round', date, sessionId, createdAt: Date.now() + j }))
+      const rounds = games.map(([p, r], j) => {
+        const roundId = newId('round')
+        return { ...r, ...partners.link(fd, p, { level: r.level, size: r.size, date, refId: roundId }), id: roundId, kind: 'round', date, sessionId, createdAt: Date.now() + j }
+      })
       UI.calDay = date
       UI.calMonth = date.slice(0, 7)
       // The plan is used up once a new session logs it.
       // Your first log also keeps the mode you used, so adding detail once doesn't switch you to Detailed.
       const usedPlan = !id && plan && session.plan === plan.text
       const settings = { ...(usedPlan ? { nextPlan: null } : {}), ...(S.settings.logMode ? {} : { logMode: $('[data-log-form]', form).dataset.mode }) }
-      saveMany([session, ...rolls, ...rounds, ...(Object.keys(settings).length ? [{ ...S.settings, ...settings }] : [])])
+      saveMany([session, ...rolls, ...rounds, ...partners.recs(), ...(Object.keys(settings).length ? [{ ...S.settings, ...settings }] : [])])
       const extras = [rolls.length && plural(rolls.length, 'roll'), rounds.length && plural(rounds.length, 'positional round')].filter(Boolean)
       toast(extras.length ? `Training and ${extras.join(' and ')} saved` : 'Training saved')
     },

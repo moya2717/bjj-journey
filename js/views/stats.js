@@ -67,7 +67,7 @@ function advancedHub() {
     + group('Questions from Home', tile('wrong', 'Going wrong', badSpots(daysAgo(59)).bad.length, 'breakdowns, 60 days', { view: 'overview' })
       + tile('next', 'Work on next', S.roll.filter(r => r.tryNext && (r.tryStatus || 'open') === 'open').length, 'ideas to test', { view: 'overview' })
       + tile('improve', 'Improving?', pct(rate(S.roll.filter(r => r.date >= daysAgo(29)))), 'roll success, 30 days', { view: 'overview' }))
-    + group('Partners and more', tile('', 'Matchups', partnerNames().length, 'partners logged', { view: 'matchups' })
+    + group('Partners and more', tile('', 'Partners', partnerNames().length, 'partners logged', { view: 'matchups' })
       + tile('ready', 'Readiness', readiness().known ? readiness().label.split(' / ')[0] : '—', 'check in for today', { view: 'overview' })
       + tile('belts', 'Belt history', S.profile.promotions.length ? esc(currentRank().belt) : '—', 'time at each rank', { view: 'athlete' }))
     + `<button class="dojo-row" data-act="review" style="margin-top:12px"><span><b>Coaching review with Claude</b><span class="small muted">Copy your last 60 days with a coaching prompt</span></span><span aria-hidden="true">›</span></button>`

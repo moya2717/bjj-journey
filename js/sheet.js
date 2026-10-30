@@ -3,6 +3,7 @@ import { $, $$, esc, toast } from './util.js'
 import { allTechs, myTechs, techById } from './model.js'
 import { findMove, wireChains, wireTechFields } from './picker.js'
 import { wireDescribe } from './describe.js'
+import { wirePartnerPicks } from './partners.js'
 
 // Form building blocks. Every form in the app is a sheet: a dialog with a form inside.
 
@@ -208,6 +209,7 @@ export function openSheet(title, body, { submitLabel = 'Save', onSubmit, onMount
   wireFocusPickers(form)
   wireChains(form)
   wireDescribe(form)
+  wirePartnerPicks(form)
   onMount?.(form)
   wireSteps(form)
   if (!dlg.open) dlg.showModal()

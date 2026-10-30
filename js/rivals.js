@@ -4,7 +4,7 @@
 // The nemesis is the one you pick, or else the partner you've rolled with 3+ times and beat least.
 import { S, cached } from './store.js'
 import { byDateAsc, cap, fmtDate, fmtMonthY } from './util.js'
-import { partnerProfile, rollMoves, techById } from './model.js'
+import { partnerProfile, profileOf, rollMoves, techById } from './model.js'
 import { gameName } from './rounds.js'
 
 const keyOf = name => (name || '').trim().toLowerCase()
@@ -14,7 +14,7 @@ const MILESTONES = [5, 10, 25, 50, 100]
 export const opponents = () => cached('opponents', () => {
   const by = {}
   const add = (x, isRound) => {
-    const k = keyOf(x.partner)
+    const k = keyOf(profileOf(x)?.name || x.partner)
     if (k) (by[k] ||= { key: k, entries: [] }).entries.push({ ...x, isRound })
   }
   S.roll.forEach(r => add(r, false))
@@ -43,7 +43,7 @@ function summarize({ key, entries }) {
   const score = list => list.length ? list.reduce((t, x) => t + ({ worked: 1, partial: 0.5 }[outcomeOf(x)] || 0), 0) / list.length : null
   const recent = entries.slice(-5), before = entries.slice(0, -5)
   return {
-    key, name: last.partner.trim(), level: p.level, size: p.size, styles: p.styles || [], entries, n: entries.length,
+    key, name: (profileOf(last)?.name || last.partner).trim(), level: p.level, size: p.size, styles: p.styles || [], entries, n: entries.length,
     won, even, lost, rate: score(entries), lately: before.length >= 2 ? score(recent) - score(before) : null,
     first: entries[0].date, last: last.date, weapon: tally('caughtBy'), answer: tally('landed'),
   }

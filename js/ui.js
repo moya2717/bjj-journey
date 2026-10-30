@@ -19,6 +19,7 @@ export const UI = {
   libQ: '',
   libGroup: '',
   libScope: 'mine',
+  partnerFilter: '', // Partners: '' everyone, 'gym' or 'rival'
   loadBy: 'week',
   sub: {}, // the sub-screen each screen shows, '' for its tiles
   more: {}, // how many items each long list shows

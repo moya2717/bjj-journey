@@ -120,19 +120,34 @@ export const sparred = () => cached('sparred', () => [...S.roll, ...S.round.filt
 
 export const landedIds = roll => [...new Set(rollMoves(roll).filter(m => m.outcome === 'landed').map(m => m.techId))]
 
-// Partners are free text. Their belt, size and style come from your latest roll with them.
+// Partners: a roll keeps the name you typed, plus a partnerId once that partner has a profile.
+// A roll without one belongs to the profile whose name or nickname matches, ignoring case.
+const nameKey = s => (s || '').trim().toLowerCase()
+const profileIndex = () => cached('profileIndex', () => {
+  const by = {}
+  S.partner.forEach(p => [p.name, p.nickname].forEach(n => { if (nameKey(n)) by[nameKey(n)] ||= p }))
+  return by
+})
+export const profileByName = name => profileIndex()[nameKey(name)] || null
+export const profileOf = x => (x.partnerId && S.partner.find(p => p.id === x.partnerId)) || profileByName(x.partner)
+
+// Everyone you've named, profiles first, then the rest by your latest roll with them.
 export function partnerNames() {
   const seen = {}
+  S.partner.forEach(p => seen[nameKey(p.name)] = p.name)
   ;[...S.roll].sort(byDateDesc).forEach(r => {
     const name = (r.partner || '').trim()
-    if (name && !seen[name.toLowerCase()]) seen[name.toLowerCase()] = name
+    if (name && !profileByName(name) && !seen[name.toLowerCase()]) seen[name.toLowerCase()] = name
   })
   return Object.values(seen)
 }
 
+// Belt, size and style: the profile's when it has them, else your latest roll's with them.
 export function partnerProfile(name) {
-  const key = (name || '').trim().toLowerCase()
-  return key ? [...S.roll].sort(byDateDesc).find(r => (r.partner || '').trim().toLowerCase() === key) || null : null
+  const key = nameKey(name), p = profileByName(name)
+  const roll = key ? [...S.roll].sort(byDateDesc).find(r => (p ? profileOf(r) === p : nameKey(r.partner) === key)) || null : null
+  if (!p) return roll
+  return { ...roll, level: p.belt || roll?.level || 'Unknown', size: p.size || roll?.size || '', styles: p.styles?.length ? p.styles : roll?.styles || [] }
 }
 
 export const sizeLabel = s => ({ Lighter: 'lighter', Heavier: 'heavier', Similar: 'similar size' }[s] || '')

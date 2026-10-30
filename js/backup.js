@@ -7,7 +7,7 @@ import { isZip, makeZip, readZip } from './zip.js'
 // Restoring also reads older backups (one JSON file with photos inside) and exports from the
 // earlier claude.ai version of the journal.
 
-const KINDS = ['session', 'roll', 'round', 'tech', 'seq', 'goal', 'link', 'activity', 'study', 'injury', 'settings', 'profile']
+const KINDS = ['session', 'roll', 'round', 'tech', 'seq', 'goal', 'link', 'activity', 'study', 'injury', 'partner', 'settings', 'profile']
 const extension = blob => ({ 'image/png': 'png', 'image/heic': 'heic', 'image/webp': 'webp', 'image/gif': 'gif' }[blob.type] || 'jpg')
 const MIME = { png: 'image/png', heic: 'image/heic', webp: 'image/webp', gif: 'image/gif', jpg: 'image/jpeg' }
 

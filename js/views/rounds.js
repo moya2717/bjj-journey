@@ -1,7 +1,7 @@
 // Positional rounds on screen: the form (a game, your side and a tap counter), the cards on the
 // journal, and the list on Rolls. The same fields sit in the session form, one block per game.
 // Simple mode shows the quick counter only; partner, moves and a note are for Detailed.
-import { S, save, remove } from '../store.js'
+import { S, saveMany, remove } from '../store.js'
 import { BELTS, POSITIONS, SIZES } from '../vocab.js'
 import { $, $$, byDateDesc, cap, esc, fmtDateLong, newId, pct, plural, toast, today } from '../util.js'
 import { field, selectEl, openSheet } from '../sheet.js'
@@ -10,6 +10,7 @@ import { describeBox } from '../describe.js'
 import { logMode, partnerProfile } from '../model.js'
 import { GAMES, SIDES, gameName, roleOf, sideName } from '../rounds.js'
 import { partnerDatalist } from './rolls.js'
+import { noteFor, partnerLinker, partnerPicker } from '../partners.js'
 import { more } from './hub.js'
 
 const COUNTS = [['tries', 'Goes'], ['wins', 'You scored'], ['losses', 'They scored']]
@@ -20,7 +21,8 @@ const radio = (name, value, label, on, extra = '') => `<label class="chip" ${ext
 export function newRound(preset = {}) {
   const last = [...S.round].sort(byDateDesc)[0]
   const game = preset.game ?? last?.game ?? 'half', position = GAMES[game]?.position || preset.position || last?.position || 'Half guard'
-  return { game, position, side: preset.side || last?.side || 'Top', tries: 0, wins: 0, losses: 0, partner: '', level: 'Unknown', size: '', goal: '', theirGoal: '', note: '' }
+  const them = preset.partner ? partnerProfile(preset.partner) : null
+  return { game, position, side: preset.side || last?.side || 'Top', tries: 0, wins: 0, losses: 0, partner: preset.partner || '', level: them?.level || 'Unknown', size: them?.size || '', goal: '', theirGoal: '', note: '' }
 }
 
 const sideChips = (p, game, position, side) => SIDES.map(s => radio(p + 'side', s, cap(sideName(position, s)) + (GAMES[game] ? ': ' + GAMES[game].goals[s].toLowerCase() : ''), s === side)).join('')
@@ -43,8 +45,8 @@ export function roundFields(p, g) {
       <button type="button" class="count-btn plus" data-count="${k}" data-d="1" aria-label="${label}: one more">+</button></div>`).join('')}</div>
     <p class="small muted" data-count-line aria-live="polite">${countLine(g)}</p>
     <div class="round-more" data-detail-only>
-      <div class="grid3">
-        ${field('Partner (optional)', `<input type="text" name="${p}partner" list="partner-list" autocomplete="off" value="${esc(g.partner)}" data-partner>`)}
+      ${partnerPicker(p, g.partner, { note: g.id ? noteFor(g) : '' })}
+      <div class="grid2">
         ${field('Their belt', selectEl(p + 'level', BELTS, g.level || 'Unknown'))}
         ${field('Their size', selectEl(p + 'size', [{ value: '', label: 'Not noted' }, ...SIZES], g.size || ''))}
       </div>
@@ -138,7 +140,9 @@ function roundForm(id, preset = {}) {
       const date = fd.get('date'), r = readRound(fd, $('[data-round]', form))
       const problem = !date ? 'Add the date.' : roundProblem(r)
       if (problem) { $('#form-error').textContent = problem; return false }
-      save({ ...(id ? g : {}), ...r, id: id || newId('round'), kind: 'round', date, sessionId: fd.get('sessionId') || '' })
+      const roundId = id || newId('round'), partners = partnerLinker()
+      const rec = { ...(id ? g : {}), ...r, ...partners.link(fd, '', { level: r.level, size: r.size, date, refId: roundId }), id: roundId, kind: 'round', date, sessionId: fd.get('sessionId') || '' }
+      saveMany([rec, ...partners.recs()])
       toast(id ? 'Round saved' : `Round logged: you ${r.wins}, them ${r.losses}`)
     },
   })
@@ -148,6 +152,6 @@ function roundForm(id, preset = {}) {
 export const roundRow = (i, g) => `<div class="ql-roll" data-game-row><div class="ql-roll-head"><h3>Positional round</h3><button type="button" class="mini" data-remove-row>Remove</button></div>${roundFields(`g${i}_`, g)}</div>`
 
 export const actions = {
-  'new-round': el => roundForm(null, { ...(el.dataset.session ? { sessionId: el.dataset.session } : {}), ...(el.dataset.game != null ? { game: el.dataset.game, side: el.dataset.side, position: el.dataset.position } : {}) }),
+  'new-round': el => roundForm(null, { ...(el.dataset.session ? { sessionId: el.dataset.session } : {}), ...(el.dataset.partner ? { partner: el.dataset.partner } : {}), ...(el.dataset.game != null ? { game: el.dataset.game, side: el.dataset.side, position: el.dataset.position } : {}) }),
   'edit-round': el => roundForm(el.dataset.id),
 }
