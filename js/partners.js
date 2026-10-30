@@ -1,13 +1,10 @@
-// Training partners and rivals: profiles, the partner picker on the roll forms, and the pre-roll
-// scouting brief. The brief only counts what you logged: every line carries the ids of the rolls
-// behind it, so a tap shows exactly where each number came from. Nothing is guessed.
+// Partner profiles (the opponents you keep notes on), the partner picker on the roll and round forms,
+// and how a save links rolls to profiles. Records, stories and the scouting brief are in rivals.js.
 import { S } from './store.js'
-import { $, $$, byDateDesc, esc, fmtDate, newId, plural } from './util.js'
-import { partnerNames, profileByName, profileOf, rollMoves, techById } from './model.js'
+import { $, $$, esc, newId } from './util.js'
+import { partnerNames, profileByName, profileOf } from './model.js'
 
 export const partnerById = id => S.partner.find(p => p.id === id) || null
-export const rollsWith = p => S.roll.filter(r => profileOf(r) === p).sort(byDateDesc)
-export const roundsWith = p => S.round.filter(g => profileOf(g) === p).sort(byDateDesc)
 export const newProfile = (fields = {}) => ({ id: newId('partner'), kind: 'partner', name: '', nickname: '', belt: '', stripes: 0, size: '', weight: '', styles: [], rival: false, gym: '', photo: '', notes: [], ...fields })
 
 // The day you last rolled with each name or profile, newest first. Profiles you haven't rolled with yet come last.
@@ -98,80 +95,4 @@ export function partnerLinker() {
     return { partner: p.name, partnerId: p.id }
   }
   return { link, recs: () => Object.values(touched) }
-}
-
-// ---------- The scouting brief ----------
-
-// What a partner's move did to you, by move type. Other types read as "caught you".
-const DID = { Pass: 'passed your guard', Sweep: 'swept you', Submission: 'caught you in a submission', Takedown: 'took you down', Escape: 'escaped from you', Retention: 'held their guard against you' }
-const lower = s => s.charAt(0).toLowerCase() + s.slice(1)
-export const spotOf = x => x.position ? x.position + (x.role && x.role !== 'Neutral' ? ', ' + x.role.toLowerCase() : '') : ''
-
-// Each key and the rolls it shows up in, once per roll, most rolls first.
-function tally(list, keysOf) {
-  const c = {}
-  list.forEach(x => new Set(keysOf(x)).forEach(k => { if (k) (c[k] ||= []).push(x.id) }))
-  return Object.entries(c).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
-}
-const movesOf = (r, outcome) => rollMoves(r).filter(m => m.outcome === outcome).map(m => techById(m.techId)).filter(Boolean)
-const withs = (total, list) => list.map(([id, ids]) => `${ids.length === total ? total === 1 ? '' : total === 2 ? 'both ' : 'all ' : ids.length + ' '}with the ${lower(techById(id).name)}`).join(', ')
-const counted = list => list.map(([k, ids]) => `${k} (${ids.length})`)
-
-// The brief for one profile. Each line: { k, text, ids }. ids are rolls (or rounds, for the rounds line).
-export function scout(p) {
-  const rolls = rollsWith(p), rounds = roundsWith(p), n = rolls.length, name = p.name
-  const by = res => rolls.filter(r => r.result === res).length
-  const lines = { head: [], them: [], mine: [], starts: [] }
-  const add = (part, k, text, ids) => ids.length && lines[part].push({ k, text, ids })
-
-  if (n) add('head', 'all', `You’ve rolled with ${name} ${n === 1 ? 'once' : n + ' times'} (last: ${fmtDate(rolls[0].date)}). Results: ${by('worked')} worked, ${by('partial')} partly, ${by('broke')} broke.`, rolls.map(r => r.id))
-  if (rounds.length) {
-    const goes = rounds.reduce((t, g) => t + (+g.tries || 0), 0), wins = rounds.reduce((t, g) => t + (+g.wins || 0), 0), losses = rounds.reduce((t, g) => t + (+g.losses || 0), 0)
-    add('head', 'rounds', `Positional rounds: ${rounds.length}. You scored on ${wins} of ${plural(goes, 'go', 'goes')}, ${name} on ${losses}.`, rounds.map(g => g.id))
-  }
-
-  // What they do to you: their moves by type, then the causes and spots you noted when it broke.
-  const typeOf = t => DID[t.type] ? t.type : 'Other'
-  tally(rolls, r => movesOf(r, 'caughtBy').map(typeOf)).slice(0, 3).forEach(([type, ids]) => {
-    const theirs = tally(rolls.filter(r => ids.includes(r.id)), r => movesOf(r, 'caughtBy').filter(t => typeOf(t) === type).map(t => t.id)).slice(0, 3)
-    add('them', 'caught-' + type, `${name} ${DID[type] || 'caught you'} in ${ids.length} of ${plural(n, 'roll')}: ${withs(ids.length, theirs)}.`, ids)
-  })
-  const bad = rolls.filter(r => r.result !== 'worked')
-  const causes = tally(bad, r => r.reasons || []).slice(0, 3), spots = tally(bad, r => [spotOf(r)]).slice(0, 3)
-  add('them', 'causes', `When it went wrong you noted: ${counted(causes).join(', ').toLowerCase()}.`, [...new Set(causes.flatMap(c => c[1]))])
-  add('them', 'spots', `It went wrong from: ${counted(spots).join('; ').toLowerCase()}.`, [...new Set(spots.flatMap(c => c[1]))])
-
-  // What works for you, and where your rolls with them start.
-  const landed = tally(rolls, r => movesOf(r, 'landed').map(t => t.id)).slice(0, 4)
-  add('mine', 'landed', `You landed: ${landed.map(([id, ids]) => `${lower(techById(id).name)} in ${plural(ids.length, 'roll')}`).join(', ')}.`, [...new Set(landed.flatMap(c => c[1]))])
-  const starts = tally(rolls, r => [spotOf(r)]).slice(0, 3)
-  add('starts', 'starts', `Where it starts: ${starts.map(([spot, ids]) => `${lower(spot)} (${ids.length}, ${rolls.filter(r => ids.includes(r.id) && r.result === 'worked').length} worked)`).join('; ')}.`, [...new Set(starts.flatMap(c => c[1]))])
-
-  const pinned = (p.notes || []).filter(x => x.pinned)
-  const latest = [...(p.notes || [])].filter(x => !x.pinned).sort(byDateDesc)[0] || null
-  return { n, rolls, rounds, lines, plan: planFor(p, rolls), pinned, latest, thin: n < 3 }
-}
-
-// One suggestion, from the data only: the start where your rolls with them work best (2+ rolls,
-// half or more worked), else a chain of yours that worked on them, else their most common weapon.
-function planFor(p, rolls) {
-  const best = tally(rolls, r => [spotOf(r)]).map(([spot, ids]) => {
-    const there = rolls.filter(r => ids.includes(r.id)), won = there.filter(r => r.result === 'worked')
-    return { spot, ids, won, n: there.length, start: there[0] }
-  }).filter(s => s.n >= 2 && s.won.length * 2 >= s.n).sort((a, b) => b.won.length / b.n - a.won.length / a.n || b.n - a.n)[0]
-  if (best) {
-    const [top] = tally(best.won, r => movesOf(r, 'landed').map(t => t.id))
-    return { text: `Start from ${lower(best.spot)}: ${best.won.length} of ${best.n} rolls there worked${top ? `, and you landed the ${lower(techById(top[0]).name)} in ${top[1].length === best.won.length && top[1].length > 1 ? 'each' : plural(top[1].length, 'roll')}` : ''}.`, ids: best.ids, from: best.start }
-  }
-  const chain = rolls.find(r => r.result === 'worked' && (r.chain || []).filter(m => m.outcome === 'landed').length >= 2)
-  if (chain) return { text: `Run what worked on ${fmtDate(chain.date)}: ${chain.chain.filter(m => m.outcome === 'landed').map(m => lower(techById(m.techId)?.name || '')).filter(Boolean).join(' › ')}.`, ids: [chain.id], from: chain }
-  const [weapon] = tally(rolls, r => movesOf(r, 'caughtBy').map(t => t.id))
-  if (weapon && weapon[1].length >= 2) return { text: `Have an answer ready for the ${lower(techById(weapon[0]).name)}: it got you in ${weapon[1].length} of ${plural(rolls.length, 'roll')}.`, ids: weapon[1], from: rolls.find(r => r.id === weapon[1][0]) }
-  return null
-}
-
-// The brief line a drilldown asked for: k is a line key, or 'plan'.
-export function briefLine(p, k) {
-  const b = scout(p)
-  return k === 'plan' ? b.plan : Object.values(b.lines).flat().find(l => l.k === k) || null
 }

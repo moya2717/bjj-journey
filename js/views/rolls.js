@@ -8,6 +8,7 @@ import { opponentList, opponentStory } from './opponents.js'
 import { roundList } from './rounds.js'
 import { chainBuilder, readChain, rollFlow, setChainStart } from '../picker.js'
 import { describeBox } from '../describe.js'
+import { hydratePhotos } from '../photos.js'
 import { MOVE_OUTCOMES, logMode, nodeDepth, nodePath, partnerProfile, rollTechId, seqById, sizeLabel, techById, treeOrder } from '../model.js'
 import { noteFor, partnerDatalist, partnerLinker, partnerPicker } from '../partners.js'
 
@@ -18,7 +19,8 @@ const sides = on => `<div class="seg roll-sides" role="group" aria-label="Show">
 export function view() {
   const sub = subOf('rolls')
   if (sub.startsWith('opp:')) return opponentStory(sub.slice(4))
-  if (sub === 'opponents') return `${sides(sub)}<div class="page-head"><div><h1>Opponents</h1><p class="lede">Everyone you’ve named on a roll, and the story of every roll with them.</p></div></div>${opponentList()}`
+  if (sub === 'opponents') return `${sides(sub)}<div class="page-head"><div><h1>Opponents</h1><p class="lede">Everyone you roll with: a scouting brief from your own rolls, your record, and the story of every roll.</p></div>
+    <div class="head-actions"><button class="btn ghost" data-act="partner-edit">Add a partner</button></div></div>${opponentList()}`
   return `${sides(sub)}<div class="page-head"><div><h1>Rolling analysis</h1><p class="lede">One note per key exchange: where it started, where it broke down, and what you’ll try next.</p></div>
     <div class="head-actions"><button class="btn" data-act="new-roll">Log a roll</button><button class="btn ghost" data-act="new-round">Log a positional round</button></div></div>
     ${roundList()}
@@ -29,7 +31,8 @@ export function view() {
     <div id="roll-list">${rollList()}</div>`
 }
 
-export function mount() {
+export function mount(root) {
+  hydratePhotos(root)
   $('#roll-pos')?.addEventListener('change', e => { UI.rollPos = e.target.value; UI.more.rolls = 0; $('#roll-list').innerHTML = rollList() })
   $('#roll-res')?.addEventListener('change', e => { UI.rollRes = e.target.value; UI.more.rolls = 0; $('#roll-list').innerHTML = rollList() })
 }
