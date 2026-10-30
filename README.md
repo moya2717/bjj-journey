@@ -40,7 +40,7 @@ The bar at the bottom has five sections. Each one holds a few screens, shown as 
 | **Home** | Your overview: what keeps going wrong, what to work on next, whether you’re improving |
 | **Journal** | Calendar · Rolls (roll notes and opponents) · Matchups |
 | **Learn** | Sequences (with the quiz) · Game plan · Skill tree · Live roll · Moves · Study (scenario review, video study, fixes) · Resources |
-| **Dojo** | Your character: it levels up from time on the mat and the moves you’ve learned |
+| **Dojo** | Your character: it wears your belt and shows your BJJ level, the same one as the Skill tree and Profile |
 | **You** | Profile (fighter card, training load, running, challenges, settings) · Stats · Injuries · Compete |
 
 Tap a section twice to go back to its first screen. The round **+** button logs training from anywhere.
@@ -70,7 +70,7 @@ Importing the same file again fills in mat time and rolls that an earlier import
 
 **Opponents** (Journal → Rolls → Opponents) gives every partner you've named a page: your record (won–even–lost), the latest results as dots, their go-to move and your best answer, and the story of every roll with them, oldest first. Turning points are called out as they happen: a first win, three in a row, the move that caught you a third time, the day you paid it back. Your **nemesis** is the partner you've rolled 3+ times and beaten least, or whoever you pick on their page.
 
-**Dojo** is one character that grows with you. Its level comes from time on the mat (10 XP an hour) and the moves you've learned (5 XP once you've seen a move, 15 drilled, 30 hit in sparring, 50 on a higher belt). It wears your real belt and stripes, a gi or a rashguard depending on which class you log most, and its look changes by itself as it levels: a headband at 5, a glow at 10, sparks at 20, gold at 30. Its stats are your game map.
+**Dojo** is one character that grows with you. Its level is your BJJ level (see Skill tree below), the same number as on your Profile, and it wears your real belt and stripes, in a gi or a rashguard depending on which class you log most. Its look grows with level: a headband at 10, a glow at 25, sparks at 50 and a golden aura at 75; a black belt gets a red-and-gold aura. Titles follow the belt bands, and its stats are your game map. No items, no shop.
 
 ## Other training
 
@@ -101,7 +101,7 @@ Gaps come first: key positions with no answer (“No escape logged from bottom s
 
 **Learn → Skill tree** shows every move as a star, grouped by position. It starts dark. A move lights up (white) once you log it in any way: drilled, in a sequence, marked as seen, or used in a roll. Live successes raise it through the belt colors: blue at 3, purple at 10, brown at 25, black at 50. Live successes are moves landed in rolls and positional rounds, plus submission wins in competition. Being caught by a move never raises it; a move that keeps catching you gets a red marker. Drag or pinch the map, tap a position to open it, and zoom in to tap a single move. Each position shows how much of it you've explored and its best color, and **Blind spots** lists the kinds of moves you haven't touched, like “No escapes from bottom side control explored”. Advanced mode adds counts per color, live wins and catches. The thresholds live in `js/skills.js` (`THRESHOLDS`).
 
-**BJJ level** is one number from 1 to 100, shown on the Skill tree and your Profile. Each belt is a band (white 1–20, blue 21–40, purple 41–60, brown 61–80). Stripes raise where you start in the band, and your skill tree fills the rest, so you can't pass the top of your band until you're promoted. Level 100 is your black belt. After that a new track starts: Black Belt Lv 1+, ten levels per degree.
+**BJJ level** is one number from 1 to 100, shown on the Skill tree, your Profile and the Dojo. Each belt is a band (white 1–20, blue 21–40, purple 41–60, brown 61–80). Stripes raise where you start in the band, and your skill tree fills the rest. Mat time at your current belt helps a little: about 150 hours counts like a quarter of the band's moves. You can't pass the top of your band until you're promoted. Level 100 is your black belt. After that a new track starts: Black Belt Lv 1+, ten levels per degree.
 
 ## Live roll
 

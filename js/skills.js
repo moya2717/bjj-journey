@@ -8,7 +8,7 @@ import { MOVE_GROUPS } from './catalog.js'
 import { allTechs, currentRank, masteryOf, rollMoves, sparred, landedIds, techUsage } from './model.js'
 import { FLOW } from './flow.js'
 import { place } from './gameplan.js'
-import { $, toast } from './util.js'
+import { $, sum, toast } from './util.js'
 
 // Live successes a node needs for each color. Tune here: each step asks for more than the last.
 export const THRESHOLDS = { Blue: 3, Purple: 10, Brown: 25, Black: 50 }
@@ -86,19 +86,23 @@ function blindSpots(branches) {
 const BANDS = { White: 1, Blue: 21, Purple: 41, Brown: 61 }
 // How much tree a full band asks for (sum of node weights). The square root makes early moves count most.
 const TARGET = { White: 60, Blue: 160, Purple: 340, Brown: 600, Black: 1000 }
+// Mat time at your current belt helps a little: MAT_HOURS of it counts as a quarter of the band's target.
+export const MAT_HOURS = 150
 
 export const bjjLevel = () => cached('bjjLevel', () => {
   const rank = currentRank(), { score } = skillTree(), stripes = Math.min(4, rank.stripes)
+  const hours = sum(S.session.filter(s => !rank.since || s.date >= rank.since), 'minutes') / 60
+  const mat = TARGET[rank.belt] / 4 * Math.min(1, hours / MAT_HOURS)
   if (rank.belt === 'Black') {
     const black = [...S.profile.promotions].filter(p => p.belt === 'Black').sort((a, b) => a.date.localeCompare(b.date))[0]
-    // Each degree is 10 levels; the tree you grow past a full brown belt's fills each one.
-    const fill = Math.min(1, Math.sqrt(Math.max(0, score - TARGET.Brown) / TARGET.Black))
-    return { black: true, level: 1 + 10 * rank.stripes + Math.floor(9 * fill), since: black?.date || '', belt: rank.belt, stripes: rank.stripes, fill, score }
+    // Each degree is 10 levels; the tree you grow past a full brown belt's, and your mat time, fill each one.
+    const fill = Math.min(1, Math.sqrt((Math.max(0, score - TARGET.Brown) + mat) / TARGET.Black))
+    return { black: true, level: 1 + 10 * rank.stripes + Math.floor(9 * fill), since: black?.date || '', belt: rank.belt, stripes: rank.stripes, fill, score, hours }
   }
   const lo = BANDS[rank.belt], hi = lo + 19, floor = lo + 4 * stripes
-  const fill = Math.min(1, Math.sqrt(score / TARGET[rank.belt]))
+  const fill = Math.min(1, Math.sqrt((score + mat) / TARGET[rank.belt]))
   const level = Math.min(hi, floor + Math.floor(fill * (hi - floor + 1)))
-  return { level, lo, hi, floor, belt: rank.belt, stripes, fill, score, top: level >= hi }
+  return { level, lo, hi, floor, belt: rank.belt, stripes, fill, score, hours, top: level >= hi }
 })
 
 // ---------- Color changes: a toast when a save lights a node or raises its color ----------

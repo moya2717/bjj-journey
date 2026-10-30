@@ -4,7 +4,7 @@
 import { UI } from '../ui.js'
 import { esc, fmtDate, pct, plural } from '../util.js'
 import { isSimple } from '../model.js'
-import { PROBLEM, THRESHOLDS, TIERS, bjjLevel, skillTree } from '../skills.js'
+import { MAT_HOURS, PROBLEM, THRESHOLDS, TIERS, bjjLevel, skillTree } from '../skills.js'
 import { more, subHead, subOf } from './hub.js'
 
 // Where each position's constellation sits: standing on top, guards on the left, pins on the right,
@@ -65,7 +65,8 @@ export function levelCard(L = bjjLevel()) {
       ${L.top ? '<p class="st-ready">Top of your band. Ready for the next stripe or belt?</p>' : ''}</div>${explain()}</section>`
 }
 
-const explain = () => `<details class="explain"><summary>How your level works</summary><p class="small muted">One number from 1 to 100, set by your belt and your skill tree. Each belt is a band: white 1–20, blue 21–40, purple 41–60, brown 61–80. Stripes (from your belt history) raise where you start in the band, and lighting up moves and landing them live fills the rest. Colored moves count more: blue ×3, purple ×6, brown ×10, black ×15. You can’t pass the top of your band until you’re promoted. Level 100 is the day you get your black belt; then a new track starts, Black Belt Lv 1+, 10 levels per degree.</p></details>`
+// The same explainer on the Skill tree and in the Dojo.
+export const explain = () => `<details class="explain"><summary>How your level works</summary><p class="small muted">One number from 1 to 100, set by your belt and your skill tree. Each belt is a band: white 1–20, blue 21–40, purple 41–60, brown 61–80. Stripes (from your belt history) raise where you start in the band, and lighting up moves and landing them live fills the rest. Colored moves count more: blue ×3, purple ×6, brown ×10, black ×15. Mat time at your current belt helps a little: about ${MAT_HOURS} hours counts like a quarter of the band’s moves. You can’t pass the top of your band until you’re promoted. Level 100 is the day you get your black belt; then a new track starts, Black Belt Lv 1+, 10 levels per degree.</p></details>`
 
 const bar = b => `<span class="st-mix" aria-hidden="true">${b.tiers.map((n, i) => i && n ? `<i class="t${i}" style="flex:${n}"></i>` : '').join('')}<i class="t0" style="flex:${b.tiers[0]}"></i></span>`
 
