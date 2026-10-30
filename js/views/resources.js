@@ -8,6 +8,8 @@ import { masteryButton } from './library.js'
 import { GAME_MAPS } from '../maps.js'
 import { CHECKLISTS, GLOSSARY, POINTS, RESOURCE_GROUPS } from '../resources.js'
 import { videoSearch } from '../catalog.js'
+import { VIDEOS, TIPS_INSTRUCTORS } from '../videos.js'
+import { actions as videoActions, instructorsHub, libraryHub } from './videos.js'
 
 const isAdded = map => S.seq.some(s => s.fromMap === map.id)
 
@@ -49,10 +51,12 @@ const linkCard = (item, own) => `<div class="res-item">
 // A tile per kind of resource; each opens as its own sub-screen.
 export function view() {
   const mine = [...S.link].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)), sub = subOf('resources')
-  const head = `<div class="page-head"><div><h1>Resources</h1><p class="lede">Game maps, belt checklists, the language of the mat and places to learn.</p></div>
+  const head = `<div class="page-head"><div><h1>Resources</h1><p class="lede">Game maps, belt checklists, videos, the language of the mat and places to learn.</p></div>
     <div class="head-actions"><button class="btn" data-act="new-link">Save a link</button></div></div>`
   const group = RESOURCE_GROUPS.find(g => 'g:' + g.title === sub)
   if (group) return subHead(group.title, 'Resources') + `<div class="res-grid">${group.items.map(i => linkCard(i, false)).join('')}</div>`
+  if (sub === 'videos') return subHead('Video library', 'Resources') + libraryHub()
+  if (sub === 'instructors') return subHead('Instructors on bjj.tips', 'Resources') + instructorsHub()
   if (sub === 'maps') return subHead('Game maps', 'Resources') + `
       <p class="small muted" style="margin-bottom:10px;max-width:70ch">Decision trees for common positions: your move, how partners usually react, and an answer for each. Add one to Sequences, then edit it and log rolls against it.</p>
       ${MAP_GROUPS.map(([role, title]) => {
@@ -76,6 +80,8 @@ export function view() {
   return head + `<div class="dojo-tiles">
       ${tile('maps', 'Game maps', GAME_MAPS.length, added ? `${added} in your sequences` : 'decision trees')}
       ${tile('belts', 'Belt checklists', `${learned}<small>/${sum(lists, l => l.length)}</small>`, 'hit in sparring')}
+      ${tile('videos', 'Video library', VIDEOS.length, 'checked by hand')}
+      ${tile('instructors', 'Instructors', TIPS_INSTRUCTORS.length, 'on bjj.tips')}
       ${tile('links', 'My links', mine.length, mine[0] ? esc(mine[0].name) : 'save your own')}
       ${tile('glossary', 'Glossary', GLOSSARY.length, 'terms on the mat')}
       ${tile('points', 'Points', POINTS.table.length, 'IBJJF scoring')}
@@ -119,6 +125,7 @@ function linkForm(id) {
 }
 
 export const actions = {
+  ...videoActions,
   'new-link': () => linkForm(),
   'edit-link': el => linkForm(el.dataset.id),
   'add-map': el => {

@@ -1475,3 +1475,12 @@ button.st-blind{background:none;border:0;padding:0;cursor:pointer;font:inherit;f
 .pt-photo{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:8px 0}
 .pt-pin-check{align-self:end}
 .pt-section{font-size:1.1rem;margin:22px 0 10px}
+
+/* Videos: a list on move and position pages; a YouTube player only after a tap. */
+.vid-list{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.vid .row-actions{margin-top:4px;flex-wrap:wrap}
+.vid-frame:empty{display:none}
+.vid-frame iframe{display:block;width:100%;aspect-ratio:16/9;border:0;border-radius:8px;margin-top:6px;background:#000}
+.vid-tips{margin-top:8px;overflow-wrap:anywhere}
+.vid-filters{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.vid-filters .pos-filter{margin-bottom:0}

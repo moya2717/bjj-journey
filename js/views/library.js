@@ -10,6 +10,7 @@ import { videoSearch } from '../catalog.js'
 import { hydratePhotos } from '../photos.js'
 import { techStats } from '../analysis.js'
 import { moreButton } from './hub.js'
+import { videosSection } from './videos.js'
 
 export function view() {
   const page = stack().at(-1)
@@ -151,11 +152,10 @@ function movePage(t) {
     ${(t.photos || []).length ? `<div class="photos">${t.photos.slice(0, 4).map(id => `<button data-act="view-photo" data-id="${id}" aria-label="Open photo"><img data-photo="${id}" alt="${esc(t.name)}"></button>`).join('')}</div>` : ''}
     ${t.notes ? `<p class="small mv-notes">${esc(t.notes)}</p>` : ''}
     <div class="row-actions">
-      ${/^https?:\/\//i.test(t.link || '')
-        ? `<a class="btn sm ghost" href="${esc(t.link)}" target="_blank" rel="noopener noreferrer">My link</a>`
-        : `<a class="btn sm ghost" href="${esc(videoSearch(t.name))}" target="_blank" rel="noopener noreferrer">Find videos</a>`}
+      ${/^https?:\/\//i.test(t.link || '') ? `<a class="btn sm ghost" href="${esc(t.link)}" target="_blank" rel="noopener noreferrer">My link</a>` : ''}
       <button class="btn sm ghost" data-act="edit-tech" data-id="${esc(t.id)}">Edit</button>
-    </div>`
+    </div>
+    ${videosSection({ techId: t.id, pos: t.position })}`
 }
 
 // Where it lands from each start (starts that agree share a line), then the moves from its usual landing.
@@ -201,7 +201,8 @@ function posPage(k) {
     <p class="hint">${esc(describe({ pos, role }))}.</p>
     ${pos !== 'Standing' ? `<div class="flow-chips"><span class="flow-tag">Their side</span>${posChip(pos + '|' + flip(role))}</div>` : ''}
     <section class="flow-card"><h2>Moves from here</h2>${ids.length ? group('Move on', 0) + group('Finish', 1) + group('Hold and set up', 2) : '<p class="hint">None mapped yet.</p>'}</section>
-    <section class="flow-card"><h2>How you get here</h2>${howHere([k], 99) || '<p class="hint">Nothing mapped lands here.</p>'}</section>`
+    <section class="flow-card"><h2>How you get here</h2>${howHere([k], 99) || '<p class="hint">Nothing mapped lands here.</p>'}</section>
+    ${videosSection({ pos })}`
 }
 
 export const actions = {
