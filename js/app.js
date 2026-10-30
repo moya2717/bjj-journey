@@ -97,12 +97,24 @@ function render() {
   $('.fab').hidden = (UI.view === 'sequences' && !!UI.quiz) || (UI.view === 'study' && !!UI.scenario) || (UI.view === 'sim' && !!UI.sim)
 }
 
+// Light/dark and the color theme. Mirrored to localStorage so index.html can paint them before the journal loads,
+// and the status bar color follows the page background.
+function applyLook() {
+  const root = document.documentElement, { theme, palette } = S.settings
+  if (theme) root.dataset.theme = theme
+  else delete root.dataset.theme
+  if (palette && palette !== 'mat') root.dataset.palette = palette
+  else delete root.dataset.palette
+  try { localStorage.setItem('bjj-look', JSON.stringify({ theme, palette })) } catch {}
+  $('meta[name="theme-color"]').content = getComputedStyle(document.body).backgroundColor
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyLook)
+
 // The header is your belt: its color follows your rank, and the tape on the bar
 // shows how many of the last 4 weeks you hit your weekly session target.
 function renderHeader() {
   const look = S.profile.promotions.length ? BELT_LOOK[currentRank().belt] : null
-  if (S.settings.theme) document.documentElement.dataset.theme = S.settings.theme
-  else delete document.documentElement.dataset.theme
+  applyLook()
   const root = document.documentElement.style
   for (const [token, key] of [['--belt', 'belt'], ['--belt-ink', 'ink'], ['--belt-muted', 'muted'], ['--bar', 'bar']]) {
     if (look) root.setProperty(token, look[key])

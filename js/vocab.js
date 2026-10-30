@@ -26,6 +26,9 @@ export const AREAS = ['Takedowns', 'Guard retention', 'Sweeps', 'Passing', 'Esca
 export const PLAN_HIT = ['Stuck to it', 'Partly', 'Went another way']
 
 // Belts look the same in light and dark mode, so these are literal colors.
+// Color themes: [key, name]. 'mat' is the default look; the colors live in css/app.css.
+export const PALETTES = [['mat', 'Mat Blue'], ['violet', 'Purple Belt'], ['jade', 'Jade Dojo'], ['ember', 'Ember'], ['gold', 'Gold Medal'], ['ocean', 'Ocean Deep'], ['rose', 'Midnight Rose']]
+
 export const BELT_LOOK = {
   White: { belt: '#F1F0EA', ink: '#15202A', muted: '#5A6570', bar: '#111111' },
   Blue: { belt: '#1F4FA0', ink: '#FFFFFF', muted: '#C5D3EC', bar: '#0B0B0B' },
