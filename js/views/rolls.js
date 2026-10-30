@@ -3,14 +3,22 @@ import { UI } from '../ui.js'
 import { BELTS, POSITIONS, REASONS, RESULTS, SIZES, STYLES } from '../vocab.js'
 import { $, byDateDesc, esc, fmtDate, fmtDateLong, newId, posRole, toast, today, trunc } from '../util.js'
 import { field, selectEl, chipsEl, techSelect, openSheet } from '../sheet.js'
-import { more } from './hub.js'
+import { more, subOf } from './hub.js'
+import { opponentList, opponentStory } from './opponents.js'
 import { roundList } from './rounds.js'
 import { chainBuilder, readChain, rollFlow, setChainStart } from '../picker.js'
 import { describeBox } from '../describe.js'
 import { MOVE_OUTCOMES, logMode, nodeDepth, nodePath, partnerNames, partnerProfile, rollTechId, seqById, sizeLabel, techById, treeOrder } from '../model.js'
 
+// Rolls has two sides: your roll notes, and your opponents with their stories.
+const sides = on => `<div class="seg roll-sides" role="group" aria-label="Show">${[['', 'Roll notes'], ['opponents', 'Opponents']].map(([k, label]) =>
+  `<button data-act="open-sub" data-sub="${k}" aria-pressed="${k === on}">${label}</button>`).join('')}</div>`
+
 export function view() {
-  return `<div class="page-head"><div><h1>Rolling analysis</h1><p class="lede">One note per key exchange: where it started, where it broke down, and what you’ll try next.</p></div>
+  const sub = subOf('rolls')
+  if (sub.startsWith('opp:')) return opponentStory(sub.slice(4))
+  if (sub === 'opponents') return `${sides(sub)}<div class="page-head"><div><h1>Opponents</h1><p class="lede">Everyone you’ve named on a roll, and the story of every roll with them.</p></div></div>${opponentList()}`
+  return `${sides(sub)}<div class="page-head"><div><h1>Rolling analysis</h1><p class="lede">One note per key exchange: where it started, where it broke down, and what you’ll try next.</p></div>
     <div class="head-actions"><button class="btn" data-act="new-roll">Log a roll</button><button class="btn ghost" data-act="new-round">Log a positional round</button></div></div>
     ${roundList()}
     ${S.roll.length ? `<div class="filters sticky-chips">

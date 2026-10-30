@@ -5,6 +5,7 @@ import { $, $$, byDateDesc, cap, esc, fmtDateLong, fmtTime, hrs, isoDate, monthL
 import { field, selectEl, chipsEl, focusPicker, radioChips, techSelect, openSheet } from '../sheet.js'
 import { chainBuilder, readChain, rollFlow, setChainStart } from '../picker.js'
 import { describeBox } from '../describe.js'
+import { noteMovesBox, readNoteMoves, wireNoteMoves, withoutNote } from '../notemoves.js'
 import { hasDetail, logMode, partnerProfile, rollMoves, seqById, techById } from '../model.js'
 import { heatLevel } from '../charts.js'
 import { addPhotos, removePhotos, hydratePhotos, openViewer, photoURL } from '../photos.js'
@@ -212,6 +213,7 @@ function noteStep(s, simple) {
     ? `<textarea name="${name}" id="f-${name}" rows="3">${esc(value)}</textarea>`
     : `<input type="text" name="${name}" id="f-${name}" value="${esc(value || '')}" placeholder="${hint}">`
   return `${field('How was class? What did you learn?', `<textarea name="notes" id="f-notes" rows="4" placeholder="${simple ? 'We worked on escaping when someone is on top of you. I got stuck a lot, but my partner showed me how to bridge.' : 'What class covered, how the rolls went, ideas to try'}">${esc(s.notes || '')}</textarea>`)}
+    ${noteMovesBox()}
     <div class="grid2">
       ${field('Something that worked', line('worked', s.worked, simple ? 'Keeping my elbows tight' : 'Framing early on bottom'))}
       ${field('Something to fix', line('struggled', s.struggled, simple ? 'I held my breath and got tired' : 'Let them flatten me out'))}
@@ -285,8 +287,8 @@ function sessionForm(id, date) {
     </div></details>
     <details class="more add-detail" data-add-detail ${!simple || showDetail ? 'open' : ''}><summary>Add more detail <span class="hint">plan, energy, drills, reflection, rolls</span></summary><div>
       ${step(3, 'How it went', bodyCheck(s) + howItWent(s))}
-      <details class="more" ${id && ((s.focus || []).length || (s.drilled || []).length) ? 'open' : ''}><summary>What class covered: positions and moves drilled</summary><div>
-        ${focusPicker(s.focus || [], s.drilled || [])}
+      <details class="more" ${id && (withoutNote(s.focus, s, 'noteFocus').length || withoutNote(s.drilled, s, 'noteMoves').length) ? 'open' : ''}><summary>What class covered: positions and moves drilled <span class="hint">or just name them in your note</span></summary><div>
+        ${focusPicker(withoutNote(s.focus, s, 'noteFocus'), withoutNote(s.drilled, s, 'noteMoves'))}
       </div></details>
       <details class="more" ${(s.reps || []).length ? 'open' : ''}><summary>Drill reps (shrimps, bridges, stand-ups…)</summary><div>
         <div class="reps" id="s-reps">${(s.reps || []).map((r, i) => repRow(i, r)).join('')}</div>
@@ -308,6 +310,7 @@ function sessionForm(id, date) {
       const addRoll = preset => { rollBox.insertAdjacentHTML('beforeend', rollRow(rows++, preset)); renumber() }
       let reps = (s.reps || []).length
       wireBodyCheck(form)
+      wireNoteMoves(form, s)
       wireRounds(form)
       // A game starts as your last one did; opening the empty fold adds the first one.
       const gameBox = $('#s-games', form), addGame = () => gameBox.insertAdjacentHTML('beforeend', roundRow(games++, newRound()))
@@ -391,11 +394,12 @@ function sessionForm(id, date) {
       if (dropped.length) removePhotos(dropped)
 
       const answer = (fd.get('reflectA') || '').trim(), coachQ = fd.get('coachQ').trim()
-      const sessionId = id || newId('session')
+      const sessionId = id || newId('session'), fromNote = readNoteMoves(fd)
       const session = {
         ...(id ? s : {}), id: sessionId, kind: 'session', date, type: fd.get('type'),
         time: fd.get('time') || '', minutes: +fd.get('minutes') || 0, rounds: +fd.get('rounds') || 0,
-        focus: fd.getAll('focus'), drilled: fd.getAll('drilled'),
+        // Moves and positions named in the note count as drilled and covered, alongside the picker's.
+        focus: [...new Set([...fd.getAll('focus'), ...fromNote.noteFocus])], drilled: [...new Set([...fd.getAll('drilled'), ...fromNote.noteMoves])], ...fromNote,
         reps: $$('[data-rep]', form).map(r => ({ techId: fd.get(`rep${r.dataset.rep}_tech`), count: +fd.get(`rep${r.dataset.rep}_count`) || 0 })).filter(r => r.techId && r.count),
         photos: [...keptPhotos, ...added],
         plan: fd.get('plan').trim(), feel: fd.get('feel') || '', planHit: fd.get('planHit') || '',

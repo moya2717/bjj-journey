@@ -447,7 +447,17 @@ export function parseRoll(text, { techs = [], personal = {}, partners = [], usag
     if (lands) at = s.outcome === 'caughtBy' ? { pos: lands.pos, role: flip(lands.role) } : lands
   })
   const positions = events.flatMap(e => e.t === 'pos' ? [e.span] : e.post ? [e.post.span] : []).filter(Boolean)
-  return { position: start?.pos || '', role: start?.role || '', steps, chain, partner, result: resultOf(chain, index, toks), unmatched, notes, positions }
+  const places = [...new Set(events.flatMap(e => e.t === 'pos' ? [e.pos] : e.post ? [e.post.pos] : []))]
+  return { position: start?.pos || '', role: start?.role || '', steps, chain, partner, result: resultOf(chain, index, toks), unmatched, notes, positions, places }
+}
+
+// Class notes: every move you name that you did (drilled, tried or hit), and the positions class covered.
+// Moves that caught you aren't yours, so they're left out. Same matching as a roll, without the story.
+export function parseClass(text, opts) {
+  const got = parseRoll(text, opts), seen = new Set()
+  const moves = got.chain.filter(m => m.outcome !== 'caughtBy' && !seen.has(m.techId) && seen.add(m.techId))
+    .map(({ techId, confidence, alts, phrase, span }) => ({ techId, confidence, alts, phrase, span }))
+  return { moves, places: got.places, unmatched: got.unmatched }
 }
 
 const spanOf = (c, w) => { const it = c.items.find(x => x.w === w); return it ? [it.s, it.e] : null }
@@ -457,7 +467,7 @@ function leftovers(c, text) {
   const its = c.items, out = []
   its.forEach((it, i) => {
     const pair = it.k === 'w' && its[i + 1]?.k === 'w' && it.w + ' ' + its[i + 1].w
-    const verb = it.k === 'w' && ['hit', 'tried', 'attempted', 'landed', 'finished', 'threw', 'used', 'did'].includes(it.w) ? 1 : ['went for', 'go for', 'going for', 'caught me', 'got me'].includes(pair) ? 2 : 0
+    const verb = it.k === 'w' && ['hit', 'tried', 'attempted', 'landed', 'finished', 'threw', 'used', 'did', 'drilled', 'learned', 'practiced', 'covered', 'repped'].includes(it.w) ? 1 : ['went for', 'go for', 'going for', 'caught me', 'got me', 'worked on', 'showed us'].includes(pair) ? 2 : 0
     if (!verb) return
     const words = []
     for (let j = i + verb; j < its.length && its[j].k === 'w' && words.length < 4; j++) {

@@ -1291,3 +1291,68 @@ span.flow-chip.more{cursor:default;display:inline-flex;align-items:center}
 .spot-row{cursor:default;grid-template-columns:118px minmax(0,1fr) 40px}
 .key .rk-you,.key .rk-them{display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle;background:var(--worked)}
 .key .rk-them{background:var(--broke)}
+
+/* Moves found in class notes */
+.note-moves{display:flex;flex-direction:column;gap:8px;margin:-4px 0 10px}
+.note-moves:empty{display:none}
+.note-moves .pos-chip span{text-decoration:underline 2px var(--mat);text-underline-offset:3px}
+.note-moves .alt-chip span{border-style:dashed;color:var(--muted)}
+
+/* Rolls → Opponents */
+.roll-sides{margin-bottom:14px}
+.opp-list{display:flex;flex-direction:column;gap:8px}
+.opp-legend{margin:0 0 8px}
+.opp-card{display:flex;flex-direction:column;align-items:stretch;gap:4px;width:100%;padding:12px 14px;border-radius:var(--r);background:var(--surface);border:1px solid var(--edge);box-shadow:var(--shadow-1);text-align:left;cursor:pointer;color:var(--ink)}
+.opp-card:hover{border-color:color-mix(in srgb,var(--neon) 55%,transparent);box-shadow:var(--glow)}
+.opp-top{display:flex;align-items:center;gap:8px}
+.opp-top b{font-size:1.05rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opp-rec{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:750;font-stretch:85%}
+.opp-badge{font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:var(--broke);color:#fff;white-space:nowrap}
+.opp-form{display:flex;gap:4px;flex-wrap:wrap;margin:2px 0}
+.opp-form i{width:10px;height:10px;border-radius:50%;background:var(--partial)}
+.opp-form i.won{background:var(--worked)}.opp-form i.lost{background:var(--broke)}
+.nemesis-hero{margin-bottom:14px}
+.nemesis-hero .w-lbl{margin:0 0 6px}
+.opp-card.nemesis,.opp-hero.nemesis{border-color:color-mix(in srgb,var(--broke) 55%,transparent);background:linear-gradient(160deg,color-mix(in srgb,var(--broke) 10%,var(--surface)),var(--surface) 60%)}
+.opp-hero{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:16px;border-radius:var(--r-lg,16px);background:var(--surface);border:1px solid var(--edge);margin-bottom:18px}
+.opp-score{display:flex;gap:18px}
+.opp-score span{display:flex;flex-direction:column;font-size:.75rem;color:var(--muted)}
+.opp-score b{font-size:1.9rem;font-weight:820;font-stretch:80%;color:var(--ink);line-height:1.05;font-variant-numeric:tabular-nums}
+.opp-sofar p{margin:0 0 4px}
+.opp-h{font-size:1.1rem;margin:0 0 10px}
+.opp-story{list-style:none;margin:0 0 12px;padding:0 0 0 18px;border-left:2px solid var(--line);display:flex;flex-direction:column;gap:16px}
+.opp-scene{position:relative}
+.opp-scene::before{content:"";position:absolute;left:-25px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--partial);box-shadow:0 0 0 3px var(--paper)}
+.opp-scene.worked::before{background:var(--worked)}.opp-scene.broke::before{background:var(--broke)}
+.opp-scene p{margin:0 0 4px;max-width:62ch}
+.opp-when{font-size:.85rem;color:var(--muted)}
+.opp-when b{color:var(--ink)}
+.opp-beat{display:inline-block;font-weight:750;font-size:.9rem;padding:3px 10px;border-radius:999px;background:var(--mat-soft);color:var(--mat)}
+.opp-end{font-weight:650}
+.opp-scene blockquote{margin:4px 0;padding:2px 0 2px 10px;border-left:3px solid var(--line-strong);color:var(--muted);font-style:italic}
+
+/* Dojo: one character, levels from mat time and moves learned */
+.dojo-hero{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+.dojo-av{width:132px;flex:none;filter:drop-shadow(0 6px 18px color-mix(in srgb,var(--neon) 22%,transparent))}
+.dojo-av .aura{animation:dojo-pulse 3.2s ease-in-out infinite;transform-origin:60px 74px}
+.dojo-av .spark{animation:dojo-twinkle 2.1s ease-in-out infinite}
+@keyframes dojo-pulse{50%{opacity:.6;transform:scale(.94)}}
+@keyframes dojo-twinkle{50%{opacity:.15}}
+@media (prefers-reduced-motion:reduce){.dojo-av .aura,.dojo-av .spark{animation:none}}
+.dojo-id{min-width:0;flex:1}
+.dojo-id h1{font-size:1.7rem;font-stretch:112%;margin:0;overflow-wrap:anywhere}
+.dojo-id .w-lbl{margin:0}
+.dojo-title{margin:2px 0 8px}
+.dojo-title b{font-size:1.15rem}
+.xpbar{display:block;height:10px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.xpbar>span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--neon),var(--neon-2))}
+.dojo-tile.static{cursor:default}
+.dojo-next{margin:12px 0 14px}
+.dojo-stats{margin-bottom:12px}
+.dojo-stat{display:grid;grid-template-columns:96px minmax(0,1fr) 30px;align-items:center;gap:10px;margin-top:10px;font-size:.9rem}
+.dojo-stat b{text-align:right;font-variant-numeric:tabular-nums}
+.dojo-levels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;text-align:center}
+.dojo-levels div{display:flex;flex-direction:column;gap:2px;padding:8px 4px;border-radius:10px;background:var(--surface-2)}
+.dojo-levels b{font-size:1.4rem;font-stretch:80%}
+.dojo-new li{display:flex;justify-content:space-between;gap:10px}
+.dojo-how{margin-top:12px}

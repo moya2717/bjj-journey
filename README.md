@@ -33,13 +33,14 @@ Send them the same address and these install steps. Everyone's journal is separa
 
 ## Finding your way around
 
-The bar at the bottom has four sections. Each one holds a few screens, shown as tabs under the header:
+The bar at the bottom has five sections. Each one holds a few screens, shown as tabs under the header:
 
 | Section | Screens |
 |---|---|
 | **Home** | Your overview: what keeps going wrong, what to work on next, whether you’re improving |
-| **Journal** | Calendar · Rolls · Matchups |
+| **Journal** | Calendar · Rolls (roll notes and opponents) · Matchups |
 | **Learn** | Sequences (with the quiz) · Game plan · Live roll · Moves · Study (scenario review, video study, fixes) · Resources |
+| **Dojo** | Your character: it levels up from time on the mat and the moves you’ve learned |
 | **You** | Profile (fighter card, training load, running, challenges, settings) · Stats · Injuries · Compete |
 
 Tap a section twice to go back to its first screen. The round **+** button logs training from anywhere.
@@ -62,6 +63,14 @@ Tap a section twice to go back to its first screen. The round **+** button logs 
 **Profile:** your name, academy, coach, start date, birthday, weight, current belt and promotion history are read from the export too. Only empty profile fields are filled, and promotions you already have aren’t added twice.
 
 Importing the same file again fills in mat time and rolls that an earlier import missed, without duplicating sessions or overwriting your edits. If an app only exports a spreadsheet (.xlsx), save it as CSV first.
+
+## Class notes, opponents and the Dojo
+
+**Moves from your notes.** Write class notes the way you'd say them (“we drilled the scissor sweep, then armbar from guard”) and the moves and positions you name show up as ticked chips under the note. They save as what class covered, so they count toward each move's mastery, your game map and the Dojo, the same as picking them by hand. Untick anything that's wrong; a guess with a ? offers what else the words could mean. Moves that caught you aren't counted. The “What class covered” picker and drill reps are still there if you'd rather tap.
+
+**Opponents** (Journal → Rolls → Opponents) gives every partner you've named a page: your record (won–even–lost), the latest results as dots, their go-to move and your best answer, and the story of every roll with them, oldest first. Turning points are called out as they happen: a first win, three in a row, the move that caught you a third time, the day you paid it back. Your **nemesis** is the partner you've rolled 3+ times and beaten least, or whoever you pick on their page.
+
+**Dojo** is one character that grows with you. Its level comes from time on the mat (10 XP an hour) and the moves you've learned (5 XP once you've seen a move, 15 drilled, 30 hit in sparring, 50 on a higher belt). It wears your real belt and stripes, a gi or a rashguard depending on which class you log most, and its look changes by itself as it levels: a headband at 5, a glow at 10, sparks at 20, gold at 30. Its stats are your game map.
 
 ## Other training
 
