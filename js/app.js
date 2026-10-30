@@ -1,7 +1,7 @@
 // LosMoya BJJ Journey: boot, navigation and the one click handler that drives every button.
 import { S, load, onChange } from './store.js'
 import { UI } from './ui.js'
-import { BELT_LOOK } from './vocab.js'
+import { BELT_LOOK, PALETTES, paletteOf } from './vocab.js'
 import { $ } from './util.js'
 import { currentRank, isSimple } from './model.js'
 import { weeksOnTarget } from './analysis.js'
@@ -98,15 +98,18 @@ function render() {
 }
 
 // Light/dark and the color theme. Mirrored to localStorage so index.html can paint them before the journal loads,
-// and the status bar color follows the page background.
+// and the status bar color follows the header.
 function applyLook() {
-  const root = document.documentElement, { theme, palette } = S.settings
+  const root = document.documentElement, { theme } = S.settings, palette = paletteOf(S.settings.palette)
   if (theme) root.dataset.theme = theme
   else delete root.dataset.theme
-  if (palette && palette !== 'mat') root.dataset.palette = palette
+  if (palette !== PALETTES[0][0]) root.dataset.palette = palette
   else delete root.dataset.palette
   try { localStorage.setItem('bjj-look', JSON.stringify({ theme, palette })) } catch {}
-  $('meta[name="theme-color"]').content = getComputedStyle(document.body).backgroundColor
+  const probe = document.body.appendChild(document.createElement('i'))
+  probe.style.color = 'var(--chrome)'
+  $('meta[name="theme-color"]').content = getComputedStyle(probe).color
+  probe.remove()
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyLook)
 
@@ -116,7 +119,7 @@ function renderHeader() {
   const look = S.profile.promotions.length ? BELT_LOOK[currentRank().belt] : null
   applyLook()
   const root = document.documentElement.style
-  for (const [token, key] of [['--belt', 'belt'], ['--belt-ink', 'ink'], ['--belt-muted', 'muted'], ['--bar', 'bar']]) {
+  for (const [token, key] of [['--belt', 'belt'], ['--belt-ink', 'ink'], ['--bar', 'bar']]) {
     if (look) root.setProperty(token, look[key])
     else root.removeProperty(token)
   }

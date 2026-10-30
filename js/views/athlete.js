@@ -2,7 +2,7 @@
 // The first screen under You: the fighter card, then tiles that open each part as a sub-screen.
 import { S, allRecords, eraseEverything, removeMany, save, saveMany } from '../store.js'
 import { UI } from '../ui.js'
-import { BELT_LOOK, PALETTES, RANKS } from '../vocab.js'
+import { BELT_LOOK, PALETTES, RANKS, paletteOf } from '../vocab.js'
 import { $, $$, byDateAsc, esc, fmtDate, fmtMonthY, hrs, newId, pct, plural, span, sum, toast, today, trunc, ym } from '../util.js'
 import { field, selectEl, armDelete, openSheet, radioChips } from '../sheet.js'
 import { ageDivision, currentRank, isSimple, logMode, rankName } from '../model.js'
@@ -349,7 +349,7 @@ function dataPanel() {
       <label class="setting"><span>Run distances in</span>${selectEl('', [{ value: 'mi', label: 'Miles' }, { value: 'km', label: 'Kilometers' }], distUnit(), 'id="dist-unit"')}</label>
       <label class="setting"><span>Look</span>${selectEl('', [{ value: '', label: 'Match my phone' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], S.settings.theme || '', 'id="theme"')}</label>
       <div class="setting theme-setting"><span id="palettes-label">Theme</span><div class="theme-sws" id="palettes" role="radiogroup" aria-labelledby="palettes-label">${PALETTES.map(([key, name]) =>
-        `<button type="button" class="theme-sw" data-palette="${key}" role="radio" aria-checked="${key === (S.settings.palette || 'mat')}"><span class="sw-card"><i></i><i></i></span><span class="sw-name">${name}</span></button>`).join('')}</div></div>
+        `<button type="button" class="theme-sw" data-palette="${key}" role="radio" aria-checked="${key === paletteOf(S.settings.palette)}"><span class="sw-card"><i></i><i></i></span><span class="sw-name">${name}</span></button>`).join('')}</div></div>
     </div>
     <p class="small muted" style="margin-top:10px;max-width:70ch">Your journal lives only on this device and works without internet. Nobody else can see it. Back it up now and then: on iPhone, choose “Save to Files” so it lands in iCloud Drive. ${last ? `Last backup: ${fmtDate(last)}.` : '<strong>No backup yet.</strong>'}</p>
     <div class="data-actions">
