@@ -39,7 +39,7 @@ The bar at the bottom has five sections. Each one holds a few screens, shown as 
 |---|---|
 | **Home** | Your overview: what keeps going wrong, what to work on next, whether you’re improving |
 | **Journal** | Calendar · Rolls (roll notes and opponents) · Matchups |
-| **Learn** | Sequences (with the quiz) · Game plan · Live roll · Moves · Study (scenario review, video study, fixes) · Resources |
+| **Learn** | Sequences (with the quiz) · Game plan · Skill tree · Live roll · Moves · Study (scenario review, video study, fixes) · Resources |
 | **Dojo** | Your character: it levels up from time on the mat and the moves you’ve learned |
 | **You** | Profile (fighter card, training load, running, challenges, settings) · Stats · Injuries · Compete |
 
@@ -96,6 +96,12 @@ Add your next tournament to get a countdown, a prep checklist, an A-game plan (o
 **Learn → Game plan** is your whole game as one map: Standing → Guard or Passing → Control → Submissions, with Escapes from the bad spots. Logged rolls are the main source. Each roll's chain, in order, gives every move where it happened, how it went (landed, tried, or caught you) and where it led, with the rolls it came from. Older rolls with a single move or a list of moves are read in order from where the roll started. Sequences and Live roll chains add planned edges, marked as planned. Moves your partners caught you with sit on the problem side of each position. Nothing is guessed: where a move led is the next position you logged, else what the Live roll table lists from that exact spot. Anything else shows "Position after: unknown", with a quick way to set it. Moves logged with no position at all are listed apart.
 
 Gaps come first: key positions with no answer (“No escape logged from bottom side control”), only one (“Only one pass from half guard top”), or none that has landed in a roll yet. They're ranked by where you get caught and spend your rolls. Each gap suggests moves the Live roll table lists from that exact spot and side, and one tap adds one to Today’s focus, starts a sequence with it, or searches for an instructional.
+
+## Skill tree
+
+**Learn → Skill tree** shows every move as a star, grouped by position. It starts dark. A move lights up (white) once you log it in any way: drilled, in a sequence, marked as seen, or used in a roll. Live successes raise it through the belt colors: blue at 3, purple at 10, brown at 25, black at 50. Live successes are moves landed in rolls and positional rounds, plus submission wins in competition. Being caught by a move never raises it; a move that keeps catching you gets a red marker. Drag or pinch the map, tap a position to open it, and zoom in to tap a single move. Each position shows how much of it you've explored and its best color, and **Blind spots** lists the kinds of moves you haven't touched, like “No escapes from bottom side control explored”. Advanced mode adds counts per color, live wins and catches. The thresholds live in `js/skills.js` (`THRESHOLDS`).
+
+**BJJ level** is one number from 1 to 100, shown on the Skill tree and your Profile. Each belt is a band (white 1–20, blue 21–40, purple 41–60, brown 61–80). Stripes raise where you start in the band, and your skill tree fills the rest, so you can't pass the top of your band until you're promoted. Level 100 is your black belt. After that a new track starts: Black Belt Lv 1+, ten levels per degree.
 
 ## Live roll
 

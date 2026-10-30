@@ -5,12 +5,14 @@ import { BELT_LOOK } from './vocab.js'
 import { $ } from './util.js'
 import { currentRank, isSimple } from './model.js'
 import { weeksOnTarget } from './analysis.js'
+import { watchTiers } from './skills.js'
 import * as overview from './views/overview.js'
 import * as journal from './views/journal.js'
 import * as rolls from './views/rolls.js'
 import * as matchups from './views/matchups.js'
 import * as sequences from './views/sequences.js'
 import * as gameplan from './views/gameplan.js'
+import * as skills from './views/skills.js'
 import * as library from './views/library.js'
 import * as sim from './views/sim.js'
 import * as study from './views/study.js'
@@ -34,6 +36,7 @@ const VIEWS = {
   review: ['Week', review],
   sequences: ['Sequences', sequences],
   gameplan: ['Game plan', gameplan],
+  skills: ['Skill tree', skills],
   library: ['Moves', library],
   sim: ['Live roll', sim],
   resources: ['Resources', resources],
@@ -50,8 +53,8 @@ const VIEWS = {
 const SECTIONS = {
   home: { label: 'Home', views: ['overview'], icon: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>' },
   journal: { label: 'Journal', views: ['journal', 'rolls', 'matchups', 'review'], icon: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
-  // Your game plan and what you study, together: sequences, the game plan they add up to, Live roll to rehearse them, moves, scenarios and resources.
-  learn: { label: 'Learn', views: ['sequences', 'gameplan', 'sim', 'library', 'study', 'resources'], icon: '<path d="M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M9 7h7"/>' },
+  // Your game plan and what you study, together: sequences, the game plan they add up to, the skill tree, Live roll to rehearse them, moves, scenarios and resources.
+  learn: { label: 'Learn', views: ['sequences', 'gameplan', 'skills', 'sim', 'library', 'study', 'resources'], icon: '<path d="M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2 2 2 0 0 0 2 2h14"/><path d="M9 7h7"/>' },
   // Your character: it levels from time on the mat and the moves you've learned.
   dojo: { label: 'Dojo', views: ['dojo'], icon: '<path d="M3 5q9 3 18 0M5 9h14M7 6v15M17 6v15M7 13h10"/>' },
   you: { label: 'You', views: ['athlete', 'stats', 'injuries', 'compete'], icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>' },
@@ -136,6 +139,9 @@ async function boot() {
     $('#app').innerHTML = '<div class="empty-state"><h2>Storage is turned off</h2><p>This browser isn’t letting the journal save. On iPhone, turn off Private Browsing, or add the app to your Home Screen.</p></div>'
     return
   }
+  // A save that lights a move or raises its color gets a toast; the first look only takes note.
+  watchTiers()
+  onChange(watchTiers)
   onChange(render)
   render()
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {

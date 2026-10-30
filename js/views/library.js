@@ -120,7 +120,7 @@ const chips = (ids, n = 6, k = '') => {
   const list = [...new Set(ids)].filter(techById), left = list.length - n
   return `<div class="flow-chips">${list.slice(0, n).map(moveChip).join('')}${left > 0 ? (k ? `<button class="flow-chip more" data-act="lib-open" data-pos="${esc(k)}">+${left} more</button>` : `<span class="flow-chip more">+${left}</span>`) : ''}</div>`
 }
-const pageHead = title => `<div class="sub-head"><button class="btn sm ghost" data-act="lib-back">‹ ${esc(stack().length > 1 ? trunc(nameOf(stack().at(-2)), 18) : 'Moves')}</button><h1>${esc(title)}</h1></div>`
+const pageHead = title => `<div class="sub-head"><button class="btn sm ghost" data-act="lib-back">‹ ${esc(stack().length > 1 ? trunc(nameOf(stack().at(-2)), 18) : stack()[0]?.from === 'skills' ? 'Skill tree' : 'Moves')}</button><h1>${esc(title)}</h1></div>`
 const isFinish = (t, r) => r.stays && t.type === 'Submission'
 // Your moves that get you to these positions, then your partner's that put you there. n each, or fewer when both show.
 function howHere(keys, n, skip = '') {
@@ -206,7 +206,8 @@ function posPage(k) {
 
 export const actions = {
   'lib-open': el => { UI.sub.library = [...stack(), el.dataset.move ? { move: el.dataset.move } : { pos: el.dataset.pos }]; scrollTo(0, 0) },
-  'lib-back': () => { UI.sub.library = stack().slice(0, -1); scrollTo(0, 0) },
+  // A move opened from the skill tree goes back there.
+  'lib-back': () => { if (stack().length === 1 && stack()[0].from) UI.view = stack()[0].from; UI.sub.library = stack().slice(0, -1); scrollTo(0, 0) },
   // An unmapped move takes its start and landing from the transition you logged most.
   'lib-map': el => {
     const m = fromRolls(el.dataset.id).filter(r => r.to).map(moverTerms)[0], own = S.tech.find(x => x.id === el.dataset.id)

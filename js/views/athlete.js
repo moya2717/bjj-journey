@@ -9,6 +9,8 @@ import { ageDivision, currentRank, isSimple, logMode, rankName } from '../model.
 import { bodyInsights, gameMap, moveTrends, weeklyStreak } from '../analysis.js'
 import { radar, stackedBars, trendLine } from '../charts.js'
 import { advancedRow, fold, modeLink, subHead, subOf, tile } from './hub.js'
+import { miniTree } from './skills.js'
+import { bjjLevel, skillTree } from '../skills.js'
 import { statTile } from './stats.js'
 import { exportBackup, importBackup } from '../backup.js'
 import { exampleRecords } from '../examples.js'
@@ -29,6 +31,7 @@ export function view() {
   return `<h1 class="sr">Athlete profile</h1>
   ${profilePanel()}
   <div class="dojo-tiles">
+    ${levelTile()}
     ${isSimple() ? statTile('radar', 'stats') : statTile('load') + statTile('runs') + ['radar', 'moves', 'body', 'problems', 'time'].map(k => statTile(k, 'stats')).join('')}
     ${tile('belts', 'Belt history', P.promotions.length ? `${esc(rank.belt)}` : '—', P.promotions.length ? `${plural(rank.stripes, 'stripe')} · ${rank.since ? span(rank.since) : ''}` : 'add your belt')}
     ${tile('goals', 'Challenges', S.goal.length ? `${S.goal.filter(g => goalStatus(g).state === 'done').length}/${S.goal.length}` : '—', S.goal.length ? 'done' : 'set a target')}
@@ -162,6 +165,11 @@ export function mount(root) {
 // ---------- Fighter profile ----------
 
 // The fighter card: your belt as a banner, the numbers that matter, and a tale of the tape.
+// Your BJJ level, from your belt and skill tree (see Learn → Skill tree).
+const levelTile = () => { const L = bjjLevel(), explored = pct(skillTree().lit / skillTree().nodes.length) + ' explored'
+  return tile('', 'Skill tree', L.black ? 'Lv ' + L.level : L.level, L.black ? 'black belt track' : explored, { view: 'skills', spark: miniTree(), cls: 'st-tile' })
+}
+
 function profilePanel() {
   const P = S.profile, rank = currentRank(), look = BELT_LOOK[rank.belt] || BELT_LOOK.White
   const medals = place => P.tournaments.filter(t => t.place === place).length
@@ -182,6 +190,7 @@ function profilePanel() {
         <div class="fc-names">
           <h2 id="fp-h">${esc(P.name || 'Your name')}</h2>
           <p>${esc(rankName(rank))}</p>
+          <button class="fc-level" data-act="goto" data-view="skills" data-anchor="">${bjjLevel().black ? `<b>Black Belt Lv ${bjjLevel().level}</b>` : `BJJ level <b>${bjjLevel().level}</b>`} ›</button>
           ${P.gym || P.team ? `<p class="fc-gym">${esc([P.gym, P.team].filter(Boolean).join(' · '))}</p>` : ''}
         </div>
       </div>

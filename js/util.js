@@ -9,7 +9,7 @@ let toastTimer
 export function toast(message) {
   const el = $('#toast')
   el.textContent = message
-  el.classList.remove('ok')
+  el.classList.remove('ok', 'belt')
   el.classList.add('show')
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => el.classList.remove('show'), 2800)
