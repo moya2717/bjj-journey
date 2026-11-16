@@ -150,6 +150,11 @@ function entryCard(s) {
     </div></article>`
 }
 
+// Classes start on the quarter hour, so the class time is a list of 15-minute slots. iOS ignores
+// step on its time wheel. A time saved off the grid (from an import) stays as its own option.
+const SLOTS = Array.from({ length: 96 }, (_, i) => `${String(i / 4 | 0).padStart(2, '0')}:${String(i % 4 * 15).padStart(2, '0')}`)
+const classTime = value => selectEl('time', [{ value: '', label: 'Not set' }, ...[...new Set([...SLOTS, value].filter(Boolean))].sort().map(t => ({ value: t, label: fmtTime(t) }))], value, 'id="s-time"')
+
 // ---------- Session form: the session, its drills, its rolls and photos on one screen ----------
 // The basics and a note come first, rolls last. Simple mode folds everything past the note into one
 // "Add more detail"; Detailed lays it all open. Both are the same form, so switching keeps what you typed.
@@ -271,7 +276,7 @@ function sessionForm(id, date) {
     <div class="log-mode-row" ${firstRun ? 'hidden' : ''}><div class="seg" role="group" aria-label="How much to log">${['simple', 'detailed'].map(m => `<button type="button" data-log-mode="${m}" aria-pressed="${m === mode}">${cap(m)}</button>`).join('')}</div>
       ${id ? '' : `<button type="button" class="link small" data-act="new-activity" data-date="${esc(s.date)}">Log a run or other activity</button>`}</div>
     ${step(1, 'The session', `
-      <div class="grid3">${field('Date', `<input type="date" name="date" id="s-date" value="${esc(s.date)}" required>`)}${field('Class type', selectEl('type', SESSION_TYPES, s.type, 'id="s-type"'))}<span data-detail-only>${field('Class time', `<input type="time" name="time" id="s-time" value="${esc(s.time || '')}">`)}</span></div>
+      <div class="grid3">${field('Date', `<input type="date" name="date" id="s-date" value="${esc(s.date)}" required>`)}${field('Class type', selectEl('type', SESSION_TYPES, s.type, 'id="s-type"'))}<span data-detail-only>${field('Class time', classTime(s.time || ''))}</span></div>
       <div class="grid2">
         ${field('Minutes on the mat', `<input type="number" name="minutes" id="s-min" min="0" max="600" step="5" inputmode="numeric" value="${esc(s.minutes)}">`)}
         ${field(simple ? 'Rounds of sparring' : 'Rounds rolled', `<input type="number" name="rounds" id="s-rounds" min="0" max="40" inputmode="numeric" value="${esc(s.rounds)}">`)}
