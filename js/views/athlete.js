@@ -143,12 +143,13 @@ export function mount(root) {
   $('#home-widgets')?.addEventListener('change', () => save({ ...S.settings, homeWidgets: $$('#home-widgets input:checked').map(i => i.value) }))
   $('#dist-unit')?.addEventListener('change', e => save({ ...S.settings, distUnit: e.target.value }))
   $('#theme')?.addEventListener('change', e => save({ ...S.settings, theme: e.target.value }))
-  // A new theme cross-fades in, unless you'd rather skip motion. Quick taps all save the last one picked.
-  let palette
-  $('#palettes')?.addEventListener('click', e => {
-    palette = e.target.closest('[data-palette]')?.dataset.palette
-    if (!palette) return
-    const pick = () => save({ ...S.settings, palette })
+  // A new color or finish cross-fades in, unless you'd rather skip motion. Quick taps all save the last one picked.
+  let look = {}
+  $('#look-picker')?.addEventListener('click', e => {
+    const b = e.target.closest('[data-palette],[data-pick-finish]')
+    if (!b) return
+    look = { ...look, ...(b.dataset.pickFinish ? { finish: b.dataset.pickFinish } : { palette: b.dataset.palette }) }
+    const pick = () => save({ ...S.settings, ...look })
     if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(pick).ready.catch(() => {}) // skipped if you tap again mid-fade
     else pick()
   })
@@ -340,7 +341,7 @@ function promotionForm(id) {
 // ---------- Settings and data ----------
 
 function dataPanel() {
-  const last = S.settings.lastBackup, hasExamples = allRecords().some(r => r.example)
+  const last = S.settings.lastBackup, finish = S.settings.finish === 'matte' ? 'matte' : 'neon', hasExamples = allRecords().some(r => r.example)
   return `<section class="panel wide"><h2>Settings and backups</h2>
     <div class="settings-list">
       <label class="setting"><span>Mode <span class="hint">Simple shows the essentials; Advanced adds every chart and analysis. Nothing is deleted either way.</span></span>${selectEl('', [{ value: 'simple', label: 'Simple' }, { value: 'advanced', label: 'Advanced' }], isSimple() ? 'simple' : 'advanced', 'id="app-mode"')}</label>
@@ -348,8 +349,10 @@ function dataPanel() {
       <label class="setting"><span>Weekly session target</span><input type="number" id="weekly-target" min="1" max="14" inputmode="numeric" value="${esc(S.settings.weeklyTarget || 3)}"></label>
       <label class="setting"><span>Run distances in</span>${selectEl('', [{ value: 'mi', label: 'Miles' }, { value: 'km', label: 'Kilometers' }], distUnit(), 'id="dist-unit"')}</label>
       <label class="setting"><span>Look</span>${selectEl('', [{ value: '', label: 'Match my phone' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }], S.settings.theme || '', 'id="theme"')}</label>
-      <div class="setting theme-setting"><span id="palettes-label">Theme</span><div class="theme-sws" id="palettes" role="radiogroup" aria-labelledby="palettes-label">${PALETTES.map(([key, name]) =>
-        `<button type="button" class="theme-sw" data-palette="${key}" role="radio" aria-checked="${key === paletteOf(S.settings.palette)}"><span class="sw-card"><i></i><i></i></span><span class="sw-name">${name}</span></button>`).join('')}</div></div>
+      <div class="setting theme-setting" id="look-picker"><span id="palettes-label">Theme <span class="hint">Neon glows; Matte is calmer and easier to read in bright light. Black and White stay dark or light whatever the Look.</span></span>
+        <div class="seg" role="group" aria-label="Finish">${[['neon', 'Neon'], ['matte', 'Matte']].map(([k, label]) => `<button type="button" data-pick-finish="${k}" aria-pressed="${k === finish}">${label}</button>`).join('')}</div>
+        <div class="theme-sws" id="palettes" role="radiogroup" aria-labelledby="palettes-label">${PALETTES.map(([key, name]) =>
+        `<button type="button" class="theme-sw" data-palette="${key}" ${finish === 'matte' ? 'data-finish="matte" ' : ''}role="radio" aria-checked="${key === paletteOf(S.settings.palette)}"><span class="sw-card"><i></i><i></i></span><span class="sw-name">${name}</span></button>`).join('')}</div></div>
     </div>
     <p class="small muted" style="margin-top:10px;max-width:70ch">Your journal lives only on this device and works without internet. Nobody else can see it. Back it up now and then: on iPhone, choose “Save to Files” so it lands in iCloud Drive. ${last ? `Last backup: ${fmtDate(last)}.` : '<strong>No backup yet.</strong>'}</p>
     <div class="data-actions">

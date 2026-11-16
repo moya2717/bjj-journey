@@ -26,11 +26,12 @@ export const AREAS = ['Takedowns', 'Guard retention', 'Sweeps', 'Passing', 'Esca
 export const PLAN_HIT = ['Stuck to it', 'Partly', 'Went another way']
 
 // Belts look the same in light and dark mode, so these are literal colors.
-// Color themes: [key, name]. The first is the default; the colors live in css/app.css.
-export const PALETTES = [['violent', 'Violent Violet'], ['violet', 'Purple Belt'], ['jade', 'Jade Dojo'], ['ember', 'Ember'], ['gold', 'Gold Medal'], ['ocean', 'Ocean Deep'], ['rose', 'Midnight Rose']]
+// Color themes: [key, name]. The first is the default; each comes in a neon and a matte finish. The colors live in css/app.css.
+export const PALETTES = [['pink', 'Pink'], ['purple', 'Purple'], ['green', 'Green'], ['blue', 'Blue'], ['black', 'Black'], ['white', 'White']]
+const RENAMED = { violent: 'pink', violet: 'purple', jade: 'green', ocean: 'blue', rose: 'pink' }
 
-// Your theme, or the default for none or a retired one (the old 'mat').
-export const paletteOf = key => PALETTES.some(([k]) => k === key) ? key : PALETTES[0][0]
+// Your theme, or the closest one for a retired key, or the default.
+export const paletteOf = key => PALETTES.some(([k]) => k === key) ? key : RENAMED[key] || PALETTES[0][0]
 
 export const BELT_LOOK = {
   White: { belt: '#F1F0EA', ink: '#15202A', muted: '#5A6570', bar: '#111111' },

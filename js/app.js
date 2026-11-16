@@ -100,12 +100,14 @@ function render() {
 // Light/dark and the color theme. Mirrored to localStorage so index.html can paint them before the journal loads,
 // and the status bar color follows the header.
 function applyLook() {
-  const root = document.documentElement, { theme } = S.settings, palette = paletteOf(S.settings.palette)
+  const root = document.documentElement, { theme, finish } = S.settings, palette = paletteOf(S.settings.palette)
   if (theme) root.dataset.theme = theme
   else delete root.dataset.theme
   if (palette !== PALETTES[0][0]) root.dataset.palette = palette
   else delete root.dataset.palette
-  try { localStorage.setItem('bjj-look', JSON.stringify({ theme, palette })) } catch {}
+  if (finish === 'matte') root.dataset.finish = finish
+  else delete root.dataset.finish
+  try { localStorage.setItem('bjj-look', JSON.stringify({ theme, palette, finish })) } catch {}
   const probe = document.body.appendChild(document.createElement('i'))
   probe.style.color = 'var(--chrome)'
   $('meta[name="theme-color"]').content = getComputedStyle(probe).color
