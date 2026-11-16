@@ -22,7 +22,7 @@ export function newRound(preset = {}) {
   const last = [...S.round].sort(byDateDesc)[0]
   const game = preset.game ?? last?.game ?? 'half', position = GAMES[game]?.position || preset.position || last?.position || 'Half guard'
   const them = preset.partner ? partnerProfile(preset.partner) : null
-  return { game, position, side: preset.side || last?.side || 'Top', tries: 0, wins: 0, losses: 0, partner: preset.partner || '', level: them?.level || 'Unknown', size: them?.size || '', goal: '', theirGoal: '', note: '' }
+  return { game, position, side: preset.side || last?.side || 'Top', tries: 0, wins: 0, losses: 0, partner: preset.partner || '', level: them?.level || 'Unknown', size: them?.size || '', goal: preset.goal || '', theirGoal: preset.theirGoal || '', note: '' }
 }
 
 const sideChips = (p, game, position, side) => SIDES.map(s => radio(p + 'side', s, cap(sideName(position, s)) + (GAMES[game] ? ': ' + GAMES[game].goals[s].toLowerCase() : ''), s === side)).join('')
@@ -152,6 +152,6 @@ function roundForm(id, preset = {}) {
 export const roundRow = (i, g) => `<div class="ql-roll" data-game-row><div class="ql-roll-head"><h3>Positional round</h3><button type="button" class="mini" data-remove-row>Remove</button></div>${roundFields(`g${i}_`, g)}</div>`
 
 export const actions = {
-  'new-round': el => roundForm(null, { ...(el.dataset.session ? { sessionId: el.dataset.session } : {}), ...(el.dataset.partner ? { partner: el.dataset.partner } : {}), ...(el.dataset.game != null ? { game: el.dataset.game, side: el.dataset.side, position: el.dataset.position } : {}) }),
+  'new-round': el => roundForm(null, { ...(el.dataset.session ? { sessionId: el.dataset.session } : {}), ...(el.dataset.partner ? { partner: el.dataset.partner } : {}), ...(el.dataset.game != null ? { game: el.dataset.game, side: el.dataset.side, position: el.dataset.position, goal: el.dataset.goal, theirGoal: el.dataset.their } : {}) }),
   'edit-round': el => roundForm(el.dataset.id),
 }

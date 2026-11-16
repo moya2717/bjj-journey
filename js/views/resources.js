@@ -1,6 +1,6 @@
 import { S, save, remove } from '../store.js'
 import { UI } from '../ui.js'
-import { $, esc, newId, plural, slug, sum, toast } from '../util.js'
+import { $, cap, esc, newId, plural, slug, sum, toast } from '../util.js'
 import { isOpen, more, subHead, subOf, tile } from './hub.js'
 import { field, openSheet } from '../sheet.js'
 import { masteryOf, techById } from '../model.js'
@@ -10,6 +10,9 @@ import { CHECKLISTS, GLOSSARY, POINTS, RESOURCE_GROUPS } from '../resources.js'
 import { videoSearch } from '../catalog.js'
 import { VIDEOS, TIPS_INSTRUCTORS } from '../videos.js'
 import { actions as videoActions, instructorsHub, libraryHub } from './videos.js'
+import { OBJECTIVES } from '../objectives.js'
+import { PHASES, place } from '../gameplan.js'
+import { posLabel } from '../flow.js'
 
 const isAdded = map => S.seq.some(s => s.fromMap === map.id)
 
@@ -55,6 +58,8 @@ export function view() {
     <div class="head-actions"><button class="btn" data-act="new-link">Save a link</button></div></div>`
   const group = RESOURCE_GROUPS.find(g => 'g:' + g.title === sub)
   if (group) return subHead(group.title, 'Resources') + `<div class="res-grid">${group.items.map(i => linkCard(i, false)).join('')}</div>`
+  if (sub === 'positions') return subHead('Position maps', 'Resources') + `<p class="small muted" style="margin-bottom:10px;max-width:70ch">Every position as a map: what to work on there, how it goes for you, the chains out of it and videos.</p>
+      ${PHASES.filter(p => p.id !== 'subs').map(p => `<h3 class="map-group">${p.label}</h3><div class="chips pm-index">${p.keys.filter(k => OBJECTIVES[k] && !OBJECTIVES[k].shared).map(k => `<button class="pill" data-act="pm-open" data-k="${esc(k)}" data-from="resources">${esc(k.startsWith('Leg') ? posLabel(k) : cap(place(k)))}</button>`).join('')}</div>`).join('')}`
   if (sub === 'videos') return subHead('Video library', 'Resources') + libraryHub()
   if (sub === 'instructors') return subHead('Instructors on bjj.tips', 'Resources') + instructorsHub()
   if (sub === 'maps') return subHead('Game maps', 'Resources') + `
@@ -80,6 +85,7 @@ export function view() {
   return head + `<div class="dojo-tiles">
       ${tile('maps', 'Game maps', GAME_MAPS.length, added ? `${added} in your sequences` : 'decision trees')}
       ${tile('belts', 'Belt checklists', `${learned}<small>/${sum(lists, l => l.length)}</small>`, 'hit in sparring')}
+      ${tile('positions', 'Position maps', Object.values(OBJECTIVES).filter(o => !o.shared).length, 'objectives by position')}
       ${tile('videos', 'Video library', VIDEOS.length, 'checked by hand')}
       ${tile('instructors', 'Instructors', TIPS_INSTRUCTORS.length, 'on bjj.tips')}
       ${tile('links', 'My links', mine.length, mine[0] ? esc(mine[0].name) : 'save your own')}

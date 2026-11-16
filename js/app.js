@@ -27,6 +27,7 @@ import * as rounds from './views/rounds.js'
 import * as hub from './views/hub.js'
 import * as opponents from './views/opponents.js'
 import * as dojo from './views/dojo.js'
+import * as posmap from './views/posmap.js'
 
 const VIEWS = {
   overview: ['Home', overview],
@@ -78,6 +79,7 @@ const actions = Object.assign(
   ...Object.values(VIEWS).map(([, view]) => view.actions),
   goals.actions,
   rounds.actions,
+  posmap.actions,
   hub.actions,
   opponents.actions,
 )

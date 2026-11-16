@@ -7,6 +7,7 @@ import { field, openSheet, techSelect } from '../sheet.js'
 import { techById } from '../model.js'
 import { videoSearch } from '../catalog.js'
 import { FIXES } from '../fixes.js'
+import { toSeconds } from '../videos.js'
 import { ANSWERS, PER_WEEK, scenarioLog, thisWeek } from '../scenarios.js'
 import { hydratePhotos } from '../photos.js'
 import { masteryButton } from './library.js'
@@ -66,7 +67,6 @@ function scenarioCard() {
 
 // ---------- Video study ----------
 
-const toSeconds = stamp => String(stamp).split(':').map(Number).reduce((t, n) => t * 60 + (n || 0), 0)
 
 // YouTube links jump straight to the moment the note was taken.
 function atTime(url, stamp) {

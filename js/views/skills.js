@@ -2,10 +2,12 @@
 // it white → blue → purple → brown → black. Pinch or drag to explore, tap a position to open it, and
 // zoom in to tap a single move. Your BJJ level sits on top.
 import { UI } from '../ui.js'
-import { esc, fmtDate, pct, plural } from '../util.js'
+import { cap, esc, fmtDate, pct, plural } from '../util.js'
 import { isSimple } from '../model.js'
 import { MAT_HOURS, PROBLEM, THRESHOLDS, TIERS, bjjLevel, skillTree } from '../skills.js'
 import { more, subHead, subOf } from './hub.js'
+import { OBJECTIVES } from '../objectives.js'
+import { posLabel } from '../flow.js'
 
 // Where each position's constellation sits: standing on top, guards on the left, pins on the right,
 // legs and the back at the bottom. viewBox units.
@@ -102,12 +104,19 @@ function branchView(tree, b) {
   return `${subHead(b.name, 'Skill tree')}
     <div class="st-branch-head"><span class="st-dot big t${b.top}" aria-hidden="true"></span><div><b>${pct(b.pct)} explored</b><span class="small muted">${b.lit} of ${b.nodes.length} moves${b.top > 1 ? ` · best ${TIERS[b.top].toLowerCase()}` : ''}</span></div></div>
     ${bar(b)}
+    ${mapButtons(b.name, 'skills')}
     ${isSimple() ? '' : `<div class="st-stats">${TIERS.map((l, i) => `<div><b>${b.tiers[i]}</b><span class="small muted">${l}</span></div>`).join('')}</div>
       <p class="small muted">${plural(b.wins, 'live success', 'live successes')} · caught ${b.caught}× here</p>`}
     ${blind.length ? `<ul class="list st-blinds">${blind.map(s => `<li class="st-blind"><span>${esc(s.text)}</span></li>`).join('')}</ul>` : ''}
     ${b.groups.map(g => `<section class="st-group"><h2 class="field-label">${esc(g.name)} <span class="muted">${g.nodes.filter(n => n.tier).length}/${g.nodes.length}</span></h2>
       <div class="st-nodes">${g.nodes.map(node).join('')}</div></section>`).join('')}
     ${near.length ? `<section class="st-group"><h2 class="field-label">Leads to and from</h2><div class="chips">${near.map(x => `<button class="pill ${x.lit ? 'on' : ''}" data-act="st-branch" data-b="${esc(x.name)}">${esc(x.name)}</button>`).join('')}</div></section>` : ''}`
+}
+
+// The position pages for each side of a position, with its objectives: "Mount top ›", "Mount bottom ›".
+export const mapButtons = (pos, from) => {
+  const keys = Object.keys(OBJECTIVES).filter(k => k.startsWith(pos + '|'))
+  return keys.length ? `<div class="chips st-maps"><span class="small muted">Objectives and map</span>${keys.map(k => `<button class="pill" data-act="pm-open" data-k="${esc(k)}" data-from="${from}">${esc(cap(posLabel(k).split(' · ')[1] || pos))} ›</button>`).join('')}</div>` : ''
 }
 
 // The Profile tile: each position as one dot, colored by its best move and as bright as it's explored.

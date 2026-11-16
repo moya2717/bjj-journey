@@ -1535,3 +1535,32 @@ button.st-blind{background:none;border:0;padding:0;cursor:pointer;font:inherit;f
 .sw-card i:first-child{width:62%;background:linear-gradient(90deg,var(--mat),var(--neon-2))}
 .sw-name{font-size:.8rem;font-weight:650;line-height:1.2}
 .theme-sw[aria-checked="true"]::after{content:"✓";position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:var(--mat);color:var(--surface);font-size:.7rem;font-weight:800}
+
+/* Position maps: objectives you tick and rate, the chains and jump links out of a position */
+.pm-list{list-style:none;margin:0 0 6px;padding:0;display:flex;flex-direction:column;gap:2px}
+.pm-list li{display:grid;grid-template-columns:36px 1fr auto;align-items:center;gap:8px;padding:4px 0;border-top:1px solid var(--line)}
+.pm-list li:first-child{border-top:0}
+.pm-check{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--muted);font-weight:700;font-size:.85rem;cursor:pointer}
+.pm-check[aria-pressed="true"]{background:var(--mat);border-color:var(--mat);color:var(--mat-ink)}
+.pm-text{font-size:.92rem;line-height:1.3;min-width:0;overflow-wrap:anywhere}
+.pm-rate{display:flex;align-items:center;gap:2px}
+.pm-rate button{width:22px;height:36px;padding:0;border:0;background:none;cursor:pointer;display:grid;place-items:center}
+.pm-rate button::before{content:"";width:10px;height:10px;border-radius:50%;border:1.5px solid var(--line-strong)}
+.pm-rate button[aria-pressed="true"]::before{background:var(--mat);border-color:var(--mat)}
+.pm-trend{font-size:.8rem;font-weight:800;margin-left:2px}
+.pm-trend.up{color:var(--worked)}
+.pm-trend.down{color:var(--broke)}
+.pm-game{margin-top:8px;white-space:normal;text-align:left;height:auto;min-height:36px}
+.pm-next{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0}
+.pm-chain{align-items:center;margin:4px 0}
+.flow-chip.them{border-style:dashed}
+.pm-mistakes .fix-tag{margin-left:4px}
+.st-maps,.pm-index{align-items:center;margin:8px 0}
+.gp-map{display:block;margin-top:10px}
+.mv-pos{margin:8px 0 0}
+.vid-jumps{list-style:none;margin:4px 0 8px;padding:0;display:flex;flex-direction:column;gap:6px;font-size:.88rem}
+.vid-jump{color:var(--ink);text-decoration:none;overflow-wrap:anywhere}
+.vid-jump:hover{text-decoration:underline}
+.vid-section .row-actions{margin-top:8px}
+[data-fold^="pm-"]>summary>b{white-space:nowrap}
+[data-fold^="pm-"] .tech-stats{flex-wrap:wrap;row-gap:4px}

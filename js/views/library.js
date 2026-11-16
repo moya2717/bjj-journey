@@ -4,13 +4,15 @@ import { LIBRARY_GROUPS, POSITIONS, TECH_TYPES } from '../vocab.js'
 import { $, esc, newId, pct, toast, trunc } from '../util.js'
 import { field, selectEl, openSheet } from '../sheet.js'
 import { MASTERY, allTechs, isCustom, masteryOf, masteryPips, myTechs, rollMoves, sparred, techById } from '../model.js'
-import { FLOW, fromRolls, kindFrom, movesFrom, movesInto, moverTerms, needs, posLabel, setsUp, theirsInto } from '../flow.js'
-import { attackerOf, describe, flip } from '../sim.js'
+import { FLOW, fromRolls, movesFrom, movesInto, moverTerms, needs, posLabel, setsUp, theirsInto } from '../flow.js'
+import { attackerOf } from '../sim.js'
 import { videoSearch } from '../catalog.js'
 import { hydratePhotos } from '../photos.js'
 import { techStats } from '../analysis.js'
 import { moreButton } from './hub.js'
 import { videosSection } from './videos.js'
+import { posMap } from './posmap.js'
+import { OBJECTIVES } from '../objectives.js'
 
 export function view() {
   const page = stack().at(-1)
@@ -115,16 +117,17 @@ function techForm(id) {
 const stack = () => UI.sub.library || []
 const nameOf = p => p.move ? techById(p.move)?.name || 'Move' : posLabel(p.pos)
 const moveChip = id => `<button class="flow-chip" data-act="lib-open" data-move="${esc(id)}">${esc(techById(id).name)}</button>`
-const posChip = k => `<button class="flow-chip pos" data-act="lib-open" data-pos="${esc(k)}">${esc(posLabel(k))}</button>`
+export const posChip = k => `<button class="flow-chip pos" data-act="lib-open" data-pos="${esc(k)}">${esc(posLabel(k))}</button>`
 // The first n moves; the rest open the position page they come from.
-const chips = (ids, n = 6, k = '') => {
+export const chips = (ids, n = 6, k = '') => {
   const list = [...new Set(ids)].filter(techById), left = list.length - n
   return `<div class="flow-chips">${list.slice(0, n).map(moveChip).join('')}${left > 0 ? (k ? `<button class="flow-chip more" data-act="lib-open" data-pos="${esc(k)}">+${left} more</button>` : `<span class="flow-chip more">+${left}</span>`) : ''}</div>`
 }
-const pageHead = title => `<div class="sub-head"><button class="btn sm ghost" data-act="lib-back">‹ ${esc(stack().length > 1 ? trunc(nameOf(stack().at(-2)), 18) : stack()[0]?.from === 'skills' ? 'Skill tree' : 'Moves')}</button><h1>${esc(title)}</h1></div>`
+const pageHead = title => `<div class="sub-head"><button class="btn sm ghost" data-act="lib-back">‹ ${esc(stack().length > 1 ? trunc(nameOf(stack().at(-2)), 18) : FROM[stack()[0]?.from] || 'Moves')}</button><h1>${esc(title)}</h1></div>`
+const FROM = { skills: 'Skill tree', gameplan: 'Game plan', resources: 'Resources' }
 const isFinish = (t, r) => r.stays && t.type === 'Submission'
 // Your moves that get you to these positions, then your partner's that put you there. n each, or fewer when both show.
-function howHere(keys, n, skip = '') {
+export function howHere(keys, n, skip = '') {
   const mine = keys.flatMap(movesInto).filter(id => id !== skip), theirs = keys.flatMap(theirsInto).filter(id => id !== skip), m = mine.length && theirs.length ? Math.ceil(n * 2 / 3) : n
   return (mine.length ? `<p class="flow-sub">Your moves that get you there</p>${chips(mine, m, keys[0])}` : '')
     + (theirs.length ? `<p class="flow-sub">Their moves that put you there</p>${chips(theirs, m, keys[0])}` : '')
@@ -135,11 +138,14 @@ function movePage(t) {
   if (!t) return pageHead('Move not found')
   const rows = FLOW[t.id] || [], mine = fromRolls(t.id), froms = [...new Set(rows.map(r => r.from))]
   const used = sparred().flatMap(rollMoves).filter(m => m.techId === t.id), n = o => used.filter(m => m.outcome === o).length
+  // The position it's done from, for its objectives: where the table starts it, else your map, else where it's filed.
+  const at = [...froms, t.flow?.from, POSITIONS.includes(t.position) && home(t.position)].find(k => OBJECTIVES[k])
   return `${pageHead(t.name)}
     <div class="mv-meta"><span class="tech-type">${esc(t.position)} · ${esc(t.type)}${isCustom(t) ? ' · added by you' : ''}</span>
       <button class="star" data-act="star" data-id="${esc(t.id)}" aria-pressed="${!!t.starred}" aria-label="${t.starred ? 'Unstar' : 'Star'} ${esc(t.name)}">★</button></div>
     <div class="mv-meta">${masteryButton(t)}<span class="tech-stats"><span>Landed <b>${n('landed')}</b></span><span>Tried <b>${n('tried')}</b></span><span>Caught you <b>${n('caughtBy')}</b></span></span></div>
     ${t.type === 'Movement' ? '<p class="hint">A solo drill: it isn’t done from a position.</p>' : `
+    ${at ? `<p class="flow-line mv-pos"><span class="flow-tag">Position</span>${posChip(at)}<span class="small muted">objectives and map ›</span></p>` : ''}
     <section class="flow-card"><h2>Comes from</h2>
       ${froms.length ? `<div class="flow-chips">${froms.map(posChip).join('')}</div>`
         : t.flow ? `<div class="flow-chips">${posChip(t.flow.from)}</div><p class="hint">Your map, from your rolls.</p>`
@@ -194,16 +200,8 @@ function rollRow(r, mapped) {
     <span class="tags">${r.landed ? `<span class="tag good">landed ${r.landed}</span>` : ''}${r.tried ? `<span class="tag">tried ${r.tried}</span>` : ''}${r.caughtBy ? `<span class="tag bad">caught you ${r.caughtBy}</span>` : ''}${off ? '<span class="tag pos">not on the map</span>' : ''}</span></li>`
 }
 
-function posPage(k) {
-  const [pos, role] = k.split('|'), ids = movesFrom(k)
-  const group = (label, i) => ids.some(id => kindFrom(id, k) === i) ? `<p class="flow-sub">${label}</p>${chips(ids.filter(id => kindFrom(id, k) === i), 99)}` : ''
-  return `${pageHead(posLabel(k))}
-    <p class="hint">${esc(describe({ pos, role }))}.</p>
-    ${pos !== 'Standing' ? `<div class="flow-chips"><span class="flow-tag">Their side</span>${posChip(pos + '|' + flip(role))}</div>` : ''}
-    <section class="flow-card"><h2>Moves from here</h2>${ids.length ? group('Move on', 0) + group('Finish', 1) + group('Hold and set up', 2) : '<p class="hint">None mapped yet.</p>'}</section>
-    <section class="flow-card"><h2>How you get here</h2>${howHere([k], 99) || '<p class="hint">Nothing mapped lands here.</p>'}</section>
-    ${videosSection({ pos })}`
-}
+// A position page is its mental map: objectives, you there, chains and videos (posmap.js).
+const posPage = k => pageHead(posLabel(k)) + posMap(k)
 
 export const actions = {
   'lib-open': el => { UI.sub.library = [...stack(), el.dataset.move ? { move: el.dataset.move } : { pos: el.dataset.pos }]; scrollTo(0, 0) },

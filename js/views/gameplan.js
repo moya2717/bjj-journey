@@ -84,7 +84,8 @@ function phaseView(plan, phase) {
         `${moves.length ? `<ul class="gp-moves">${moves.map(m => moveRow(m, x.k)).join('')}</ul>` : ''}
         ${x.caught.length && phase.id !== 'subs' ? `<p class="gp-caught-h small">Caught you here</p><ul class="gp-moves">${x.caught.map(m => caughtRow(m, x.k)).join('')}</ul>` : ''}
         ${subs && phase.id !== 'subs' ? `<button class="link small gp-subs" data-act="gp-go" data-k="${esc(x.k)}" data-phase="subs">${plural(subs, 'finish', 'finishes')} from here ›</button>` : ''}
-        ${g.length ? `<ul class="list gp-gaps">${g.map(gapCard).join('')}</ul>` : ''}`, true)}</div>`
+        ${g.length ? `<ul class="list gp-gaps">${g.map(gapCard).join('')}</ul>` : ''}
+        <button class="link small gp-map" data-act="pm-open" data-k="${esc(x.k)}" data-from="gameplan">Objectives and map for ${esc(place(x.k))} ›</button>`, true)}</div>`
     }).join('') || '<p class="small muted">Nothing here yet.</p>'}
     ${empty.length ? `<p class="small muted gp-empty">Not in your game yet: ${empty.map(x => esc(place(x.k))).join(', ')}</p>` : ''}`
 }

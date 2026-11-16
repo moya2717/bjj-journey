@@ -9,6 +9,10 @@ const watch = id => 'https://www.youtube.com/watch?v=' + id
 
 // creator: the filter it sits under. by: the channel or store that publishes it.
 // position: one of POSITIONS, only when the video is clearly about that position. moves: catalog names.
+// chapters: [{ t: seconds, label, techIds }], copied only from the uploader's own chapter list in the
+// description or their pinned comment, never from YouTube's auto-generated chapters. Checked 2026-11-16:
+// none of these videos has an uploader chapter list, so none carries chapters yet. Your own Video study
+// notes with a timestamp work as chapters too (views/videos.js).
 const v = (creator, by, id, title, position = '', moves = [], tags = []) =>
   ({ id, creator, by, url: watch(id), kind: 'video', title, position, techIds: moves.map(m => 'c:' + slug(m)), tags, verified: CHECKED })
 const channel = (creator, by, url, title, note) => ({ id: url, creator, by, url, kind: 'channel', title, note, position: '', techIds: [], tags: [], verified: CHECKED })
@@ -130,6 +134,11 @@ export const tipsFor = pos => (TIPS_FOR[pos] || []).map(k => [TIPS_PAGES[k], `${
 export const TIPS_INSTRUCTORS = ['Adam Wardzinski', 'Andre Galvao', 'Bernardo Faria', 'Brian Glick', 'Craig Jones', 'Dan Vallimont', 'Firas Zahabi', 'Giancarlo Bodoni', 'Gordon Ryan', 'Heath Pedigo',
   'Jeff Glover', 'John Danaher', 'Junny Ocasio', 'Lachlan Giles', 'Matt D’Aquino', 'Mikey Musumeci', 'Neil Melanson', 'Pete Letsos', 'Roy Dean', 'Ryan Hall', 'Tom DeBlass', 'Travis Stevens']
   .map(name => [name, `${TIPS}instructors/${slug(name)}.html`])
+
+// Timestamps: "3:42" or "1:02:05" to seconds and back, and a link that starts the video there.
+export const toSeconds = stamp => String(stamp).split(':').map(Number).reduce((t, n) => t * 60 + (n || 0), 0)
+export const mmss = t => (t >= 3600 ? Math.floor(t / 3600) + ':' + String(Math.floor(t / 60) % 60).padStart(2, '0') : Math.floor(t / 60)) + ':' + String(t % 60).padStart(2, '0')
+export const watchAt = (id, t) => watch(id) + (t ? '&t=' + t + 's' : '')
 
 // The 11-character id of a YouTube link, or '' for anything else. Only YouTube's own hosts count.
 export function youtubeId(url) {
